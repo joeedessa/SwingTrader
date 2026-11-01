@@ -386,6 +386,8 @@ Checked against the machine and the answers to Q7 and Q9:
 
 ## Progress
 
+- **Repo live (1 Nov 2026):** https://github.com/joeedessa/SwingTrader (public, `main`). Pages source: GitHub Actions. Site: https://joeedessa.github.io/SwingTrader/ serves the Phase 1 shell; console clean; `window.__board` matches the local build.
+- **Workflows:** Deploy Pages green (push). Update data green (first run). Update prices: the first pass committed `prices-latest.json`; the job is a 5.5-hour loop, so its overall status settles only when the loop ends.
 - **Phase 1 (scaffold + data pipeline): done 1 Nov 2026.** Local checks: `npm test` 6/6, `tsc` and `vite build` clean, shell at `/SwingTrader/` shows 148 setups, 23 benchmarks and 180 bar symbols, console clean, `fetch_bars.py` and `fetch_latest.py` green.
   - Parity hook: macro-compass commit `604ec2a7` adds `window.__parity()` (inputs plus every row's outcome, keyed by sym + dir). The debug line from the original plan was superseded by this.
   - Data notes for Phase 2: `bars.json` has 180 symbols and 87,515 days from 2024-10 onward. BSM, PNDORA.CO, FLS.CO and H78.SI now have bars. Close sits outside low–high on a few bars (JPY=X ×33, FSR.JO, ZN=F); kept as received and listed in `tests/data.test.ts`.
