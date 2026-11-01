@@ -1,4 +1,4 @@
-import type { Dir, History, Lfd, Setup, SymbolEvents } from './types';
+import type { Dir, History, Lfd, ReplayState, Setup, SymbolEvents } from './types';
 
 /** One decimal, or null. Percentages on the board are shown this way. */
 export const pct1 = (v: number | null | undefined): number | null =>
@@ -116,4 +116,14 @@ export function stopFor(p: Setup, live: number | null, ev: SymbolEvents | null |
   return { at: p.dir === 'short' ? live + dist : live - dist,
            plain: p.dir === 'short' ? live + 2 * ev.atr : live - 2 * ev.atr,
            widenedBy: wide, atr: ev.atr, exDiv: ev.ex_div };
+}
+
+/** The move since the target was reached, in %, signed the setup's way (positive: it kept going).
+    Measured from the close on the day it was reached, or from the target level itself where the source
+    counted it and our closes fell short. */
+export function sinceTarget(p: Setup, st: ReplayState, live: number | null): number | null {
+  if (!st.targetHit || live == null) return null;
+  const base = st.targetHit.close ?? p.target;
+  if (base == null || base === 0) return null;
+  return pct1((live / base - 1) * 100 * (p.dir === 'long' ? 1 : -1));
 }

@@ -49,15 +49,20 @@ describe('bars.json', () => {
   // FSR.JO and ZN=F each have one day. The bars are kept as received; these are the
   // known cases, listed here so any new one fails the test.
   const KNOWN_OHLC_QUIRKS = new Set(['JPY=X', 'FSR.JO', 'ZN=F']);
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
   it('writes every bar with a date key, and close within low-high except for the known feed quirks', () => {
-    const outside: string[] = [];
+    // Plain comparisons collected into lists, with one assertion each at the end: an expect() per
+    // bar is ~90,000 matcher objects and took 1s alone, over the 5s default under CPU load.
+    const badDates: string[] = [];
+    const outside = new Set<string>();
     for (const [sym, days] of Object.entries(data.bars)) {
       for (const [date, [low, high, close]] of Object.entries(days)) {
-        expect(date, sym).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-        if (!(low <= close && close <= high)) outside.push(sym);
+        if (!DATE.test(date)) badDates.push(`${sym} ${date}`);
+        if (!(low <= close && close <= high)) outside.add(sym);
       }
     }
-    expect(outside.filter((s) => !KNOWN_OHLC_QUIRKS.has(s))).toEqual([]);
+    expect(badDates).toEqual([]);
+    expect([...outside].filter((s) => !KNOWN_OHLC_QUIRKS.has(s))).toEqual([]);
   });
 });

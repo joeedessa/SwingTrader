@@ -41,7 +41,7 @@ export interface BarsFile {
   bars: Record<string, Bars>;
 }
 
-interface Fields { y: number; mo: number; d: number; wd: string; h: number; mi: number; s: number }
+export interface Fields { y: number; mo: number; d: number; wd: string; h: number; mi: number; s: number }
 
 const fmtCache = new Map<string, Intl.DateTimeFormat>();
 const formatter = (tz: string) => {
@@ -57,7 +57,7 @@ const formatter = (tz: string) => {
   return f;
 };
 
-function tzFields(tz: string, ms: number): Fields {
+export function tzFields(tz: string, ms: number): Fields {
   const o: Record<string, string> = {};
   for (const p of formatter(tz).formatToParts(ms)) o[p.type] = p.value;
   // Hour 24 is midnight in this formatter's output, not a 25th hour.
@@ -106,6 +106,12 @@ export function derivedPeriod(hours: SessionHours | null | undefined, nowMs: num
     ms += 86400000;
   }
   return null;
+}
+
+/** Local wall-clock minutes past midnight in a zone, for storing a session as hours rather than as epochs. */
+export function localMinutes(tz: string, epochSec: number): number {
+  const f = tzFields(tz, epochSec * 1000);
+  return f.h * 60 + f.mi;
 }
 
 /** The exchange's calendar date for an instant; UTC when the zone is unknown. */

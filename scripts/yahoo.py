@@ -70,9 +70,9 @@ def fetch_quotes(symbols):
             px, prev = m.get("regularMarketPrice"), m.get("previousClose")
             if px is None:
                 continue
-            rec = {"c": round(px, 6), "ccy": m.get("currency")}
+            rec = {"c": px, "ccy": m.get("currency")}
             if prev is not None:
-                rec["p"] = round(prev, 6)
+                rec["p"] = prev
             if m.get("regularMarketTime"):
                 rec["t"] = m["regularMarketTime"]
             hours = session_hours(m)
@@ -109,7 +109,10 @@ def chart(symbol, rng, interval):
     for t, o, h, l, c in zip(ts, *cols):
         if None in (o, h, l, c):
             continue
-        bars.append((t, round(o, 6), round(h, 6), round(l, 6), round(c, 6)))
+        # Kept exactly as Yahoo sends them. They are float32 values widened to doubles (5.429999828338623 for a
+        # 5.43 close), and the engine compares a close with a level exactly, so a tie at the level falls on
+        # whichever side that noise does. Rounding to "clean" decimals would move ties relative to the old page.
+        bars.append((t, o, h, l, c))
     if not bars:
         return None
     reg = (meta.get("currentTradingPeriod") or {}).get("regular") or {}

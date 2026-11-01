@@ -1,3 +1,4 @@
+import { fmt } from './format';
 import type { Row } from './row';
 import type { Dir } from './types';
 
@@ -24,10 +25,7 @@ export interface LogItem {
   text: string;
 }
 
-/** Numbers as the board prints them: one decimal from 100 up, two below. */
-export const fmt = (v: number | null | undefined): string =>
-  v == null || !isFinite(v) ? '–'
-  : v.toLocaleString('en-US', { maximumFractionDigits: Math.abs(v) >= 100 ? 1 : 2 });
+export { fmt };
 
 /** Every event one row has raised, settled ones dated, live ones marked "live". Removed rows raise none. */
 export function setupEvents(r: Row): LogItem[] {
@@ -105,12 +103,16 @@ export function weekWindow(which: 'this' | 'last', now: Date = new Date()): { fr
 
 const CLS_RANK: Record<LogClass, number> = { bad: 0, new: 1, warn: 2 };
 
-/** The log for one week: live flags first (this week only), then newest first, bad before new before warn. */
+/** Live flags first, then newest first, bad before new before warn on the same day. */
+export function sortLog(items: LogItem[]): LogItem[] {
+  return items.slice().sort((a, b) =>
+    (b.when === 'live' ? 1 : 0) - (a.when === 'live' ? 1 : 0) ||
+    (a.when < b.when ? 1 : a.when > b.when ? -1 : 0) ||
+    CLS_RANK[a.cls] - CLS_RANK[b.cls]);
+}
+
+/** The log for one week: live flags first (this week only), then newest first. */
 export function weekLog(items: LogItem[], which: 'this' | 'last', now: Date = new Date()): LogItem[] {
   const W = weekWindow(which, now);
-  return items
-    .filter(it => it.when === 'live' ? which === 'this' : it.when >= W.from && it.when <= W.to)
-    .sort((a, b) => (b.when === 'live' ? 1 : 0) - (a.when === 'live' ? 1 : 0) ||
-                    (a.when < b.when ? 1 : a.when > b.when ? -1 : 0) ||
-                    CLS_RANK[a.cls] - CLS_RANK[b.cls]);
+  return sortLog(items.filter(it => it.when === 'live' ? which === 'this' : it.when >= W.from && it.when <= W.to));
 }

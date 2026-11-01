@@ -9,11 +9,11 @@ export type ManualState = 'breakout' | 'failed' | 'removed' | null;
 export interface Setup {
   sym: string;
   dir: Dir;
-  /** The trigger: the confirming close, usually the boundary plus the 3% filter. */
-  breakthrough: number | null;
-  target: number | null;
+  /** The trigger: the confirming close, usually the boundary plus the 3% filter. A row typed in by hand may leave it unset. */
+  breakthrough?: number | null;
+  target?: number | null;
   /** Published only once a setup has broken out, so null on a waiting row means "not yet set". */
-  negation: number | null;
+  negation?: number | null;
   /** The pattern level the report states. */
   boundary?: number | null;
   /** Last full day from the breakout sheet; 0 means the sheet gives none; absent means derive it. */
@@ -29,6 +29,8 @@ export interface Setup {
   source_open?: string[];
   hold?: boolean;
   manualState?: ManualState;
+  /** Set by the overlay: true for a row from the shared list, false for one added in this browser. */
+  shared?: boolean;
   ex_div?: string | null;
   note?: string;
   pattern?: string;

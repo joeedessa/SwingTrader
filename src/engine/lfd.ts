@@ -17,7 +17,7 @@ import type { Bars, History, Lfd, ReplayState, Setup } from './types';
 
    A derived stop beyond the negation is no stop at all (`looser`).
    Breach is a touch, on settled bars after the confirming close. */
-const LFD_LOOKBACK = 40;
+export const LFD_LOOKBACK = 40;
 
 export function lfdOf(p: Setup, st: ReplayState, hist: History | null | undefined,
                       bars: Bars | null | undefined): Lfd | null {

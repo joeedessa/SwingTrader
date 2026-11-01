@@ -31,3 +31,26 @@ The port is literal: `replay`, `lfdOf`, `typeOf`, the section split and the deri
 
 - Live-session behaviour on a real open market (the dump was taken with every market shut). The unit tests cover it with injected times; Phase 3's browser checks on a weekday are the first live confirmation.
 - Overlay edits (per-browser level overrides, manual states): the dump had none. `manualStateOf` mirrors the old `workingList` rule and is unit-tested.
+
+## Phase 3: the board and Benchmarks against the old page, live
+
+Checked on 2026-11-01 (Sunday, every market shut) by loading the old page and the new app side by side in the browser and comparing, row by row, the section, type, pullback / breach / re-entry counts, last full day (level and source), and the breakout, target, failure and stop-hit dates. The old page fetched its own prices from Yahoo through the Worker; the new app read `bars.json` and `prices-latest.json` and then upgraded to live quotes.
+
+| List | Sections | Rows identical in every field | Rows that differ |
+|---|---|---|---|
+| Watchlist (148) | **148 of 148 the same**; 31 / 18 / 11 / 6 / 15 / 30 / 37 on both | 143 | 5, all explained below |
+| Benchmarks (23) | **23 of 23 the same**; 11 / 6 / 1 / 2 / 1 / 2 / 0 on both | 22 | 1, explained below |
+
+**The six rows that differ, and why**
+
+| Row | Difference | Cause |
+|---|---|---|
+| S32.AX, NWH.AX | failure date (and stop-hit date for NWH.AX) one trading day later | The old page dated a bar by the UTC date of its timestamp, so every Sydney bar in daylight time sat one day early, even on a Sunday. The new data is keyed by the exchange's own date. The new date is the true one. |
+| JPY=X (benchmarks) | breakout and stop-hit date one day later | The same, for the FX series: the old page put Monday's bar on the Sunday. The new data has no weekend-dated FX bars. |
+| CANHLIFE.NS (short), TCS.NS, ICLR | the new app shows a derived stop and a type; the old page showed none | These are removed rows. The old page fetched bars only for rows that were still live, so a removed row never had a stop or a type. The new app has bars for every symbol, so the drawer can say what happened before it was removed. The section is the same (Removed). |
+
+**Why the price file keeps Yahoo's raw numbers.** Yahoo sends prices as 32-bit floats widened to doubles (`5.429999828338623` for a 5.43 close). The engine compares a close with a level exactly, so a close that equals a level is decided by which side of the level that noise falls on. The first version of `bars.json` rounded to six decimals; that made a close of 5.43 exactly equal to a trigger of 5.43, which the old page (with 5.4299998) did not treat as a cross. Result: four more rows differed (GLYHO.IS, PGEN, PACS, DAKT). A confirming day or a stop-touch day moved by one, which changed GLYHO.IS's derived stop (17 → 16.48), PGEN's derived stop (5.43 → 5.26) and breach count (5 → 3), and PACS's pullback count (3 → 4). The file now keeps the raw values (+0.14 MB gzipped: 1.1 MB on the wire, 5.4 MB parsed), so the engine decides every tie exactly as the old page does.
+
+**A question for Joe, not a defect.** A close exactly on a level is rare but real (levels are round numbers), and today it is settled by float noise in both pages. The rules say a breakout is "strictly past" the trigger, while the code that finds the confirming close for a source-confirmed row (`crossBefore`) uses "at or past". Rounding prices to seven significant digits would make ties follow the rule you wrote, at the cost of moving derived stops on a handful of rows. That is a change to the engine's behaviour, so it waits for you.
+
+**Not part of the comparison.** Live-session behaviour (every market was shut), and the closes the old page used for its replay (Yahoo's `spark` feed, which rounds low-priced assets: 0.697 for LIN.AX where the chart feed has 0.6975) against the chart closes the new app uses. No row on either list sits close enough to a level for that to matter today.

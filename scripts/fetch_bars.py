@@ -5,6 +5,8 @@ Writes two files under public/data/:
 
   bars.json    append-only daily bars, keyed by exchange-local date:
                {"bars": {SYM: {"2026-10-30": [low, high, close], ...}}, "ccy": {SYM: "USD"}}
+               Values are kept exactly as Yahoo sends them (see yahoo.chart): the engine compares closes
+               with levels exactly, so rounding would move a tie.
                The order [low, high, close] is the one the old page used:
                a long reads index 0 (the low), a short reads index 1 (the high).
                A day is written once its session has ended and is never removed
@@ -137,9 +139,10 @@ def update_series(syms):
             time.sleep(0.35)
             if got is None:
                 continue
+            # Averages do not care about the last digit, so the long series are rounded to keep the file small.
             into[sym] = {"ccy": got["ccy"],
                          "t": [b[0] for b in got["bars"]],
-                         "c": [b[4] for b in got["bars"]]}
+                         "c": [round(b[4], 6) for b in got["bars"]]}
     cov = len(weekly) / max(1, len(syms))
     old_cov = lambda o: len(set(o.get("weekly") or {}) & set(syms)) / max(1, len(syms))
     if not quality.safe_to_write(SERIES, cov, old_cov, "series.json"):

@@ -16,8 +16,10 @@ public/data/   watchlist.json, benchmarks.json, tradelog.json   (the data, publi
                prices-latest.json, watch-events.json            (refreshed by jobs)
 scripts/       fetch_bars.py, fetch_latest.py, fetch_events.py, yahoo.py, quality.py
 scripts/report/  weekly Tech Charts report sync (the report itself is never committed)
-src/           Preact app shell (phase 1); engine, pages and flags come in later phases
-tests/         Vitest checks on the data files
+src/engine/    the rules: bars (settled/live), replay, last full day, types, sections, events
+src/data/      loading, the browser overlay (saved edits), the Worker live upgrade
+src/ui/        the board: columns, cells, table and cards, drawer, forms, styles
+tests/         Vitest: engine, data layer, UI wording, and parity with the old page (tests/parity)
 .github/workflows/  update-data (hourly), update-prices (15-minute loop), deploy (Pages)
 ```
 
@@ -25,7 +27,7 @@ tests/         Vitest checks on the data files
 
 ```bash
 npm install
-npm run dev       # local server at http://localhost:5173/SwingTrader/
+npm run dev       # local server at http://localhost:5173/SwingTrader/ (forwards price requests itself: no Worker needed)
 npm test          # Vitest
 npm run build     # type-check and build to dist/
 python3 scripts/fetch_bars.py    # refresh bars.json and series.json
