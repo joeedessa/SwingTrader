@@ -25,8 +25,9 @@ jobs:
       - name: Fetch watchlist earnings and dividend events
         run: python3 scripts/fetch_events.py || true
 
-      # Daily bars are append-only and gated on the file's own age, so this step
-      # runs at most once a day for bars and once a day for the long series.
+      # Daily bars are append-only: a month is fetched per symbol, only days not yet on file are written, and a
+      # run that finds nothing new leaves the file alone. The weekly and monthly series are refreshed at most
+      # once a day, decided by the age of the file's own timestamp.
       - name: Fetch daily bars and long series
         run: python3 scripts/fetch_bars.py
 

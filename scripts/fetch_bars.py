@@ -115,6 +115,11 @@ def update_bars(syms):
         "ccy": {s: ccy[s] for s in bars if ccy.get(s)},
         "bars": bars,
     }
+    # A run that finds nothing new must not touch the file: it is five megabytes, and a fresh timestamp alone
+    # would commit all of it every hour.
+    if old and {k: v for k, v in old.items() if k != "generated_at"} == {k: v for k, v in out.items() if k != "generated_at"}:
+        print(f"{BARS.name} unchanged: {len(covered)}/{len(syms)} symbols, no new days")
+        return
     BARS.write_text(json.dumps(out, separators=(",", ":"), sort_keys=True))
     print(f"wrote {BARS} ({BARS.stat().st_size // 1024} KB): {len(covered)}/{len(syms)} symbols, "
           f"{added_total} new days; no history for: {', '.join(missing) or 'none'}")
