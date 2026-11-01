@@ -1,6 +1,6 @@
 {
 "name":"WAWI.OL",
-"why":"Tech Charts' own type 2 example. Imported as confirmed on a Saturday (2026-07-25), so the confirming close is found by the latest trigger cross; the sheet's LFD 132.6 wins over the derived bar; two pullbacks through the trigger 145.3 with the stop intact; target 163 reached on the close on 2026-08-17 and the type frozen at B2.",
+"why":"Tech Charts' own type 2 example. Imported as confirmed on a Saturday (2026-07-25), so the confirming close is found by the latest trigger cross; the sheet's LFD 132.6 wins over the derived bar; two pullbacks through the trigger 145.3 with the stop intact; target 163 reached on the close on 2026-08-17 and the type frozen at B2. Since revision 3 (prices compared at 7 significant digits) the second pullback starts on 2026-08-03, whose low is exactly the trigger: a touch.",
 "setup":{
 "sym":"WAWI.OL",
 "dir":"long",
@@ -1144,8 +1144,8 @@
 "at":143.39999389648438
 },
 {
-"when":"2026-08-04",
-"at":144.8000030517578
+"when":"2026-08-03",
+"at":145.3000030517578
 }
 ],
 "breaches":[],

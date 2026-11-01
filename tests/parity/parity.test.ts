@@ -3,11 +3,15 @@ import { evaluate } from '../../src/engine/row';
 import type { Bars, BreakoutType, History, Lfd, ReplayState, Section, Setup } from '../../src/engine/types';
 import dump from './old-page-2026-11-01.json';
 import watchlist from './watchlist-2026-11-01.json';
+import adjudicated from './adjudicated-2026-11-01.json';
 
-/* D3 parity: the old page's own outcome for every setup, dumped with the
+/* D2 parity: the old page's own outcome for every setup, dumped with the
    inputs it ran on (window.__parity(), 2026-11-01 17:49Z, every market shut,
    no browser overlay). The new engine, run on those frozen inputs, must
-   reproduce every field. Differences are adjudicated in docs/PARITY.md. */
+   reproduce every field, except on the rows the 7-significant-digit rounding
+   decision changed (revision 3 of the plan). Those are held to the values in
+   adjudicated-2026-11-01.json instead, each with its reason, and none of them
+   may change a section or a type. Write-up: docs/PARITY.md. */
 
 interface OldRow {
   sym: string;
@@ -21,6 +25,7 @@ interface OldRow {
 }
 
 const old = dump as unknown as { BARS: Record<string, Bars>; HIST: Record<string, History>; rows: OldRow[] };
+const ruled = (adjudicated as unknown as { rows: Record<string, { reason: string; expect: Record<string, unknown> }> }).rows;
 
 // workingList() on the old page: shared rows, no overlay, `removed` landing in Removed.
 const setups = new Map<string, Setup>();
@@ -31,29 +36,40 @@ for (const raw of watchlist as unknown as Array<Record<string, unknown>>) {
 
 const strip = <T,>(x: T): T => JSON.parse(JSON.stringify(x === undefined ? null : x));
 
+const ours = (r: OldRow) => {
+  const row = evaluate(setups.get(r.sym + '|' + r.dir)!, old.HIST[r.sym], old.BARS[r.sym], {}, '2026-11-01');
+  return strip({ section: row.section, btype: row.btype, lfd: row.lfd, breakout: row.st.breakout, targetHit: row.st.targetHit, failed: row.st.failed });
+};
+const theirs = (r: OldRow) => strip({ section: r.section, btype: r.btype, lfd: r.lfd, breakout: r.breakout, targetHit: r.targetHit, failed: r.failed });
+
 describe('parity with the old page on frozen inputs', () => {
-  it('covers every row the old page had', () => {
+  it('covers every row the old page had, and every adjudicated row is one of them', () => {
     expect(old.rows).toHaveLength(148);
     for (const r of old.rows) expect(setups.has(r.sym + '|' + r.dir), r.sym + '|' + r.dir).toBe(true);
+    for (const id of Object.keys(ruled)) expect(old.rows.some(r => r.sym + '|' + r.dir === id), id).toBe(true);
   });
 
   for (const r of old.rows) {
-    it(`${r.sym} ${r.dir} → ${r.section}`, () => {
-      const p = setups.get(r.sym + '|' + r.dir)!;
-      const row = evaluate(p, old.HIST[r.sym], old.BARS[r.sym], {}, '2026-11-01');
-      const ours = strip({ section: row.section, btype: row.btype, lfd: row.lfd,
-        breakout: row.st.breakout, targetHit: row.st.targetHit, failed: row.st.failed });
-      const theirs = strip({ section: r.section, btype: r.btype, lfd: r.lfd,
-        breakout: r.breakout, targetHit: r.targetHit, failed: r.failed });
-      expect(ours).toEqual(theirs);
-    });
+    const id = r.sym + '|' + r.dir;
+    if (ruled[id]) {
+      it(`${r.sym} ${r.dir} → ${r.section} (adjudicated: ${ruled[id].reason})`, () => {
+        const mine = ours(r) as Record<string, unknown> & { section: string; btype: { tag: string | null } | null };
+        expect(mine).toEqual(ruled[id].expect);
+        // The rounding moved a date, a count or a stop; it must not move a row to another section or type.
+        expect(mine.section).toBe(r.section);
+        expect(mine.btype ? mine.btype.tag : null).toBe(r.btype ? r.btype.tag : null);
+      });
+    } else {
+      it(`${r.sym} ${r.dir} → ${r.section}`, () => {
+        expect(ours(r)).toEqual(theirs(r));
+      });
+    }
   }
 
   it('reproduces the section counts the old page showed', () => {
     const counts: Record<string, number> = {};
     for (const r of old.rows) {
-      const p = setups.get(r.sym + '|' + r.dir)!;
-      const s = evaluate(p, old.HIST[r.sym], old.BARS[r.sym], {}, '2026-11-01').section;
+      const s = (ours(r) as { section: string }).section;
       counts[s] = (counts[s] || 0) + 1;
     }
     expect(counts).toEqual({ watch: 31, breakout: 18, reentered: 11, stopped: 6, target: 15, failed: 30, removed: 37 });

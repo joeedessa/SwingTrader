@@ -1,3 +1,4 @@
+import { against, atOrAgainst, past } from './precision';
 import type { Bars, BreakoutType, History, Lfd, Reentry, ReplayState, Setup, Touch } from './types';
 
 /* Breakout type, Tech Charts' four, followed day by day while the trade is
@@ -36,15 +37,15 @@ export function typeOf(p: Setup, st: ReplayState, L: Lfd | null, hist: History |
     if (d <= from || (end && d > end)) continue;
     const [lo, hi, c] = bars[d];
     const ext = long ? lo : hi;
-    if (!out && stop != null && (long ? lo < stop : hi > stop)) {
+    if (!out && stop != null && against(long, ext, stop)) {
       breaches.push({ when: d, at: ext }); out = true; inPull = false; continue;
     }
     if (out) {
-      if (c != null && (long ? c > trig : c < trig)) { reentries.push({ when: d, close: c }); out = false; }
+      if (c != null && past(long, c, trig)) { reentries.push({ when: d, close: c }); out = false; }
       continue;
     }
     if (breaches.length) continue;             // after a re-entry only the stop is watched
-    if (long ? lo <= trig : hi >= trig) {
+    if (atOrAgainst(long, ext, trig)) {
       if (!inPull) { pullbacks.push({ when: d, at: ext }); inPull = true; }
     } else inPull = false;
   }

@@ -1,3 +1,4 @@
+import { sig7 } from './precision';
 import type { Dir, History, Lfd, ReplayState, Setup, SymbolEvents } from './types';
 
 /** One decimal, or null. Percentages on the board are shown this way. */
@@ -60,14 +61,17 @@ export interface Runup {
 
 /** Is it still worth entering? Measured from the live price, else the last close. */
 export function runupOf(p: Setup, live: number | null, prevClose: number | null, lfd: Lfd | null): Runup | null {
-  const base = live != null ? live : prevClose;
-  if (base == null || p.breakthrough == null) return null;
+  const raw = live != null ? live : prevClose;
+  if (raw == null || p.breakthrough == null) return null;
+  // Rounded like every comparison with a level, so a price on the stop reads as no risk rather than as noise.
+  const base = sig7(raw);
   const sgn = p.dir === 'long' ? 1 : -1;
   const past = (base / p.breakthrough - 1) * 100 * sgn;
   const span = p.target != null ? (p.target - p.breakthrough) * sgn : null;
   const used = span != null && span > 0 ? (base - p.breakthrough) * sgn / span : null;
   const tight = lfd && lfd.at != null && !lfd.looser;
-  const stop = tight ? lfd.at : p.negation;
+  const stopRaw = tight ? lfd.at : p.negation;
+  const stop = stopRaw == null ? null : sig7(stopRaw);
   const reward = p.target != null ? (p.target - base) * sgn : null;
   const risk = stop != null ? (base - stop) * sgn : null;
   return { past, used, rr: reward != null && risk != null && reward > 0 && risk > 0 ? reward / risk : null,
@@ -85,8 +89,9 @@ export interface RewardRisk {
 export function rrOf(p: Setup, lfd: Lfd | null): RewardRisk | null {
   if (p.breakthrough == null || p.target == null) return null;
   const useLfd = !!(lfd && lfd.at != null && !lfd.looser);
-  const stop = useLfd ? (lfd as Lfd).at : p.negation;
-  if (stop == null) return null;
+  const stopRaw = useLfd ? (lfd as Lfd).at : p.negation;
+  if (stopRaw == null) return null;
+  const stop = sig7(stopRaw);
   const sgn = p.dir === 'long' ? 1 : -1;
   const reward = (p.target - p.breakthrough) * sgn, risk = (p.breakthrough - stop) * sgn;
   if (!(reward > 0) || !(risk > 0)) return null;

@@ -1,0 +1,746 @@
+{
+ "note": "Rows where the engine differs from the old page because prices and levels are now compared at 7 significant digits (revision 3 of the plan, Joe, 1 Nov 2026). Every other row must still equal the old page exactly.",
+ "rows": {
+  "DAKT|short": {
+   "reason": "The high of 22-10-26 equals the 19.52 stop; a touch must be strictly beyond, so the stop is first hit on 23-10-26.",
+   "expect": {
+    "section": "failed",
+    "btype": {
+     "tag": "B4"
+    },
+    "lfd": {
+     "at": 19.52,
+     "src": "report",
+     "kind": "boundary",
+     "pending": false,
+     "conf": "2026-09-11",
+     "anchor": "2026-09-10",
+     "bar": "2026-09-09",
+     "alt": {
+      "bar": "2026-09-10",
+      "at": 19.170000076293945
+     },
+     "hit": {
+      "when": "2026-10-23",
+      "at": 20.6299991607666
+     }
+    },
+    "breakout": {
+     "when": "2026-09-11",
+     "close": 17.89
+    },
+    "targetHit": null,
+    "failed": {
+     "when": "2026-10-23",
+     "close": 20.6,
+     "at": 20.6299991607666,
+     "byTouch": true,
+     "reason": "failed breakout"
+    }
+   }
+  },
+  "TCELL.IS|long": {
+   "reason": "The close of 22-01-26 equals the trigger, so the confirming close is a day earlier and the derived stop is the low of 21-01-26 (103.8, was 105.5).",
+   "expect": {
+    "section": "failed",
+    "btype": {
+     "tag": "B4"
+    },
+    "lfd": {
+     "at": 103.80000305175781,
+     "src": "derived",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-01-22",
+     "anchor": "2026-01-22",
+     "bar": "2026-01-21",
+     "alt": null,
+     "hit": {
+      "when": "2026-03-09",
+      "at": 102.9000015258789
+     }
+    },
+    "breakout": {
+     "when": "2026-01-24",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": {
+     "when": "2026-09-16",
+     "close": 95.75,
+     "at": 92.25,
+     "byTouch": true,
+     "reason": "failed breakout"
+    }
+   }
+  },
+  "KRO|long": {
+   "reason": "The 7.12 trigger is the close of 24-04-26 exactly; at or past now finds that confirming close. The stop is unchanged (none in report).",
+   "expect": {
+    "section": "breakout",
+    "btype": {
+     "tag": "B2",
+     "final": false,
+     "pullbacks": [
+      {
+       "when": "2026-04-28",
+       "at": 7.110000133514404
+      },
+      {
+       "when": "2026-05-07",
+       "at": 6.96999979019165
+      },
+      {
+       "when": "2026-05-12",
+       "at": 6.920000076293945
+      },
+      {
+       "when": "2026-05-15",
+       "at": 6.730000019073486
+      },
+      {
+       "when": "2026-06-01",
+       "at": 6.900000095367432
+      },
+      {
+       "when": "2026-10-15",
+       "at": 7.110000133514404
+      }
+     ],
+     "breaches": [],
+     "reentries": [],
+     "out": false,
+     "trig": 7.12,
+     "stop": null,
+     "stopHit": null,
+     "retest": {
+      "when": "2026-04-28",
+      "at": 7.110000133514404
+     },
+     "reentry": null,
+     "noStop": true
+    },
+    "lfd": {
+     "at": null,
+     "src": "none",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-04-24",
+     "anchor": "2026-04-24",
+     "bar": null,
+     "alt": null,
+     "hit": null
+    },
+    "breakout": {
+     "when": "2026-04-25",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": null
+   }
+  },
+  "VLY|long": {
+   "reason": "The close of 11-06-26 equals the trigger, so the confirming close is a day earlier. The stop is unchanged (boundary-anchored).",
+   "expect": {
+    "section": "failed",
+    "btype": {
+     "tag": "B4"
+    },
+    "lfd": {
+     "at": 13.670000076293945,
+     "src": "derived",
+     "kind": "boundary",
+     "pending": false,
+     "conf": "2026-06-11",
+     "anchor": "2026-06-09",
+     "bar": "2026-06-08",
+     "alt": {
+      "bar": "2026-06-10",
+      "at": 14.100000381469727
+     },
+     "hit": {
+      "when": "2026-08-31",
+      "at": 13.619999885559082
+     }
+    },
+    "breakout": {
+     "when": "2026-06-13",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": {
+     "when": "2026-09-28",
+     "close": 12.78,
+     "at": 12.710000038146973,
+     "byTouch": true,
+     "reason": "failed breakout"
+    }
+   }
+  },
+  "GLYHO.IS|long": {
+   "reason": "The close of 17-06-26 equals the trigger, so the confirming close is a day earlier and the derived stop is the low of 16-06-26 (16.48, was 17), first hit on 27-07-26.",
+   "expect": {
+    "section": "failed",
+    "btype": {
+     "tag": "B4"
+    },
+    "lfd": {
+     "at": 16.479999542236328,
+     "src": "derived",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-06-17",
+     "anchor": "2026-06-17",
+     "bar": "2026-06-16",
+     "alt": null,
+     "hit": {
+      "when": "2026-07-27",
+      "at": 16.34000015258789
+     }
+    },
+    "breakout": {
+     "when": "2026-06-20",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": {
+     "when": "2026-09-16",
+     "close": 15.17,
+     "at": 14.819999694824219,
+     "byTouch": true,
+     "reason": "failed breakout"
+    }
+   }
+  },
+  "PGEN|long": {
+   "reason": "The close of 25-06-26 equals the trigger, so the confirming close is a day earlier and the derived stop is the low of 24-06-26 (5.26, was 5.43): one pullback, three exits and three re-entries instead of none, five and five.",
+   "expect": {
+    "section": "target",
+    "btype": {
+     "tag": "B3",
+     "final": true,
+     "pullbacks": [
+      {
+       "when": "2026-06-26",
+       "at": 5.480000019073486
+      }
+     ],
+     "breaches": [
+      {
+       "when": "2026-07-01",
+       "at": 5.199999809265137
+      },
+      {
+       "when": "2026-07-10",
+       "at": 5.170000076293945
+      },
+      {
+       "when": "2026-07-28",
+       "at": 5.21999979019165
+      }
+     ],
+     "reentries": [
+      {
+       "when": "2026-07-02",
+       "close": 5.639999866485596
+      },
+      {
+       "when": "2026-07-23",
+       "close": 5.539999961853027
+      },
+      {
+       "when": "2026-07-30",
+       "close": 5.940000057220459
+      }
+     ],
+     "out": false,
+     "trig": 5.52,
+     "stop": 5.260000228881836,
+     "stopHit": {
+      "when": "2026-07-01",
+      "at": 5.199999809265137
+     },
+     "retest": {
+      "when": "2026-06-26",
+      "at": 5.480000019073486
+     },
+     "reentry": {
+      "when": "2026-07-30",
+      "close": 5.940000057220459
+     },
+     "noStop": false
+    },
+    "lfd": {
+     "at": 5.260000228881836,
+     "src": "derived",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-06-25",
+     "anchor": "2026-06-25",
+     "bar": "2026-06-24",
+     "alt": null,
+     "hit": {
+      "when": "2026-07-01",
+      "at": 5.199999809265137
+     }
+    },
+    "breakout": {
+     "when": "2026-06-27",
+     "close": null
+    },
+    "targetHit": {
+     "when": "2026-09-17",
+     "close": 7.87
+    },
+    "failed": null
+   }
+  },
+  "PACS|long": {
+   "reason": "The close of 01-07-26 equals the trigger, so the confirming close is a day earlier and the low of 02-07-26 counts as a fourth pullback. The stop is unchanged (from report).",
+   "expect": {
+    "section": "reentered",
+    "btype": {
+     "tag": "B3",
+     "final": false,
+     "pullbacks": [
+      {
+       "when": "2026-07-02",
+       "at": 43.92499923706055
+      },
+      {
+       "when": "2026-07-07",
+       "at": 43.279998779296875
+      },
+      {
+       "when": "2026-07-21",
+       "at": 44.279998779296875
+      },
+      {
+       "when": "2026-08-04",
+       "at": 43.34000015258789
+      }
+     ],
+     "breaches": [
+      {
+       "when": "2026-08-05",
+       "at": 39.130001068115234
+      }
+     ],
+     "reentries": [
+      {
+       "when": "2026-08-06",
+       "close": 46.66999816894531
+      }
+     ],
+     "out": false,
+     "trig": 44.32,
+     "stop": 39.9,
+     "stopHit": {
+      "when": "2026-08-05",
+      "at": 39.130001068115234
+     },
+     "retest": {
+      "when": "2026-07-02",
+      "at": 43.92499923706055
+     },
+     "reentry": {
+      "when": "2026-08-06",
+      "close": 46.66999816894531
+     },
+     "noStop": false
+    },
+    "lfd": {
+     "at": 39.9,
+     "src": "report",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-07-01",
+     "anchor": "2026-07-01",
+     "bar": "2026-06-30",
+     "alt": null,
+     "hit": {
+      "when": "2026-08-05",
+      "at": 39.130001068115234
+     }
+    },
+    "breakout": {
+     "when": "2026-07-04",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": null
+   }
+  },
+  "GXI.DE|long": {
+   "reason": "The 29.72 trigger is the close of 06-07-26 exactly; at or past now finds that confirming close, so the first pullback is dated 07-07-26 (was 13-07-26). Counts and stop unchanged.",
+   "expect": {
+    "section": "reentered",
+    "btype": {
+     "tag": "B3",
+     "final": false,
+     "pullbacks": [
+      {
+       "when": "2026-07-07",
+       "at": 27.719999313354492
+      }
+     ],
+     "breaches": [
+      {
+       "when": "2026-07-24",
+       "at": 25.15999984741211
+      },
+      {
+       "when": "2026-09-25",
+       "at": 25.6200008392334
+      }
+     ],
+     "reentries": [
+      {
+       "when": "2026-09-07",
+       "close": 29.84000015258789
+      },
+      {
+       "when": "2026-10-16",
+       "close": 30.440000534057617
+      }
+     ],
+     "out": false,
+     "trig": 29.72,
+     "stop": 25.95,
+     "stopHit": {
+      "when": "2026-07-24",
+      "at": 25.15999984741211
+     },
+     "retest": {
+      "when": "2026-07-07",
+      "at": 27.719999313354492
+     },
+     "reentry": {
+      "when": "2026-10-16",
+      "close": 30.440000534057617
+     },
+     "noStop": false
+    },
+    "lfd": {
+     "at": 25.95,
+     "src": "report",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-07-06",
+     "anchor": "2026-07-06",
+     "bar": "2026-07-03",
+     "alt": null,
+     "hit": {
+      "when": "2026-07-24",
+      "at": 25.15999984741211
+     }
+    },
+    "breakout": {
+     "when": "2026-07-11",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": null
+   }
+  },
+  "CBK.DE|long": {
+   "reason": "The 39.03 trigger is the close of 14-07-26 exactly; at or past now finds that confirming close, so the pullback is dated 15-07-26 (was 20-07-26). Counts and stop unchanged.",
+   "expect": {
+    "section": "stopped",
+    "btype": {
+     "tag": "B3",
+     "final": false,
+     "pullbacks": [
+      {
+       "when": "2026-07-15",
+       "at": 38.029998779296875
+      }
+     ],
+     "breaches": [
+      {
+       "when": "2026-07-23",
+       "at": 36.27000045776367
+      },
+      {
+       "when": "2026-10-20",
+       "at": 36.130001068115234
+      }
+     ],
+     "reentries": [
+      {
+       "when": "2026-08-04",
+       "close": 39.650001525878906
+      }
+     ],
+     "out": true,
+     "trig": 39.03,
+     "stop": 36.28,
+     "stopHit": {
+      "when": "2026-07-23",
+      "at": 36.27000045776367
+     },
+     "retest": {
+      "when": "2026-07-15",
+      "at": 38.029998779296875
+     },
+     "reentry": {
+      "when": "2026-08-04",
+      "close": 39.650001525878906
+     },
+     "noStop": false
+    },
+    "lfd": {
+     "at": 36.28,
+     "src": "report",
+     "kind": "boundary",
+     "pending": false,
+     "conf": "2026-07-14",
+     "anchor": "2026-07-09",
+     "bar": "2026-07-08",
+     "alt": {
+      "bar": "2026-07-13",
+      "at": 38.25
+     },
+     "hit": {
+      "when": "2026-07-23",
+      "at": 36.27000045776367
+     }
+    },
+    "breakout": {
+     "when": "2026-07-18",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": null
+   }
+  },
+  "WAWI.OL|long": {
+   "reason": "The low of 03-08-26 equals the 145.3 trigger, a touch, so the second pullback starts a day earlier (03-08-26, was 04-08-26). Counts and stop unchanged.",
+   "expect": {
+    "section": "target",
+    "btype": {
+     "tag": "B2",
+     "final": true,
+     "pullbacks": [
+      {
+       "when": "2026-07-24",
+       "at": 143.39999389648438
+      },
+      {
+       "when": "2026-08-03",
+       "at": 145.3000030517578
+      }
+     ],
+     "breaches": [],
+     "reentries": [],
+     "out": false,
+     "trig": 145.3,
+     "stop": 132.6,
+     "stopHit": null,
+     "retest": {
+      "when": "2026-07-24",
+      "at": 143.39999389648438
+     },
+     "reentry": null,
+     "noStop": false
+    },
+    "lfd": {
+     "at": 132.6,
+     "src": "report",
+     "kind": "boundary",
+     "pending": false,
+     "conf": "2026-07-23",
+     "anchor": "2026-07-13",
+     "bar": "2026-07-10",
+     "alt": {
+      "bar": "2026-07-22",
+      "at": 140.39999389648438
+     },
+     "hit": null
+    },
+    "breakout": {
+     "when": "2026-07-25",
+     "close": null
+    },
+    "targetHit": {
+     "when": "2026-08-17",
+     "close": 166.6
+    },
+    "failed": null
+   }
+  },
+  "UBER|short": {
+   "reason": "The 65.94 trigger is the close of 24-07-26 exactly; at or past now finds that confirming close, so a derived stop exists (71.08, the high of 23-07-26, first hit 29-07-26). The row was already Failed.",
+   "expect": {
+    "section": "failed",
+    "btype": {
+     "tag": "B4"
+    },
+    "lfd": {
+     "at": 71.08000183105469,
+     "src": "derived",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-07-24",
+     "anchor": "2026-07-24",
+     "bar": "2026-07-23",
+     "alt": null,
+     "hit": {
+      "when": "2026-07-29",
+      "at": 71.79000091552734
+     }
+    },
+    "breakout": {
+     "when": "2026-07-25",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": {
+     "when": "2026-08-07",
+     "close": 75.02,
+     "at": 75.41999816894531,
+     "byTouch": true,
+     "reason": "failed breakout"
+    }
+   }
+  },
+  "GEI.TO|long": {
+   "reason": "The low of 18-08-26 equals the 32.11 trigger: a touch, not a day entirely past it, so the pullback of 30-07-26 runs on and 19-08-26 is no longer a new one: two pullbacks, was three.",
+   "expect": {
+    "section": "target",
+    "btype": {
+     "tag": "B2",
+     "final": true,
+     "pullbacks": [
+      {
+       "when": "2026-07-30",
+       "at": 32
+      },
+      {
+       "when": "2026-10-15",
+       "at": 32.0099983215332
+      }
+     ],
+     "breaches": [],
+     "reentries": [],
+     "out": false,
+     "trig": 32.11,
+     "stop": 29.65,
+     "stopHit": null,
+     "retest": {
+      "when": "2026-07-30",
+      "at": 32
+     },
+     "reentry": null,
+     "noStop": false
+    },
+    "lfd": {
+     "at": 29.65,
+     "src": "report",
+     "kind": "trigger",
+     "pending": false,
+     "conf": "2026-07-28",
+     "anchor": "2026-07-28",
+     "bar": "2026-07-27",
+     "alt": null,
+     "hit": null
+    },
+    "breakout": {
+     "when": "2026-08-01",
+     "close": null
+    },
+    "targetHit": {
+     "when": "2026-10-26",
+     "close": 33.75
+    },
+    "failed": null
+   }
+  },
+  "DTG.DE|long": {
+   "reason": "The close of 27-07-26 equals the trigger, so the confirming close is a day earlier. The stop is unchanged (boundary-anchored).",
+   "expect": {
+    "section": "failed",
+    "btype": {
+     "tag": "B4"
+    },
+    "lfd": {
+     "at": 42.810001373291016,
+     "src": "derived",
+     "kind": "boundary",
+     "pending": false,
+     "conf": "2026-07-27",
+     "anchor": "2026-07-23",
+     "bar": "2026-07-22",
+     "alt": {
+      "bar": "2026-07-24",
+      "at": 45.56999969482422
+     },
+     "hit": {
+      "when": "2026-09-21",
+      "at": 42.7400016784668
+     }
+    },
+    "breakout": {
+     "when": "2026-08-01",
+     "close": null
+    },
+    "targetHit": null,
+    "failed": {
+     "when": "2026-10-01",
+     "close": 41.51,
+     "at": 41.34000015258789,
+     "byTouch": true,
+     "reason": "failed breakout"
+    }
+   }
+  },
+  "1038.HK|long": {
+   "reason": "The close of 20-10-26 equals the 67.15 boundary, which is not strictly past it, so the run past the boundary starts on 21-10-26 (was 13-10-26). The stop is unchanged (from report).",
+   "expect": {
+    "section": "breakout",
+    "btype": {
+     "tag": "B2",
+     "final": false,
+     "pullbacks": [
+      {
+       "when": "2026-10-28",
+       "at": 68.5999984741211
+      }
+     ],
+     "breaches": [],
+     "reentries": [],
+     "out": false,
+     "trig": 69.15,
+     "stop": 65.9,
+     "stopHit": null,
+     "retest": {
+      "when": "2026-10-28",
+      "at": 68.5999984741211
+     },
+     "reentry": null,
+     "noStop": false
+    },
+    "lfd": {
+     "at": 65.9,
+     "src": "report",
+     "kind": "boundary",
+     "pending": false,
+     "conf": "2026-10-27",
+     "anchor": "2026-10-21",
+     "bar": "2026-10-20",
+     "alt": {
+      "bar": "2026-10-26",
+      "at": 67.44999694824219
+     },
+     "hit": null
+    },
+    "breakout": {
+     "when": "2026-10-27",
+     "close": 70.15
+    },
+    "targetHit": null,
+    "failed": null
+   }
+  }
+ }
+}

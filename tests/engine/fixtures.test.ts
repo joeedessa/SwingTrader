@@ -51,7 +51,8 @@ describe('fixtures', () => {
   it('WAWI.OL: the confirming close is the Thursday before the report\'s Saturday date', () => {
     const { row } = load(wawi as unknown as Fixture);
     expect(row.lfd).toMatchObject({ conf: '2026-07-23', src: 'report', at: 132.6, bar: '2026-07-10' });
-    expect(row.btype!.pullbacks!.map(x => x.when)).toEqual(['2026-07-24', '2026-08-04']);
+    // The low of 2026-08-03 is exactly the 145.3 trigger: a touch, so that is where the second pullback starts.
+    expect(row.btype!.pullbacks!.map(x => x.when)).toEqual(['2026-07-24', '2026-08-03']);
   });
 
   it('7936.T: the stop touched first, then the negation; a B3 exit does not fail the pattern', () => {

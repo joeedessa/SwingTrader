@@ -3,18 +3,18 @@
 *Written by Fable 5.1 (planning agent), 1 Nov 2026. **Approved 1 Nov 2026, revision 2 after review** (changes listed in "Revision 2" at the end).*
 
 **Summary**
-1. **What:** a new repo (`joeedessa/<new-repo>`: Vite + TypeScript + Vitest, on GitHub Pages) takes over five things from macro-compass: the watchlist, the benchmarks, the trade log, the weekly report sync and the two data jobs. The engine becomes pure, tested modules. Once a parity check passes, `watch.html` in macro-compass becomes a redirect stub.
+1. **What:** a new repo (`joeedessa/SwingTrader`: Vite + TypeScript + Vitest, on GitHub Pages) holds its own copy of five things from macro-compass: the watchlist, the benchmarks, the trade log, the weekly report sync and the two data jobs. The engine becomes pure, tested modules. The macro-compass page stays live and separate: it does not read this repo's data, and this repo never edits macro-compass (revision 3).
 2. **Pages:** 8 routes in one single-page app (hash routes): Today, Setups, Positions, History, Model, Signals, Benchmarks, Method. Today is the landing page and the flag inbox. Repo **`joeedessa/SwingTrader`**, local folder `~/Desktop/ClaudeProjects/SwingTrader`, live at `https://joeedessa.github.io/SwingTrader/`.
 3. **Flags:** three tiers (Act / Watch / Info) and 19 flag rules. Every settled engine event becomes a flag by construction. Acknowledgements are kept per browser, flags auto-expire after 5 sessions, and the Today tab carries a badge.
 4. **Backtest:** runs in the browser on an append-only daily price snapshot (`bars.json`) that the new repo's CI writes. It covers 5 strategies you could actually have followed, × re-entry depth × 4 sizing schemes. Results are in % and R-multiples; money appears only as an overlay in one account currency, with FX held constant.
-5. **Phases:** phase 0 (this plan) plus 9 execution phases. Models:
+5. **Phases:** phase 0 (this plan) plus execution phases 1–3 and 5–9 (Phase 4, the cut-over, was dropped in revision 3; Phase 5 is split into 5a and 5b). Models:
 
    | Model | Phases | What |
    |---|---|---|
    | Fable 5.1 | 2, 7 | engine port, backtest semantics |
-   | Opus 5.5 | 5 | flag rules, parity adjudication |
-   | Sonnet 5.5 | 3, 6, 8 | UI |
-   | Haiku 4.5 | 1, 4, 9 | scaffold, cut-over edits, docs |
+   | Opus 5.5 | 5a | flag rules, rounding decision |
+   | Sonnet 5.5 | 3, 5b, 6, 6b, 8 | UI |
+   | Haiku 4.5 | 1, 9 | scaffold, docs |
 
 **Grounding facts** used throughout (measured from the data, not estimated):
 - **Setups:** 148 in total. **82 have broken out** by the engine's own rule, replayed over the committed closes: 48 imported via `confirmed`, 34 found by the replay; 72 long, 10 short; 2 removed after breaking out.
@@ -265,47 +265,32 @@ Why it runs there:
 
 ---
 
-## D. Migration plan
+## D. Relationship to macro-compass
 
-### D1. What moves, what the new repo builds, what macro-compass keeps
+The macro-compass watchlist page stays live and separate (revision 3). It does not read this repo's files, this repo never edits macro-compass, and from the next weekly report on the weekly sync happens here only, so macro-compass's own copy of the watchlist stops changing.
+
+### D1. What this repo copied, what it builds, what macro-compass keeps
 | Item | Decision |
 |---|---|
-| `watchlist.json`, `benchmarks.json`, `tradelog.json` | **Move.** The new repo becomes the single source of truth. |
-| `scripts/report/` + README "Weekly report sync" | **Move.** The parser's path to the data changes to `public/data/watchlist.json`. |
-| `fetch_events.py` | **Move.** macro-compass stops producing `watch-events.json`. Its Lookup page either reads it from the new address (other sites can read it) or drops its "related setups" block (Q8). |
-| `fetch_prices.py` | **Stays** in macro-compass for its own pages; it already skips a missing `watchlist.json`. The new repo gets `fetch_bars.py` (daily bars) and `fetch_latest.py` (latest price), covering the watchlist only. |
-| Automated jobs | The new repo gets its own trimmed copies. macro-compass keeps its own unchanged, minus the events step. |
+| `watchlist.json`, `benchmarks.json`, `tradelog.json` | **Copied.** This repo is the source of truth. macro-compass keeps its own copy, which is no longer synced. |
+| `scripts/report/` + README "Weekly report sync" | **Copied.** The parser reads `public/data/watchlist.json`. The sync runs here only. |
+| `fetch_events.py` | **Copied.** macro-compass keeps producing its own `watch-events.json`; neither site reads the other's. |
+| `fetch_prices.py` | **Stays** in macro-compass, untouched. This repo has `fetch_bars.py` (daily bars) and `fetch_latest.py` (latest price), covering its own lists only. |
+| Automated jobs | This repo has its own trimmed copies. macro-compass keeps its own, unchanged. |
 | Cloudflare Worker | **Stays**, with no change (same address). |
-| `watch.html` / `?set=benchmarks` | **Untouched until you sign off parity.** Then it becomes a redirect page, like `benchmarks.html`, that sends `?set=benchmarks` to `#/benchmarks`. |
-| `mobile.js` self-update | **Helps:** an old Home Screen copy notices the redirect page when you return to it, reloads, and is sent to the new site. The new site needs its own Home Screen icon. |
-| Shared files (pricefloor, ma, links, styles, mobile.css) | **Not moved.** The new repo copies the colour tokens and the chart-link format, and rebuilds the price fallback as a data module. |
-| Trade log saved in your browser | **Carries over:** same site address, same storage keys. |
+| `watch.html` / `?set=benchmarks` | **Stays live and separate.** No redirect. |
+| Home Screen | The new site has its own self-update; it needs its own Home Screen icon (Phase 9). |
+| Shared files (pricefloor, ma, links, styles, mobile.css) | **Not moved.** This repo copied the colour tokens and the chart-link format, and rebuilt the price fallback as a data module. |
+| Saved edits and the trade log in your browser | **Shared:** same site address, same storage keys, so both pages read and write the same browser storage. |
 
-### D2. Cut-over checklist (in order)
-1. **[you]** Create the GitHub repo (public, so Actions minutes are free), default branch `main`.
-2. **[you]** Settings → Pages → Source: GitHub Actions.
-3. **[agent] Phase 1 lands:** scaffold, data copied, automated jobs running. The new watchlist file answers at its public address and other sites can read it.
-4. **[agent] Phases 2–3 land:** engine and board both at parity, with both sites live in parallel.
-   - You use both for at least one full week, including one weekly report sync done in the new repo.
-   - The old site isn't synced that week, so the counts are expected to differ, and the difference is explained.
-5. **Parity check (D3):** signed off by you.
-6. **[agent] Clean up macro-compass:**
-   - replace `watch.html` with the redirect page;
-   - delete the events script and its job step;
-   - delete the moved data files;
-   - repoint or drop Lookup's related-setups block;
-   - update the README.
-7. **[you]** Add the new site to the iPhone Home Screen, and remove the old watchlist shortcut if there is one.
-8. **[you]** Optional: only if you use a custom domain, add it to the Worker's allow-list.
-
-### D3. Parity check
+### D2. Parity check
 On one date, the old page dumps the following for every setup (Phase 1 adds one debug line to make this possible):
 - section, type, and the counts of pullbacks, breaches and re-entries;
 - the last full day, where it came from, and whether it's looser than the negation;
 - the breakout, target and failure dates, and whether the failure was a touch;
 - the price data it used.
 
-Both are frozen as test files. The new engine, run on the frozen bars, must reproduce every field; each difference is adjudicated and written up. Counts per section on both live sites must match on the same settled day. **Cut-over requires zero unexplained differences.**
+Both are frozen as test files. The new engine, run on the frozen bars, must reproduce every field; each difference is adjudicated and written up in `docs/PARITY.md`, including the rows the 7-significant-digit rounding decision changed (revision 3).
 
 ---
 
@@ -319,15 +304,15 @@ Effort is relative (1 ≈ half a day of agent work). Each phase ships and is ver
 | 1 | Repo scaffold + data pipeline: Vite + TS + Preact + Vitest; data copied; `fetch_bars.py`, `fetch_latest.py`, `fetch_events.py`, `quality.py` and `report/` moved; three automated jobs; README. One debug line added to the old `watch.html` | jobs run green; `bars.json` has daily bars for every symbol with history; data readable from other sites; `npm test` runs; the Pages URL serves the shell; console clean | **Haiku 4.5** (mechanical; the patterns already exist) | 2 |
 | 2 | Engine port with tests (bars, replay, last full day, types, derived values, events, sections); fixtures PRK, WAWI.OL, 7936.T, ICLR plus edge cases; parity test | `npm test` green, including parity; differences from the old page documented; settled/live split verified against a closed and an open exchange | **Fable 5.1** (correctness-critical; judgement on every discrepancy) | 4 |
 | 3 | Setups board + Benchmarks route at parity: basic drawer, saved edits and actions, header line, self-update | section counts equal the old page's on the same day; no sideways scrolling at 390 px; dark and light; the bottom bar clears the iPhone home indicator; console clean | **Sonnet 5.5** (UI; the spec is explicit) | 4 |
-| 4 | Cut-over (D2 steps 6–7) | old links redirect correctly; macro-compass jobs green; Lookup still loads | **Haiku 4.5** (mechanical) | 1 |
-| 5 | Flags + Today page + badges + acknowledgements + last-visit divider | a unit test per flag rule (19); Today lists every settled event of the week that the old log shows; acks survive a reload; the badge equals unacked Act+Watch; phone layout | **Opus 5.5** for the flag rules and thresholds; **Sonnet 5.5** for the page | 3 |
+| 5a | Flags engine: `src/engine/flags.ts`, the 19 rules of A2 with their tiers, surfaces and ids, five-session expiry, pure acknowledgement helpers | a unit test per flag rule (19); acknowledgement ids stable across reloads, new bars and price moves; the settled flags carry every event the old weekly log showed | **Opus 5.5** (rules and thresholds) | 1.5 |
+| 5b | Today page + badges + acknowledgement store + last-visit divider | Today lists every settled event of the week that the old log shows; acks survive a reload; the badge equals unacked Act+Watch; phone layout | **Sonnet 5.5** | 1.5 |
 | 6 | Positions, History (including the journal port) and Method pages; full drawer | journal pairing matches today's on a fixture; stop ladder order matches today's Confirmed sort | **Sonnet 5.5** | 3 |
 | 6b | Signals page (Q9): `series.json` from `fetch_bars.py` (weekly/monthly, phantom bar dropped by period), `src/engine/ma.ts` ported from `ma.js` (averages, slope, held/lost/reclaimed) with tests, index map, sector medians | MA values and slope states equal macro-compass's for 5 sample symbols on the same day; phantom-bar test; phone layout | **Sonnet 5.5** (well-specified port; tests guard it) | 2 |
 | 7 | Backtest engine: S1–S5, re-entry depth, sizing schemes, stats, bootstrap, currency model; fixtures with hand-computed answers | fixtures pass (a gap through the stop, a short, two re-entries, an open trade, `reached`, removed after breakout); the printed universe count equals the engine's breakout count | **Fable 5.1** (the semantics are the whole value) | 4 |
 | 8 | Model page UI: controls in the URL, sensitivity grid, equity and drawdown charts, trade list, caveats, excluded list | re-runs in under 200 ms for 82 trades; a scenario link reproduces the same numbers; phone layout; units on every number | **Sonnet 5.5** | 3 |
 | 9 | Polish: Method page, weekly-process doc, performance, accessibility, final console and phone sweep | console clean on all 7 routes, phone and desktop | **Haiku 4.5** for docs; **Sonnet 5.5** for the sweep | 2 |
 
-**Why this order:** phases 1–4 put the tested engine and the new foundation live before any redesign, so nothing gets built twice. Phases 5–6 deliver "miss nothing, stop hunting". Phases 7–8 don't depend on 5–6 and can run in parallel sessions once phase 2 is done.
+**Why this order:** phases 1–3 put the tested engine and the new foundation live before any redesign, so nothing gets built twice. Phases 5–6 deliver "miss nothing, stop hunting". Phases 7–8 don't depend on 5–6 and can run in parallel sessions once phase 2 is done.
 
 ---
 
@@ -342,20 +327,20 @@ Effort is relative (1 ≈ half a day of agent work). Each phase ships and is ver
 | Q5 | Fees and slippage defaults | **0.10% + 0.10% per side, editable** |
 | Q6 | Entry fill: confirming close, or next session's open? | **Next open where `bars.json` has it; close as a toggle** |
 | Q7 | Repo name, and does Benchmarks move? | **Answered: `SwingTrader`** (folder `~/Desktop/ClaudeProjects/SwingTrader`, URL `/SwingTrader/`, case-sensitive); Benchmarks moves (default kept) |
-| Q8 | macro-compass Lookup page: keep "related setups" (read from the new site) or drop it? | **Keep** |
+| Q8 | macro-compass Lookup page: keep "related setups" (read from the new site) or drop it? | **Answered (revision 3): moot.** macro-compass stays separate and does not read this repo's data |
 | Q9 | Drop weekly/monthly MA columns, the cross scan and the relative columns from the board? | **Answered: keep them, on a separate page** (`#/signals`, phase 6b) |
 | Q10 | Acknowledgements per browser only (no sync)? | **Yes; the last-visit divider mitigates** |
 | Q11 | Custom domain? | **No** |
 | Q12 | Rows removed after breaking out, in the backtest | **Close at the removal date, labelled, toggle to exclude** |
 | Q13 | `lfd: 0` rows (4) and derived last full days (34) in stop-based strategies | **Exclude `lfd: 0`; include derived, marked** |
 | Q14 | Backtest start: all breakouts, or only from 2026-08-08? | **All, with a "from 2026-08-08" toggle and the bias stated** |
-| Q15 | Grace period for the old `watch.html` after the redirect? | **Redirect immediately after sign-off; git history is the backup** |
+| Q15 | Grace period for the old `watch.html` after the redirect? | **Answered (revision 3): no redirect.** The old page stays live |
 
 ### Checkpoints that need you
 0. Install Node.js once: `brew install node` (not on this Mac today; Phase 1 can't build or test without it).
 1. Create the GitHub repo `joeedessa/SwingTrader` (public), or let Phase 1 create it with `gh` after you confirm.
 2. Enable Pages with source "GitHub Actions".
-3. Run one weekly report sync in the new repo during the parallel week.
+3. From the next weekly report on, run the weekly sync in this repo only.
 4. Sign off the parity report (D3).
 5. Add the new site to the iPhone Home Screen.
 6. Only if Q11 = yes: add the custom domain to the Worker and deploy it.
@@ -372,7 +357,7 @@ Checked against the machine and the answers to Q7 and Q9:
 2. **Repo and URL:** `joeedessa/SwingTrader` doesn't exist yet. Vite needs `base: "/SwingTrader/"`, and the path is case-sensitive. It's the same origin (`https://joeedessa.github.io`), so:
    - the Worker allow-list already covers it;
    - browser-saved edits (localStorage) carry over.
-3. **Signals page (Q9)** is added as route `#/signals` and phase 6b. It needs weekly (5y) and monthly (25y) closes for watchlist symbols and their indices. After the cut-over, macro-compass no longer fetches those, so `fetch_bars.py` also writes `series.json`. The phantom weekly/monthly bar must be dropped by period (README trap).
+3. **Signals page (Q9)** is added as route `#/signals` and phase 6b. It needs weekly (5y) and monthly (25y) closes for watchlist symbols and their indices. This repo does not read macro-compass's files, so `fetch_bars.py` also writes `series.json`. The phantom weekly/monthly bar must be dropped by period (README trap).
 4. **Context for future sessions:** Claude's memory is per project folder, so a session opened in SwingTrader starts blank. Phase 1 therefore writes a `CLAUDE.md` with:
    - the hard constraints and the trading rules;
    - the weekly report sync, including appending `source_open` dates and comparing LFDR for B3s week to week;
@@ -386,6 +371,8 @@ Checked against the machine and the answers to Q7 and Q9:
 
 ## Progress
 
+- **Revision 3 (1 Nov 2026):** Phase 4 and the cut-over are removed (macro-compass stays live and separate). Prices and levels are compared at 7 significant digits (`src/engine/precision.ts`). Fourteen watchlist rows changed a count, a stop or a date, none a section or a type, and no benchmark changed: listed in `docs/PARITY.md`.
+
 - **Phase 3 (Setups board + Benchmarks at parity): done 1 Nov 2026.** Live at `#/setups` and `#/benchmarks` (a setup's drawer is `#/setups/AME/long`, and Back closes it). Section counts equal the old page's on the same settled day: **watchlist 148 of 148, benchmarks 23 of 23** (31 / 18 / 11 / 6 / 15 / 30 / 37 and 11 / 6 / 1 / 2 / 1 / 2 / 0); six rows differ in a date or in having a stop at all, all explained in `docs/PARITY.md`. 368 tests; console clean; no sideways scroll at 390 px; light and dark checked.
   - **Board:** seven sections with counts, search, Direction and Market filters, sortable headers (each section opens on its own question), a table on desktop and cards on a phone from the same column list. **Drawer:** every level with how it was reached (the old tooltips, written out), type and exits, the setup's own events, calendar, facts, actions (Mark as breakout, Remove, Mark as failed, Undo, Restore, Delete), Edit levels, and an "edited here · shared value X · Reset" marker so a stale override cannot hide the next report's level.
   - **Saved edits** use the old page's localStorage keys and shape unchanged, so edits made there are here (same origin) and the old page can still read what is written back. Add setup (prices fetched on demand through the Worker), Export (setups plus the journal, read-only) and Import (a list, or an export) are in. `hold`, `state` and `alert` fields are ignored, as planned.
@@ -393,7 +380,6 @@ Checked against the machine and the answers to Q7 and Q9:
   - **Data pipeline:** bars are now written once the exchange's session has ended, keyed by the exchange's own date, and kept as Yahoo sends them (see PARITY.md: the first version rounded prices and moved ties). A run with nothing new leaves `bars.json` alone; before, a fresh timestamp alone committed the whole 5 MB every hour.
   - **Left for later phases, on purpose:** the Flags column and flag chips (Phase 5), "Log fill" and the journal itself (Phase 6), the weekly log, calendar, scan and trade log from the old page (Phases 5, 6, 6b), the Home Screen icon (Phase 9). Fail and Undo are offered on re-entered and stopped-out rows too; the old page offered them only on Confirmed and At target.
   - **Not verified:** the bottom bar against a real iPhone's home indicator. This Mac has no full Xcode, so the iOS Simulator tool cannot start. The layout was checked by simulating the insets (`--sab` 34 px portrait; 47 px at the sides in landscape): the bar grows by the inset, its labels sit above it, the page's bottom padding grows with it, and nothing overflows. Open the site on the phone once to confirm.
-  - **Before Phase 4 (cut-over):** after `watch.html` becomes a redirect, the old page's weekly setup log, dividend flags, cross scan, calendar and trade-log form have no replacement until Phases 5, 6 and 6b. The trade log's data stays in the browser under its old key; only its screen goes.
 
 - **Phase 2 (engine port + tests + parity): done 1 Nov 2026.** `src/engine/`: `types`, `bars` (settled/live split from `bars.json` + the tip), `replay`, `lfd`, `btype`, `sections`, `derived`, `events` (weekly log as data), `row` (one evaluation per setup, the board). 249 tests green: unit tests per module, fixtures PRK (hand-built), WAWI.OL, 7936.T, ICLR, and the D3 parity test on a frozen dump of the old page (`tests/parity/`, 148 rows, **zero differences**). Write-up: `docs/PARITY.md`. One data finding: the old page dated Australian bars one day early in daylight-time months (UTC keying); the new repo uses the exchange's own date.
   - `fetch_bars.py` now writes a day once the exchange's session has ended (was: once the UTC date had passed), so the hourly job picks up a close within the hour.
@@ -404,3 +390,9 @@ Checked against the machine and the answers to Q7 and Q9:
   - Parity hook: macro-compass commit `604ec2a7` adds `window.__parity()` (inputs plus every row's outcome, keyed by sym + dir). The debug line from the original plan was superseded by this.
   - Data notes for Phase 2: `bars.json` has 180 symbols and 87,515 days from 2024-10 onward. BSM, PNDORA.CO, FLS.CO and H78.SI now have bars. Close sits outside low–high on a few bars (JPY=X ×33, FSR.JO, ZN=F); kept as received and listed in `tests/data.test.ts`.
   - Seven rows have no negation (NGVT, FSS, BWMX, SL.MI, HO.PA, MKS.L, 8012.T), all Watching. This is expected: the source publishes a negation only after a breakout. The engine must treat a null negation as "not yet set", not as a gap.
+
+## Revision 3 (Joe, 1 Nov 2026)
+
+1. **No cut-over.** Phase 4 and the cut-over checklist are removed. The macro-compass page stays live and separate; it does not read this repo's data, and this repo never edits macro-compass. From the next weekly report on, the weekly sync happens here only.
+2. **Rounding.** Prices and levels are rounded to 7 significant digits before every level comparison, so a close exactly on a level follows the written rule instead of Yahoo's float noise. "At or past" stays only in the search for an imported setup's confirming close, because for those rows the stored trigger is often that close's exact price (KRO, 3107.T, UBER). The rows this changed are listed in `docs/PARITY.md`.
+3. **Phase 5 split.** 5a is the flags engine (Opus 5.5); 5b is the Today page (Sonnet 5.5).

@@ -49,8 +49,40 @@ Checked on 2026-11-01 (Sunday, every market shut) by loading the old page and th
 | JPY=X (benchmarks) | breakout and stop-hit date one day later | The same, for the FX series: the old page put Monday's bar on the Sunday. The new data has no weekend-dated FX bars. |
 | CANHLIFE.NS (short), TCS.NS, ICLR | the new app shows a derived stop and a type; the old page showed none | These are removed rows. The old page fetched bars only for rows that were still live, so a removed row never had a stop or a type. The new app has bars for every symbol, so the drawer can say what happened before it was removed. The section is the same (Removed). |
 
-**Why the price file keeps Yahoo's raw numbers.** Yahoo sends prices as 32-bit floats widened to doubles (`5.429999828338623` for a 5.43 close). The engine compares a close with a level exactly, so a close that equals a level is decided by which side of the level that noise falls on. The first version of `bars.json` rounded to six decimals; that made a close of 5.43 exactly equal to a trigger of 5.43, which the old page (with 5.4299998) did not treat as a cross. Result: four more rows differed (GLYHO.IS, PGEN, PACS, DAKT). A confirming day or a stop-touch day moved by one, which changed GLYHO.IS's derived stop (17 → 16.48), PGEN's derived stop (5.43 → 5.26) and breach count (5 → 3), and PACS's pullback count (3 → 4). The file now keeps the raw values (+0.14 MB gzipped: 1.1 MB on the wire, 5.4 MB parsed), so the engine decides every tie exactly as the old page does.
+**Why the price file keeps Yahoo's raw numbers.** Yahoo sends prices as 32-bit floats widened to doubles (`5.429999828338623` for a 5.43 close). The engine compares a close with a level exactly, so a close that equals a level is decided by which side of the level that noise falls on. The first version of `bars.json` rounded to six decimals; that made a close of 5.43 exactly equal to a trigger of 5.43, which the old page (with 5.4299998) did not treat as a cross. Result: four more rows differed (GLYHO.IS, PGEN, PACS, DAKT). A confirming day or a stop-touch day moved by one, which changed GLYHO.IS's derived stop (17 → 16.48), PGEN's derived stop (5.43 → 5.26) and breach count (5 → 3), and PACS's pullback count (3 → 4). The file keeps the raw values (+0.14 MB gzipped: 1.1 MB on the wire, 5.4 MB parsed); since revision 3 the engine rounds at the moment it compares, not in the file.
 
-**A question for Joe, not a defect.** A close exactly on a level is rare but real (levels are round numbers), and today it is settled by float noise in both pages. The rules say a breakout is "strictly past" the trigger, while the code that finds the confirming close for a source-confirmed row (`crossBefore`) uses "at or past". Rounding prices to seven significant digits would make ties follow the rule you wrote, at the cost of moving derived stops on a handful of rows. That is a change to the engine's behaviour, so it waits for you.
+**Decided since (revision 3).** Ties are no longer left to float noise: see the next section.
 
 **Not part of the comparison.** Live-session behaviour (every market was shut), and the closes the old page used for its replay (Yahoo's `spark` feed, which rounds low-priced assets: 0.697 for LIN.AX where the chart feed has 0.6975) against the chart closes the new app uses. No row on either list sits close enough to a level for that to matter today.
+
+## Revision 3: prices compared at 7 significant digits (Joe, 1 Nov 2026)
+
+**The rule now.** Every comparison of a price with a level rounds both to 7 significant digits first (`src/engine/precision.ts`), so a price exactly on a level follows the written rule whichever way Yahoo's float32 noise points: a breakout and a re-entry must close strictly past the trigger, a target counts at or past, a touch of the negation or the last full day must go strictly beyond it, a pullback starts on a low at or through the trigger, and the run past the boundary starts on a close strictly past it. "At or past" is used in one place only: the search for an imported setup's confirming close, because the stored trigger is often that close's exact price (KRO, 3107.T, UBER).
+
+**What it changed, on 1 Nov 2026** (today's data and the frozen dump give the same list): **no row changes section or type**, and the counts stay 31 / 18 / 11 / 6 / 15 / 30 / 37 and 11 / 6 / 1 / 2 / 1 / 2 / 0. No benchmark changes at all. Fourteen watchlist rows change something, each because a price sits exactly on a level (checked bar by bar):
+
+*Counts or stop changed*
+
+| Row | Section, type | Change | The tie |
+|---|---|---|---|
+| PGEN long | At target, B3 | stop 5.43 → **5.26** (derived); pullbacks 0 → 1; exits 5 → 3; re-entries 5 → 3 | the close of 25-06-26 is the 5.52 trigger, so the confirming close is a day earlier and the stop is the low of 24-06-26 |
+| PACS long | Re-entered, B3 | pullbacks 3 → 4 | the close of 01-07-26 is the 44.32 trigger; the confirming close is a day earlier and the low of 02-07-26 counts |
+| GEI.TO long | At target, B2 | pullbacks 3 → 2 | the low of 18-08-26 is the 32.11 trigger: a touch, not a day entirely past it, so the first pullback runs on |
+| TCELL.IS long | Failed, B4 | stop 105.5 → **103.8** (derived) | the close of 22-01-26 is the 112.1 trigger |
+| GLYHO.IS long | Failed, B4 | stop 17 → **16.48** (derived); first hit 14-07 → 27-07-26 | the close of 17-06-26 is the 17.48 trigger |
+| UBER short | Failed, B4 | stop none → **71.08** (derived, the high of 23-07-26); first hit 29-07-26 | the 65.94 trigger is the close of 24-07-26 exactly, which "at or past" now finds |
+
+*A date only*
+
+| Row | Section | Change |
+|---|---|---|
+| KRO long | Confirmed | the confirming close is now found: 24-04-26 (its close is the 7.12 trigger). The stop stays "none in report". |
+| GXI.DE long | Re-entered | confirming close found (06-07-26, close 29.72 = trigger); the pullback is dated 07-07 (was 13-07) |
+| CBK.DE long | Stopped out | confirming close found (14-07-26, close 39.03 = trigger); the pullback is dated 15-07 (was 20-07) |
+| VLY long | Failed | confirming close 11-06 (was 12-06) |
+| DTG.DE long | Failed | confirming close 27-07 (was 28-07) |
+| WAWI.OL long | At target | second pullback 03-08 (was 04-08): that low is the 145.3 trigger |
+| DAKT short | Failed | stop first hit 23-10 (was 22-10): the high of 22-10 is the 19.52 stop, not beyond it |
+| 1038.HK long | Confirmed | the run past the boundary starts 21-10 (was 13-10): the close of 20-10 is the 67.15 boundary. Its "closed above its pattern boundary" event moves to 21-10; the stop is from the report and does not move. |
+
+**How it is held.** `tests/parity/parity.test.ts` still holds the other 134 rows to the old page field by field; these fourteen are held to the values in `tests/parity/adjudicated-2026-11-01.json`, each with its reason, and the test fails if any of them moves to another section or type. `tests/engine/precision.test.ts` pins the rule itself with float32 values on either side of a level. The old macro-compass page keeps its old behaviour, so it will disagree with this site on these rows; it is separate now and not compared again.

@@ -1,6 +1,6 @@
 # SwingTrader — standing instructions for every session
 
-Joe's breakout watchlist and trading dashboard: classical chart-pattern setups from the Tech Charts research service (Aksel Kibar), tracked from "waiting" to "target" or "failed". It's being moved here from the `macro-compass` repo (`~/Macro Compass`, page `docs/watch.html`). **The plan is `docs/PLAN.md`**, approved 1 Nov 2026; the original brief is `docs/BRIEF.md`.
+Joe's breakout watchlist and trading dashboard: classical chart-pattern setups from the Tech Charts research service (Aksel Kibar), tracked from "waiting" to "target" or "failed". It started as a page in the `macro-compass` repo (`~/Macro Compass`, `docs/watch.html`); that page stays live and separate. **The plan is `docs/PLAN.md`**, approved 1 Nov 2026 (revision 3 the same day); the original brief is `docs/BRIEF.md`.
 
 ## How Joe works
 
@@ -15,9 +15,11 @@ Joe's breakout watchlist and trading dashboard: classical chart-pattern setups f
 - **Settled daily closes drive the rules;** intraday data is only for "live" flags.
 - Desktop and phone are equally first-class, in light and dark mode, Apple-grade design.
 - Tech Charts' reports and PDFs are licensed: **never commit them.** The levels in `watchlist.json` are published by Joe's decision.
+- **Never edit the macro-compass repo from here.** It stays live and separate, and it does not read this repo's data.
 
 ## Trading rules (the engine — do not change without Joe)
 
+- **Comparisons:** prices and levels are rounded to 7 significant digits before every level comparison (Yahoo's prices carry float32 noise). "At or past" is used only to find an imported setup's confirming close, whose stored trigger is often that close's exact price.
 - **Breakout:** the first settled close strictly past the trigger (`breakthrough`). A row with `confirmed` starts in breakout state on that date.
 - **Negation is an intraday touch** (low below it for a long, high above it for a short), tested only after the breakout. **Failed (B4) is final: no re-entries after a failure.**
 - **Target:** a settled close at or past it, or a `reached` date (the source counted it). Whether a touch should count is undecided (Q2).
@@ -32,7 +34,7 @@ Joe's breakout watchlist and trading dashboard: classical chart-pattern setups f
   - **B3:** a touch of the LFD is an exit (a breach). A settled close back past the trigger is a re-entry, with the **original LFD** as the stop (Joe's rule for now). Count the breaches.
 - **Sections:** Watching, Confirmed (B1/B2), Re-entered (B3, in), Stopped out (B3, out), At target, Failed, Removed (`removed` + `removed_reason`).
 
-## Weekly report sync (moves here from macro-compass in Phase 1)
+## Weekly report sync (here only, from the next report on)
 
 Every week (around Saturday) Joe drops `GLOBAL EQUITY MARKETS - <date> Part II.pdf` in `~/Downloads`, sometimes with a screenshot of the "Ongoing breakout ideas" sheet. The LFDR column on that sheet is the last full day.
 
@@ -54,8 +56,8 @@ Claude Code does not change models by itself. For each phase: set the model in t
 | 1 | Scaffold + data pipeline (needs `brew install node` first) | Haiku 4.5 |
 | 2 | Engine port + tests + parity | Fable 5.1 |
 | 3 | Setups board + Benchmarks at parity | Sonnet 5.5 |
-| 4 | Cut-over in macro-compass (after Joe signs off parity) | Haiku 4.5 |
-| 5 | Flags + Today page | Opus 5.5 (flag rules), Sonnet 5.5 (page) |
+| 5a | Flags engine + tests | Opus 5.5 |
+| 5b | Today page | Sonnet 5.5 |
 | 6 | Positions, History, Method | Sonnet 5.5 |
 | 6b | Signals page (MAs, cross scan, vs index/sector) | Sonnet 5.5 |
 | 7 | Backtest engine (answer Q1 first) | Fable 5.1 |

@@ -1,4 +1,5 @@
 import { fmt } from './format';
+import { against, past } from './precision';
 import type { Row } from './row';
 import type { Dir } from './types';
 
@@ -72,15 +73,15 @@ export function setupEvents(r: Row): LogItem[] {
   }
   // Live, intraday: only while the tick is from a session still running.
   if (r.live != null && r.liveDate !== r.prevDate) {
-    if (st.state === 'watch' && p.breakthrough != null && (up ? r.live > p.breakthrough : r.live < p.breakthrough))
+    if (st.state === 'watch' && p.breakthrough != null && past(up, r.live, p.breakthrough))
       lv('live-trigger', 'warn', who + 'trading ' + (up ? 'above' : 'below') + ' its trigger (' + fmt(r.live) +
         ' vs ' + fmt(p.breakthrough) + '); a close ' + (up ? 'above' : 'below') + ' confirms the breakout');
     if (T && T.tag && !T.out && T.stop != null && (st.state === 'breakout' || st.state === 'target') &&
-        (up ? r.live < T.stop : r.live > T.stop))
+        against(up, r.live, T.stop))
       lv('live-stop', 'bad', who + 'trading ' + (up ? 'below' : 'above') + ' its last full day ' + lh +
         ' (' + fmt(r.live) + ' vs ' + fmt(T.stop) + '): a touch is exit ' + ((T.breaches || []).length + 1));
     if ((st.state === 'breakout' || st.state === 'target') && p.negation != null &&
-        (up ? r.live < p.negation : r.live > p.negation))
+        against(up, r.live, p.negation))
       lv('live-negation', 'bad', who + 'trading ' + (up ? 'below' : 'above') + ' its negation (' +
         fmt(r.live) + ' vs ' + fmt(p.negation) + '); a touch fails the trade');
   }
