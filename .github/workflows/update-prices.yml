@@ -1,0 +1,56 @@
+name: Update prices
+
+# Prices refresh on a fifteen-minute loop inside one long-running job, because
+# GitHub's scheduler drops most scheduled runs. The loop is the cadence; the
+# schedule and the data job are only safety nets that start a fresh loop.
+#
+# The loop writes only prices-latest.json, which is small. The bar history is
+# written by update-data.yml once a day.
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Update data"]
+    types: [completed]
+
+permissions:
+  contents: write
+
+# A new trigger waits for the running loop rather than cancelling it. GitHub keeps
+# one pending run per group, so there is always one loop running and at most one
+# waiting to take over.
+concurrency:
+  group: update-prices
+  cancel-in-progress: false
+
+jobs:
+  prices:
+    runs-on: ubuntu-latest
+    # GitHub kills a job at six hours; stopping at five and a half lets the last pass finish.
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run the fifteen-minute loop
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          end=$(( $(date +%s) + 5 * 3600 + 1800 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            python3 scripts/fetch_latest.py || echo "fetch failed; keeping the last good file"
+            git add public/data/prices-latest.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Update prices $(date -u +%FT%TZ)"
+              for i in 1 2 3 4 5; do
+                if git push; then break; fi
+                git pull --rebase --autostash origin main || true
+              done
+            fi
+            sleep 900
+          done

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+__pycache__/
+.claude/
+# Tech Charts reports are licensed and never committed.
+*.pdf

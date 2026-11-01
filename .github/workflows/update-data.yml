@@ -1,0 +1,51 @@
+name: Update data
+
+# Hourly. Most runs find nothing new and commit nothing; the point is to pick up
+# a new close within the hour it lands.
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Settlement events from TradingView's scanner. Exits 1 rather than publish a
+      # thin response, so || true keeps the last good file.
+      - name: Fetch watchlist earnings and dividend events
+        run: python3 scripts/fetch_events.py || true
+
+      # Daily bars are append-only and gated on the file's own age, so this step
+      # runs at most once a day for bars and once a day for the long series.
+      - name: Fetch daily bars and long series
+        run: python3 scripts/fetch_bars.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A public/data/
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "Update data $(date -u +%F)"
+            # The price loop pushes every fifteen minutes, so a push can land behind it.
+            # Rebase and retry rather than failing the run on a lost race.
+            for i in 1 2 3 4 5; do
+              if git push; then exit 0; fi
+              echo "push rejected, rebasing (attempt $i)"
+              git pull --rebase --autostash origin main || true
+            done
+            echo "::error::could not push after 5 attempts"
+            exit 1
+          fi
