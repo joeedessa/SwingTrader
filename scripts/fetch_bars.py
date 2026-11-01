@@ -7,8 +7,8 @@ Writes two files under public/data/:
                {"bars": {SYM: {"2026-10-30": [low, high, close], ...}}, "ccy": {SYM: "USD"}}
                The order [low, high, close] is the one the old page used:
                a long reads index 0 (the low), a short reads index 1 (the high).
-               A day is written once it has passed and is never removed or
-               rewritten, so a later correction on Yahoo's side is not picked up.
+               A day is written once its session has ended and is never removed
+               or rewritten, so a later correction on Yahoo's side is not picked up.
                The first run pulls two years; later runs pull a month and add
                only the days not yet on file.
 
@@ -58,33 +58,33 @@ def load(path):
     return json.loads(path.read_text()) if path.exists() else {}
 
 
-def today_utc():
-    return datetime.now(timezone.utc).date().isoformat()
-
-
 def update_bars(syms):
     old = load(BARS)
     bars = old.get("bars") or {}
     ccy = old.get("ccy") or {}
     first_run = not bars
     rng = "2y" if first_run else "1mo"
-    today = today_utc()
-    missing = []
+    failed = []
     added_total = 0
 
     for n, sym in enumerate(syms, 1):
         got = yahoo.chart(sym, rng, "1d")
         time.sleep(0.35)
         if got is None:
-            missing.append(sym)
+            failed.append(sym)
             continue
         day = bars.setdefault(sym, {})
         ccy[sym] = got["ccy"] or ccy.get(sym)
+        now = int(time.time())
+        today_local = yahoo.local_date(now, got["tz"])
+        # Settled once the session has ended: the bar dated today (exchange
+        # time) is written only after the exchange's regular close, which is
+        # what lets the hourly job pick up a close within the hour it lands.
+        settled_today = bool(got["session_end"]) and now >= got["session_end"]
         added = 0
         for epoch, _o, h, l, c in got["bars"]:
             d = yahoo.local_date(epoch, got["tz"])
-            # Only settled days are written; today's bar is still forming.
-            if d >= today or d in day:
+            if d > today_local or d in day or (d == today_local and not settled_today):
                 continue
             day[d] = [l, h, c]
             added += 1
@@ -96,6 +96,10 @@ def update_bars(syms):
     # carried as empty objects, so the reader can tell "no history" from "no entry yet".
     bars = {s: d for s, d in bars.items() if d}
     covered = [s for s in syms if s in bars]
+    missing = [s for s in syms if s not in bars]
+    if failed:
+        print(f"  no answer this run for {', '.join(failed)}"
+              f" ({sum(1 for s in failed if s in bars)} of them keep the bars already on file)")
     cov = len(covered) / max(1, len(syms))
     old_cov = lambda o: len(set(o.get("bars") or {}) & set(syms)) / max(1, len(syms))
     if not quality.safe_to_write(BARS, cov, old_cov, "bars.json"):

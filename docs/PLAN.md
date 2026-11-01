@@ -386,6 +386,9 @@ Checked against the machine and the answers to Q7 and Q9:
 
 ## Progress
 
+- **Phase 2 (engine port + tests + parity): done 1 Nov 2026.** `src/engine/`: `types`, `bars` (settled/live split from `bars.json` + the tip), `replay`, `lfd`, `btype`, `sections`, `derived`, `events` (weekly log as data), `row` (one evaluation per setup, the board). 249 tests green: unit tests per module, fixtures PRK (hand-built), WAWI.OL, 7936.T, ICLR, and the D3 parity test on a frozen dump of the old page (`tests/parity/`, 148 rows, **zero differences**). Write-up: `docs/PARITY.md`. One data finding: the old page dated Australian bars one day early in daylight-time months (UTC keying); the new repo uses the exchange's own date.
+  - `fetch_bars.py` now writes a day once the exchange's session has ended (was: once the UTC date had passed), so the hourly job picks up a close within the hour.
+  - Not ported in Phase 2, by scope: dividend flags and MA structure alerts (Phase 5 flags, Phase 6b Signals); the overlay store (Phase 3).
 - **Repo live (1 Nov 2026):** https://github.com/joeedessa/SwingTrader (public, `main`). Pages source: GitHub Actions. Site: https://joeedessa.github.io/SwingTrader/ serves the Phase 1 shell; console clean; `window.__board` matches the local build.
 - **Workflows:** Deploy Pages green (push). Update data green (first run). Update prices: the first pass committed `prices-latest.json`; the job is a 5.5-hour loop, so its overall status settles only when the loop ends.
 - **Phase 1 (scaffold + data pipeline): done 1 Nov 2026.** Local checks: `npm test` 6/6, `tsc` and `vite build` clean, shell at `/SwingTrader/` shows 148 setups, 23 benchmarks and 180 bar symbols, console clean, `fetch_bars.py` and `fetch_latest.py` green.

@@ -1,0 +1,30 @@
+{
+"name": "PRK",
+"why": "Tech Charts' other type 2 example, rebuilt by hand: PRK gave back the trigger, not the boundary, bottoming near 180 against a 178.65 boundary. Boundary 178.65, trigger 184 (the 3% filter), target 205, negation 170. The run past the boundary starts on 03-03, so the last full day is the 03-02 low 174; confirmed 03-05; one pullback from 03-06 (low 183) through 03-10 (low 180) ending on 03-11; target on the 03-13 close. B2, final.",
+"setup": { "sym": "PRK", "dir": "long", "breakthrough": 184, "boundary": 178.65, "target": 205, "negation": 170, "created": "2026-03-02", "pattern": "Rectangle" },
+"settled": [["2026-03-02", 176.5], ["2026-03-03", 179.2], ["2026-03-04", 181], ["2026-03-05", 184.8], ["2026-03-06", 187], ["2026-03-09", 185.5], ["2026-03-10", 183], ["2026-03-11", 189], ["2026-03-12", 194], ["2026-03-13", 205.5], ["2026-03-16", 203]],
+"live": 203,
+"liveDate": "2026-03-16",
+"currency": "USD",
+"bars": {
+  "2026-03-02": [174, 178, 176.5],
+  "2026-03-03": [176, 180, 179.2],
+  "2026-03-04": [178, 182, 181],
+  "2026-03-05": [180, 185.5, 184.8],
+  "2026-03-06": [183, 188, 187],
+  "2026-03-09": [181, 186, 185.5],
+  "2026-03-10": [180, 184.5, 183],
+  "2026-03-11": [184.5, 190, 189],
+  "2026-03-12": [188, 195, 194],
+  "2026-03-13": [193, 206, 205.5],
+  "2026-03-16": [200, 207, 203]
+},
+"expect": {
+  "section": "target",
+  "btype": { "tag": "B2", "final": true, "pullbacks": [{ "when": "2026-03-06", "at": 183 }], "breaches": [], "reentries": [], "out": false, "trig": 184, "stop": 174, "stopHit": null, "retest": { "when": "2026-03-06", "at": 183 }, "reentry": null, "noStop": false },
+  "lfd": { "at": 174, "src": "derived", "kind": "boundary", "pending": false, "conf": "2026-03-05", "anchor": "2026-03-03", "bar": "2026-03-02", "alt": { "bar": "2026-03-04", "at": 178 }, "hit": null },
+  "breakout": { "when": "2026-03-05", "close": 184.8 },
+  "targetHit": { "when": "2026-03-13", "close": 205.5 },
+  "failed": null
+}
+}

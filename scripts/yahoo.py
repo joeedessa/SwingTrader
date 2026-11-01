@@ -86,9 +86,11 @@ def fetch_quotes(symbols):
 def chart(symbol, rng, interval):
     """One symbol's bars from the chart endpoint.
 
-    Returns {"ccy", "tz", "bars": [(epoch, open, high, low, close), ...]}
+    Returns {"ccy", "tz", "session_end", "bars": [(epoch, open, high, low, close), ...]}
     with incomplete bars (any null field) dropped, or None when Yahoo answers
-    with nothing usable.
+    with nothing usable. session_end is the epoch at which the current
+    trading day's regular session ends, so a caller can tell a bar that is
+    still forming from one that has settled.
     """
     url = CHART + urllib.parse.quote(symbol) + f"?range={rng}&interval={interval}"
     try:
@@ -110,7 +112,9 @@ def chart(symbol, rng, interval):
         bars.append((t, round(o, 6), round(h, 6), round(l, 6), round(c, 6)))
     if not bars:
         return None
-    return {"ccy": meta.get("currency"), "tz": meta.get("exchangeTimezoneName"), "bars": bars}
+    reg = (meta.get("currentTradingPeriod") or {}).get("regular") or {}
+    return {"ccy": meta.get("currency"), "tz": meta.get("exchangeTimezoneName"),
+            "session_end": reg.get("end"), "bars": bars}
 
 
 def local_date(epoch, tz):
