@@ -82,8 +82,8 @@ describe('the page', () => {
     else expect(text(html)).toContain('Nothing has just changed sides on a 150 or 200 and stayed near it.');
   });
 
-  it('says where the weekly and monthly bars are from, and that they are refreshed about daily', () => {
-    expect(text(render(<SignalsPage />))).toMatch(/Weekly and monthly bars from .*refreshed about daily/);
+  it('says where the weekly and monthly bars are from, and that the periods in progress end at the latest settled close', () => {
+    expect(text(render(<SignalsPage />))).toMatch(/Weekly and monthly bars from .*; the week and month in progress end at the latest settled close/);
   });
 
   it('gives each tile the number the engine finds on the same closes', () => {

@@ -103,7 +103,7 @@ describe('the day against the index and the sector', () => {
 
   it('explains the figure in the moves it comes from, in the tooltip', () => {
     expect(vsIndexCell(rel({}), 'US').title).toBe('+1.2% on the day, against +0.2% for ^GSPC, in percentage points.');
-    expect(vsSectorCell(rel({}), 'Tech').title).toBe('+1.2% on the day, against a median of +0.3% across the 5 setups in Tech on the list, in percentage points.');
+    expect(vsSectorCell(rel({}), 'Tech').title).toBe('+1.2% on the day, against a median of +0.3% across the 5 names in Tech on the list, in percentage points.');
   });
 
   it('is a dash that says why: no index for the country, no day move, too few names in the sector', () => {
@@ -111,8 +111,8 @@ describe('the day against the index and the sector', () => {
     expect(vsIndexCell(rel({ vsIndex: null, index: null }), undefined).title).toBe('No country on file for this setup.');
     expect(vsIndexCell(rel({ vsIndex: null, day: null }), 'US').title).toBe('No day move for this name yet.');
     expect(vsIndexCell(rel({ vsIndex: null, indexDay: null }), 'US').title).toBe('No day move for ^GSPC yet.');
-    expect(vsSectorCell(rel({ vsSector: null, peers: 2 }), 'Tech').title).toBe(`Only 2 setups have a day move in Tech; a median needs ${MIN_SECTOR_PEERS}.`);
-    expect(vsSectorCell(rel({ vsSector: null, peers: 1 }), 'Tech').title).toContain('Only 1 setup has a day move');
+    expect(vsSectorCell(rel({ vsSector: null, peers: 2 }), 'Tech').title).toBe(`Only 2 names have a day move in Tech; a median needs ${MIN_SECTOR_PEERS}.`);
+    expect(vsSectorCell(rel({ vsSector: null, peers: 1 }), 'Tech').title).toContain('Only 1 name has a day move');
     expect(vsSectorCell(rel({ vsSector: null }), null).title).toBe('No sector on file for this setup.');
     expect(vsSectorCell(rel({ vsSector: null, day: null }), 'Tech').title).toBe('No day move for this name yet.');
     for (const c of [vsIndexCell(rel({ vsIndex: null }), 'US'), vsSectorCell(rel({ vsSector: null }), 'Tech')]) expect(c.value).toBe('–');

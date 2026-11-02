@@ -54,11 +54,11 @@ export function vsIndexCell(rel: Relative, country: string | undefined): Cell {
 export function vsSectorCell(rel: Relative, sector: string | null | undefined): Cell {
   if (rel.vsSector == null) {
     return { value: '–', title: !sector ? 'No sector on file for this setup.' : rel.day == null ? 'No day move for this name yet.'
-      : `Only ${rel.peers} ${rel.peers === 1 ? 'setup has' : 'setups have'} a day move in ${sector}; a median needs ${MIN_SECTOR_PEERS}.` };
+      : `Only ${rel.peers} ${rel.peers === 1 ? 'name has' : 'names have'} a day move in ${sector}; a median needs ${MIN_SECTOR_PEERS}.` };
   }
   return {
     value: points(rel.vsSector), ...relTone(rel.vsSector), ...(sector ? { sub: sector } : {}),
-    title: `${signedPct(rel.day)} on the day, against a median of ${signedPct(rel.sectorDay)} across the ${rel.peers} setups in ${sector} on the list, in percentage points.`,
+    title: `${signedPct(rel.day)} on the day, against a median of ${signedPct(rel.sectorDay)} across the ${rel.peers} names in ${sector} on the list, in percentage points.`,
   };
 }
 

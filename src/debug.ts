@@ -56,6 +56,8 @@ export interface SignalsDebug {
   scan: { tf: Timeframe; scope: ScanScope; covered: number; total: number; bullish: number; bearish: number };
   /** The crosses across everything in play, for each timeframe. */
   crosses: Record<Timeframe, { covered: number; total: number; bullish: number; bearish: number }>;
+  /** Of the names in play with a weekly or monthly series, how many had their period in progress closed at a settled daily close (or a period added), and the most bars built for one. */
+  built: Record<'weekly' | 'monthly', { names: number; most: number }>;
   relative: { sym: string; dir: string; vsIndex: number | null; vsSector: number | null; index: string | null; peers: number }[];
 }
 
@@ -111,7 +113,7 @@ export function publishHistory(outcomes: Outcomes, counts: Record<Section, numbe
 
 export function publishSignals(d: {
   rows: number; series: SignalsDebug['series']; seriesStatus: string; events: readonly StructureEvent[]; scan: Scan; scope: ScanScope;
-  all: Record<Timeframe, Scan>; relative: SignalsDebug['relative'];
+  all: Record<Timeframe, Scan>; relative: SignalsDebug['relative']; built: SignalsDebug['built'];
 }): void {
   const count = (s: Scan) => ({ covered: s.covered, total: s.total, bullish: s.hits.filter(h => h.bullish).length, bearish: s.hits.filter(h => !h.bullish).length });
   window.__signals = {
@@ -119,6 +121,7 @@ export function publishSignals(d: {
     events: d.events.map(e => ({ sym: e.row.p.sym, dir: e.row.p.dir, tf: e.tf, period: e.period, state: e.state, ago: e.ago, helps: e.helps })),
     scan: { tf: d.scan.tf, scope: d.scope, ...count(d.scan) },
     crosses: { daily: count(d.all.daily), weekly: count(d.all.weekly), monthly: count(d.all.monthly) },
+    built: d.built,
     relative: d.relative,
   };
 }

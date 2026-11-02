@@ -3,7 +3,7 @@ import { crosses, maRead, maSlope, MIN_BARS, PERIODS_BY_TF, TAGGED, TF_WORDS } f
 import type { Cross, MaRead, MaSlope, Timeframe } from './ma';
 import { median } from './outcomes';
 import type { Row } from './row';
-import type { History, ReplayStatus } from './types';
+import type { History, ReplayStatus, SettledClose } from './types';
 
 /* What the Signals page reads off a set of setups: where each sits against its moving averages on daily, weekly and
    monthly closes, which ones have just changed sides on the 150 or 200, where the averages and the price have crossed,
@@ -76,22 +76,64 @@ export function seriesCloses(entry: SeriesEntry | null | undefined, tf: 'weekly'
   return closes.length ? closes : null;
 }
 
+/** An exchange-local date's own midnight, read as 10:00 UTC. A genuine weekly or monthly stamp is the exchange's local
+    midnight on the period's first day, and the day's own local midnight is within a day of it, so this instant falls
+    inside the right period for every zone from UTC-10 to UTC+13. */
+const dayMid = (iso: string): number => Date.parse(iso + 'T10:00:00Z') / 1000;
+
+export interface SlowSeries {
+  closes: number[];
+  /** How many bars at the end were built from the settled daily closes: the period in progress, and any later period the
+      file has not caught up with. */
+  built: number;
+}
+
+/** A weekly or monthly series closed at the settled daily closes.
+
+    Yahoo's last genuine bar is the period in progress as of the moment the data job ran, which can be the middle of a
+    session, and the file is rewritten only about once a day. The settled daily closes are the better record of the same
+    thing: a week's close is its last settled daily close, so the file's last bar is closed at the last settled close in its
+    period, and a period the file has not caught up with (a new week or month since the job ran) is added from them. Every
+    figure on the page then ends at the latest settled close, as the rules do. A period with no settled close yet is left
+    as the file has it. */
+export function slowSeries(entry: SeriesEntry | null | undefined, tf: 'weekly' | 'monthly', settled: readonly SettledClose[] | null | undefined): SlowSeries | null {
+  const file = seriesCloses(entry, tf);
+  if (!file) return null;
+  const n = file.length;
+  const last = entry && entry.t.length >= n ? entry.t[n - 1] : undefined;
+  if (last == null || !settled || !settled.length) return { closes: file, built: 0 };
+  const closes = file.slice();
+  let built = 0;
+  let k = 0;
+  while (k < settled.length && dayMid(settled[k][0]) < last) k++;
+  let end = periodEnd(last, tf);
+  let inFile = true;
+  while (k < settled.length) {
+    let close: number | null = null;
+    while (k < settled.length && dayMid(settled[k][0]) < end) { close = settled[k][1]; k++; }
+    if (close != null) {
+      if (inFile) closes[n - 1] = close; else closes.push(close);
+      built++;
+    }
+    inFile = false;
+    end = periodEnd(end, tf);
+  }
+  return { closes, built };
+}
+
 /** Closes for one symbol on one timeframe, or null where there are none. */
 export type CloseSource = (sym: string, tf: Timeframe) => readonly number[] | null;
 
-/** A lookup over the settled daily closes and the weekly and monthly series, each worked out once. */
+/** A lookup over the settled daily closes and the weekly and monthly series (closed at the daily closes), each worked out once. */
 export function closeSource(hist: Record<string, History | undefined>, series: SeriesFile | null | undefined): CloseSource {
   const memo = new Map<string, readonly number[] | null>();
   return (sym, tf) => {
     const key = tf + '|' + sym;
     if (memo.has(key)) return memo.get(key) as readonly number[] | null;
+    const h = hist[sym];
     let v: readonly number[] | null;
-    if (tf === 'daily') {
-      const h = hist[sym];
-      v = h && h.settled.length ? h.settled.map(x => x[1]) : null;
-    } else {
-      v = seriesCloses(series ? series[tf][sym] : null, tf);
-    }
+    if (tf === 'daily') v = h && h.settled.length ? h.settled.map(x => x[1]) : null;
+    else v = slowSeries(series ? series[tf][sym] : null, tf, h ? h.settled : null)?.closes ?? null;
     memo.set(key, v);
     return v;
   };
@@ -240,7 +282,7 @@ export interface Relative {
   indexDay: number | null;
   /** Percentage points ahead of (positive) or behind the index; null without both moves. */
   vsIndex: number | null;
-  /** How many setups in the list share its sector (itself included) and have a day move, and the median of their day moves. */
+  /** How many names in the list share its sector (itself included) and have a day move, and the median of their day moves. */
   peers: number;
   sectorDay: number | null;
   /** Percentage points against the sector's median day; null with fewer than three names in the sector. */
@@ -250,21 +292,21 @@ export interface Relative {
 /** Sectors this small have no median worth comparing with. */
 export const MIN_SECTOR_PEERS = 3;
 
-/** Each setup's day against its local index and against the median of the same sector's setups across the whole list (failed
-    and removed ones included: a day move is a day move). `rows` is the whole board. Counted by setups, as the old page did: a
-    name listed both long and short counts twice. (Counting names would change a quarter of the figures by a tenth of a point
-    or more; docs/PLAN.md offers it.) */
+/** Each name's day against its local index and against the median of the same sector's names across the whole list (failed
+    and removed ones included: a day move is a day move). `rows` is the whole board. A name counts once, however many setups
+    it has: one listed both long and short is one stock, and counting it twice would pull the median toward it. (The old
+    page counted setups.) */
 export function relatives(rows: readonly Row[], hist: Record<string, History | undefined>): Map<Row, Relative> {
-  const bySector: Record<string, number[]> = {};
+  const bySector: Record<string, Map<string, number>> = {};
   for (const r of rows) {
     const sector = r.ev.sector;
-    if (sector && r.dayPct != null) (bySector[sector] || (bySector[sector] = [])).push(r.dayPct);
+    if (sector && r.dayPct != null) (bySector[sector] || (bySector[sector] = new Map())).set(r.p.sym, r.dayPct);
   }
   const out = new Map<Row, Relative>();
   for (const r of rows) {
     const index = indexOf(r.p.country);
     const indexDay = index ? dayPctOf(hist[index]) : null;
-    const peers = r.ev.sector ? bySector[r.ev.sector] || [] : [];
+    const peers = r.ev.sector && bySector[r.ev.sector] ? [...bySector[r.ev.sector].values()] : [];
     const sectorDay = peers.length >= MIN_SECTOR_PEERS ? median(peers) : null;
     out.set(r, {
       day: r.dayPct, index, indexDay,

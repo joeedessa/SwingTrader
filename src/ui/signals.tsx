@@ -6,7 +6,7 @@ import { fmt, signedPct } from '../engine/format';
 import { TIERS, TIMEFRAMES, TF_WORDS } from '../engine/ma';
 import type { Timeframe } from '../engine/ma';
 import type { Row } from '../engine/row';
-import { closeSource, isLive, ladderOf, relatives, scanOf, scanRows, SCAN_SCOPES, structureEvents } from '../engine/signals';
+import { closeSource, isLive, ladderOf, relatives, scanOf, scanRows, SCAN_SCOPES, slowSeries, structureEvents } from '../engine/signals';
 import type { MaColumn, Relative, Scan, ScanScope, StructureEvent } from '../engine/signals';
 import { SECTION_LABELS } from '../engine/types';
 import { go } from '../router';
@@ -225,8 +225,12 @@ export function SignalsPage() {
       series: s.series ? { generatedAt: s.series.generated_at, weekly: Object.keys(s.series.weekly).length, monthly: Object.keys(s.series.monthly).length } : null,
       seriesStatus: s.seriesStatus, events, scan, scope: sc, all,
       relative: live.map(r => { const x = rels.get(r) as Relative; return { sym: r.p.sym, dir: r.p.dir, vsIndex: x.vsIndex, vsSector: x.vsSector, index: x.index, peers: x.peers }; }),
+      built: Object.fromEntries((['weekly', 'monthly'] as const).map(tf => {
+        const counts = [...new Set(live.map(r => r.p.sym))].map(sym => slowSeries(s.series ? s.series[tf][sym] : null, tf, s.hist[sym]?.settled)?.built ?? 0);
+        return [tf, { names: counts.filter(n => n > 0).length, most: Math.max(0, ...counts) }];
+      })) as Record<'weekly' | 'monthly', { names: number; most: number }>,
     });
-  }, [ready, live, s.series, s.seriesStatus, events, scan, sc, all, rels]);
+  }, [ready, live, s.series, s.seriesStatus, s.hist, events, scan, sc, all, rels]);
 
   const openRow = (r: Row) => go({ page: 'signals', row: { sym: r.p.sym, dir: r.p.dir } });
   const tiles = signalTiles(events, all, {
@@ -257,7 +261,7 @@ export function SignalsPage() {
       <main class="page signals" data-underlay>
         <Hero title="Signals" stamp={loading ? 'Loading…' : <>{live.length} in play · averages, crosses and the day against the market<span class="wideonly"> · each price in its own listing currency</span></>}>
           <DataLine set="watchlist" />
-          {s.series && s.series.generated_at ? <p class="dataline"><span class="dot good" aria-hidden="true" />Weekly and monthly bars from {stampOf(s.series.generated_at)}, refreshed about daily</p> : null}
+          {s.series && s.series.generated_at ? <p class="dataline"><span class="dot good" aria-hidden="true" />Weekly and monthly bars from {stampOf(s.series.generated_at)}; the week and month in progress end at the latest settled close</p> : null}
           {s.seriesStatus === 'failed' ? <p class="dataline warn">The weekly and monthly bars did not load. <button type="button" class="linkbtn" onClick={() => void loadSeries(true)}>Try again</button></p> : null}
           {s.seriesProblems.length ? <p class="dataline warn">{s.seriesProblems.length === 1 ? '1 problem' : `${s.seriesProblems.length} problems`} in the weekly and monthly file: what could not be read is left out (see Method).</p> : null}
         </Hero>
@@ -272,7 +276,7 @@ export function SignalsPage() {
         <div class="panel" role="tabpanel" aria-label={LABEL[t]}>{body}</div>
 
         <footer class="foot">
-          <p>Averages are simple and read on closes only: the feed carries no intraday high or low here, so a wick through a line that closed back on the other side reads as held. The cross ladder uses exponential averages for its 5 and 21. Each daily figure is the latest settled close; the weekly and monthly bars are refreshed about once a day, and their last bar is the week or month in progress as of then. Failed and removed setups are left out. Not investment advice.</p>
+          <p>Averages are simple and read on closes only: the feed carries no intraday high or low here, so a wick through a line that closed back on the other side reads as held. The cross ladder uses exponential averages for its 5 and 21. Every figure ends at the latest settled close: the week and the month in progress are closed at it, whenever the weekly and monthly bars were last fetched. Failed and removed setups are left out. Not investment advice.</p>
         </footer>
       </main>
       <DrawerHost set="watchlist" bd={bd} today={today} loading={loading} />

@@ -99,7 +99,7 @@ describe('the Method page', () => {
     expect(t).toContain(`${TF_WORDS.daily.lookback} sessions, ${TF_WORDS.weekly.lookback} weeks or ${TF_WORDS.monthly.lookback} months`);
     for (const tier of TIERS) expect(t).toContain(tier.label);
     expect(t).toContain(`needs ${MIN_BARS} bars on a timeframe`);
-    expect(t).toContain(`a sector needs ${MIN_SECTOR_PEERS} setups (a name listed both long and short counts twice)`);
+    expect(t).toContain(`a sector needs ${MIN_SECTOR_PEERS} names (a name listed both long and short counts once)`);
     for (const word of ['held', 'rejected', 'reclaimed', 'lost', 'whipsawed']) expect(t).toContain(word);
     expect(t).toContain('Yahoo pads every weekly and monthly series');
   });

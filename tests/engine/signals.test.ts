@@ -5,7 +5,7 @@ import { maRead, MIN_BARS, TAGGED, TIMEFRAMES } from '../../src/engine/ma';
 import type { Timeframe } from '../../src/engine/ma';
 import type { Row } from '../../src/engine/row';
 import {
-  closeSource, FRESH_WITHIN, INDEX_MAP, indexOf, isLive, ladderOf, MIN_SECTOR_PEERS, periodEnd, relatives, scanOf, scanRows, seriesCloses, structureEvents,
+  closeSource, FRESH_WITHIN, INDEX_MAP, indexOf, isLive, ladderOf, MIN_SECTOR_PEERS, periodEnd, relatives, scanOf, scanRows, seriesCloses, slowSeries, structureEvents,
 } from '../../src/engine/signals';
 import type { SeriesEntry, SeriesFile } from '../../src/engine/signals';
 import type { History, ReplayStatus, Section } from '../../src/engine/types';
@@ -142,15 +142,16 @@ describe('the day against the index and the sector, against the old page', () =>
     expect(r3.get(three[1])!.vsSector).toBe(1);
   });
 
-  it('counts setups, as the old page did: a name listed both long and short is in its sector\'s median twice', () => {
+  it('counts a name once in its sector\'s median, however many setups it has: one listed long and short is one stock', () => {
     const rows3 = [stub({ sym: 'A', sector: 'S', dayPct: 1 }), stub({ sym: 'A', dir: 'short', sector: 'S', dayPct: 1 }), stub({ sym: 'B', sector: 'S', dayPct: 3 }), stub({ sym: 'C', sector: 'S', dayPct: 2 })];
     const r = relatives(rows3, {});
-    // The median of 1, 1, 3, 2 is 1.5.
-    expect(r.get(rows3[2])).toMatchObject({ peers: 4, sectorDay: 1.5, vsSector: 1.5 });
-    expect(r.get(rows3[0])).toMatchObject({ peers: 4, sectorDay: 1.5, vsSector: -0.5 });
-    // Two names in three rows is enough for a median, by the rows.
+    // Counted by setups (the old page's way) the median of 1, 1, 3, 2 would be 1.5; by names it is the median of 1, 3, 2.
+    expect(r.get(rows3[2])).toMatchObject({ peers: 3, sectorDay: 2, vsSector: 1 });
+    expect(r.get(rows3[0])).toMatchObject({ peers: 3, sectorDay: 2, vsSector: -1 });
+    expect(r.get(rows3[1])).toMatchObject({ peers: 3, vsSector: -1 });
+    // Two names in three setups are two names: too few for a median.
     const two = relatives([stub({ sym: 'A', sector: 'S', dayPct: 1 }), stub({ sym: 'A', dir: 'short', sector: 'S', dayPct: 1 }), stub({ sym: 'B', sector: 'S', dayPct: 3 })], {});
-    expect([...two.values()].every(x => x.peers === 3 && x.vsSector != null)).toBe(true);
+    expect([...two.values()].every(x => x.peers === 2 && x.vsSector == null)).toBe(true);
   });
 
   it('counts a name with no day move out of its sector\'s median, and gives it no comparison', () => {
@@ -373,25 +374,88 @@ describe('the live series file', () => {
   });
 });
 
+describe('the week and the month in progress, closed at the settled daily closes', () => {
+  const settled = (days: [string, number][]) => days as unknown as readonly [string, number][];
+  // New York: Monday 04:00 UTC stamps; Tokyo: Sunday 15:00 UTC.
+  const ny = (stamps: string[], closes: number[]) => tail(stamps, closes);
+
+  it('closes the file\'s last bar at the last settled daily close inside its period', () => {
+    const e = ny(['2026-10-19T04:00:00', '2026-10-26T04:00:00', '2026-10-28T20:00:00'], [10, 11.5, 11.5]);   // the padded bar is Wednesday's price
+    const r = slowSeries(e, 'weekly', settled([['2026-10-27', 11], ['2026-10-28', 11.5], ['2026-10-29', 12], ['2026-10-30', 12.5]]));
+    expect(r).toEqual({ closes: [10, 12.5], built: 1 });
+  });
+
+  it('adds the period the file has not caught up with, closed at its last settled close, and the periods after it', () => {
+    const e = ny(['2026-10-19T04:00:00', '2026-10-26T04:00:00', '2026-10-30T20:00:00'], [10, 12.5, 12.5]);
+    // Monday 2 November has settled: a new week, with one close so far.
+    expect(slowSeries(e, 'weekly', settled([['2026-10-30', 12.5], ['2026-11-02', 13]]))).toEqual({ closes: [10, 12.5, 13], built: 2 });
+    // A file three weeks stale: one bar per week that has a close, at that week's last close.
+    const stale = slowSeries(e, 'weekly', settled([['2026-10-30', 12.5], ['2026-11-02', 13], ['2026-11-06', 14], ['2026-11-09', 15], ['2026-11-13', 16], ['2026-11-17', 17]]));
+    expect(stale).toEqual({ closes: [10, 12.5, 14, 16, 17], built: 4 });
+  });
+
+  it('does the same for a month, and for an exchange ahead of UTC', () => {
+    // Tokyo's October opened at 15:00 UTC on 30 September; 2 November (Monday) is November's first settled close.
+    const e = tail(['2026-08-31T15:00:00', '2026-09-30T15:00:00', '2026-10-30T06:30:00'], [2000, 2101.5, 2101.5]);
+    expect(slowSeries(e, 'monthly', settled([['2026-10-29', 2100], ['2026-10-30', 2101.5], ['2026-11-02', 2090.5]]))).toEqual({ closes: [2000, 2101.5, 2090.5], built: 2 });
+    // The same week for Tokyo: Monday 2 November is a new week.
+    const w = tail(['2026-10-18T15:00:00', '2026-10-25T15:00:00', '2026-10-30T06:30:00'], [2091, 2101.5, 2101.5]);
+    expect(slowSeries(w, 'weekly', settled([['2026-10-30', 2101.5], ['2026-11-02', 2090.5]]))).toEqual({ closes: [2091, 2101.5, 2090.5], built: 2 });
+  });
+
+  it('leaves the file as it is when the daily closes end before its last period, or there are none', () => {
+    const e = ny(['2026-10-19T04:00:00', '2026-10-26T04:00:00', '2026-10-30T20:00:00'], [10, 12.5, 12.5]);
+    expect(slowSeries(e, 'weekly', settled([['2026-10-21', 9], ['2026-10-23', 9.5]]))).toEqual({ closes: [10, 12.5], built: 0 });
+    expect(slowSeries(e, 'weekly', [])).toEqual({ closes: [10, 12.5], built: 0 });
+    expect(slowSeries(e, 'weekly', null)).toEqual({ closes: [10, 12.5], built: 0 });
+    expect(slowSeries(null, 'weekly', settled([['2026-10-30', 1]]))).toBeNull();
+  });
+
+  it('keeps the file\'s last bar when no settled close has fallen in its period yet, and still adds the periods after', () => {
+    // A weekly bar for a week with no settled close in the daily data (a gap), then a week with closes.
+    const e = ny(['2026-10-19T04:00:00', '2026-10-26T04:00:00'], [10, 12.5]);
+    expect(slowSeries(e, 'weekly', settled([['2026-11-03', 13], ['2026-11-04', 14]]))).toEqual({ closes: [10, 12.5, 14], built: 1 });
+  });
+
+  it('puts a Sunday, a Saturday and a Monday in the right week on both sides of UTC', () => {
+    // Egypt trades Sunday: Yahoo's week is Monday to Sunday, so Sunday 25 October is the week of the 19th (stamped Sunday 21:00 UTC = Monday 00:00 Cairo).
+    const eg = tail(['2026-10-11T21:00:00', '2026-10-18T21:00:00'], [120, 122]);
+    expect(slowSeries(eg, 'weekly', settled([['2026-10-22', 121], ['2026-10-25', 123]]))!.closes).toEqual([120, 123]);
+    expect(slowSeries(eg, 'weekly', settled([['2026-10-25', 123], ['2026-10-26', 124]]))!.closes).toEqual([120, 123, 124]);
+    // Sydney in summer time (UTC+11): Friday 30 October is the week of the 26th (stamped Sunday 13:00 UTC); Monday 2 November is the next.
+    const au = tail(['2026-10-18T13:00:00', '2026-10-25T13:00:00'], [24.5, 21.7]);
+    expect(slowSeries(au, 'weekly', settled([['2026-10-30', 21.66], ['2026-11-02', 22]]))!.closes).toEqual([24.5, 21.66, 22]);
+  });
+
+  it('does not change what it is given', () => {
+    const e = ny(['2026-10-19T04:00:00', '2026-10-26T04:00:00', '2026-10-30T20:00:00'], [10, 12.5, 12.5]);
+    const copy = JSON.parse(JSON.stringify(e));
+    const days = settled([['2026-10-30', 12.5], ['2026-11-02', 13]]);
+    slowSeries(e, 'weekly', days);
+    expect(e).toEqual(copy);
+    expect(days).toEqual([['2026-10-30', 12.5], ['2026-11-02', 13]]);
+  });
+});
+
 describe('what the page reads each timeframe\'s closes from', () => {
-  const hist = (closes: number[]): History => ({ settled: closes.map((c, i) => [`2026-01-${String(i + 1).padStart(2, '0')}`, c]), live: null, liveDate: '', currency: 'USD' });
+  const hist = (days: [string, number][]): History => ({ settled: days, live: null, liveDate: '', currency: 'USD' });
   const series: SeriesFile = {
     generated_at: '2026-11-01T17:03:51Z',
     weekly: { X: tail(['2026-10-12T04:00:00', '2026-10-19T04:00:00', '2026-10-21T20:00:00'], [1, 2, 2]) },
     monthly: {},
   };
-  const src = closeSource({ X: hist([5, 6, 7]) }, series);
+  const src = closeSource({ X: hist([['2026-10-20', 5], ['2026-10-21', 6], ['2026-10-22', 7]]) }, series);
 
-  it('is the settled closes for the daily bars, and the series without its phantom for weekly and monthly', () => {
+  it('is the settled closes for the daily bars, and the series without its phantom and closed at the daily closes for weekly and monthly', () => {
     expect(src('X', 'daily')).toEqual([5, 6, 7]);
-    expect(src('X', 'weekly')).toEqual([1, 2]);
+    expect(src('X', 'weekly')).toEqual([1, 7]);
     expect(src('X', 'monthly')).toBeNull();
   });
 
   it('is nothing for a symbol it has no closes for, and for a series file that has not loaded', () => {
     expect(src('Y', 'daily')).toBeNull();
     expect(closeSource({ X: hist([]) }, series)('X', 'daily')).toBeNull();
-    expect(closeSource({ X: hist([5, 6]) }, null)('X', 'weekly')).toBeNull();
+    expect(closeSource({ X: hist([['2026-10-20', 5]]) }, null)('X', 'weekly')).toBeNull();
   });
 
   it('works each out once', () => {
