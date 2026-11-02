@@ -14,6 +14,7 @@ Joe's breakout watchlist and trading dashboard: classical chart-pattern setups f
 - **Prices stay in each instrument's listing currency. Never convert.** State units wherever they aren't obvious.
 - **Settled daily closes drive the rules;** intraday data is only for "live" flags.
 - Desktop and phone are equally first-class, in light and dark mode, Apple-grade design.
+- **Nothing hard-codes how many setups there are.** The lists change every week: names are added, and a dropped one is marked `removed`, never deleted. Code, page text and tests derive every count from the data. A test on the live files asserts what is true of every row, whatever the count; a test on a frozen capture reads its counts from that capture.
 - Tech Charts' reports and PDFs are licensed: **never commit them.** The levels in `watchlist.json` are published by Joe's decision.
 - **Never edit the macro-compass repo from here.** It stays live and separate, and it does not read this repo's data.
 

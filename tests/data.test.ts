@@ -2,37 +2,53 @@ import { describe, expect, it } from 'vitest';
 import watchlist from '../public/data/watchlist.json';
 import benchmarks from '../public/data/benchmarks.json';
 import bars from '../public/data/bars.json';
+import frozen from './parity/watchlist-2026-11-01.json';
+import { parseSetups } from '../src/data/schema';
 
 // negation and lfd are null on some rows, and the engine has to handle that, so they are not required here.
 type Row = { sym: string; dir: string; breakthrough: number; negation: number | null; target: number; removed?: string };
 
 const rows = watchlist as Row[];
+const keyOf = (r: { sym: string; dir: string }) => `${r.sym}|${r.dir}`;
 
-describe('watchlist.json', () => {
-  it('carries at least the 148 setups from the report-sync data (rows are never deleted)', () => {
-    expect(rows.length).toBeGreaterThanOrEqual(148);
+/* The lists change every week (names are added, and dropped ones are marked removed), so nothing here knows how many
+   rows there are: only what is true of every row, whatever the count. */
+function checkList(file: string, list: unknown[]) {
+  it('is not empty', () => {
+    expect(list.length).toBeGreaterThan(0);
   });
 
-  it('has the fields the engine reads on every row', () => {
+  it('passes the same validation the page applies, row for row', () => {
+    const parsed = parseSetups(list, file);
+    expect(parsed.problems).toEqual([]);
+    expect(parsed.rows.length).toBe(list.length);
+  });
+
+  it('has unique symbol and direction pairs', () => {
+    const keys = (list as Row[]).map(keyOf);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+}
+
+describe('watchlist.json', () => {
+  checkList('watchlist.json', rows);
+
+  it('has the levels the engine reads on every row (a negation may be null: the source publishes one only after a breakout)', () => {
     for (const r of rows) {
-      expect(r.sym, r.sym).toBeTypeOf('string');
-      expect(['long', 'short'], r.sym).toContain(r.dir);
       expect(r.breakthrough, r.sym).toBeTypeOf('number');
       expect(r.target, r.sym).toBeTypeOf('number');
       expect(r.negation === null || typeof r.negation === 'number', r.sym).toBe(true);
     }
   });
 
-  it('has unique symbol and direction pairs', () => {
-    const keys = rows.map((r) => `${r.sym}|${r.dir}`);
-    expect(new Set(keys).size).toBe(keys.length);
+  it('still has every setup it had on 2026-11-01: the sync marks a dropped row removed and never deletes it', () => {
+    const now = new Set(rows.map(keyOf));
+    expect((frozen as Row[]).map(keyOf).filter((k) => !now.has(k))).toEqual([]);
   });
 });
 
 describe('benchmarks.json', () => {
-  it('lists the 23 benchmarks', () => {
-    expect(benchmarks).toHaveLength(23);
-  });
+  checkList('benchmarks.json', benchmarks);
 });
 
 describe('bars.json', () => {

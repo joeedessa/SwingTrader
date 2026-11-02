@@ -16,7 +16,7 @@
    | Sonnet 5.5 | 3, 5b, 6, 6b, 8 | UI |
    | Haiku 4.5 | 1, 9 | scaffold, docs |
 
-**Grounding facts** used throughout (measured from the data, not estimated):
+**Grounding facts** used throughout (measured from the data on 1 Nov 2026, not estimated; the lists change every week, so no page, test or script types any of these numbers in, and everything a page prints is counted from the data of the day):
 - **Setups:** 148 in total. **82 have broken out** by the engine's own rule, replayed over the committed closes: 48 imported via `confirmed`, 34 found by the replay; 72 long, 10 short; 2 removed after breaking out.
 - **Outcomes on a close basis:** 39 open, 27 failed, 16 at target. 25 of the 82 broke out in Aug 2026.
 - **Currencies:** 11 listing currencies (USD 28, EUR 15, CAD 12, JPY 10, TRY 5, INR 4, AUD 2, HKD 2, NOK 2, GBp 1, SEK 1).
@@ -98,6 +98,14 @@ The daily 150/200 read and the earnings/news card also stay inside the per-setup
 5. **Next 7 days:** earnings and ex-dividend dates on in-trade and near-trigger names only. This is the calendar, cut to what can hurt a position.
 6. **This week / Last week:** the existing weekly log, folded, same rules as now.
 7. **Data line:** which source served prices (Worker or snapshot), how old the latest price is, and symbols without history.
+
+**As built (Phase 5b, revision 4).** One tier at a time, because about 48 flags at once was too much:
+- **Header:** the day and what is waiting ("8 to decide · 40 to look at"), then the tape line.
+- **Live now:** a strip of its own for the live flags, or "No live flags; markets shut".
+- **Tiers:** a switch between *Needs a decision* (Act) and *Worth a look* (Watch), each with its count and a dot when something in it is new. It opens on Act, or on Watch when Act is empty.
+- **Groups:** each tier's flags are grouped by kind, most pressing first. A group of three or fewer opens by itself; a longer one shows its first names and opens on a tap. Each group, and each tier, has an Acknowledge.
+- **Next 7 days:** earnings and ex-dividend flags are groups inside Watch (soonest first), not a section of their own, so the tier count, the lists and the badge add up.
+- **Folded at the foot:** Acknowledged today, the weekly log (This week / Last week, every event), then the data line.
 
 ### A4. Setups page: what replaces column-hunting
 - **Sections:** a segmented control with counts, one section at a time as now, remembered per browser.
@@ -208,7 +216,7 @@ All three are printed with the number of trades behind them.
 - **Stat tiles:** number of trades, win rate, expectancy (in % and R), profit factor, max drawdown, average and peak positions open, capital in use.
 - **Tables:** results by final type, and a sensitivity grid (strategy × re-entries × sizing; each cell shows expectancy, max drawdown and the ratio).
 - **Confidence:** a bootstrap 90% interval on expectancy (1,000 resamples of the trade list), so the effect of the small sample is visible.
-- **Caveats printed with numbers:** about 82 trades, 25 of them in one month, 10 shorts, 39 still open, 34 derived stops, 4 without a tight stop.
+- **Caveats printed with numbers,** each counted from the trade list on the day (on 1 Nov 2026: 82 trades, 25 of them in one month, 10 shorts, 39 still open, 34 derived stops, 4 without a tight stop); none is typed into the page.
 
 ### B6. Fees and slippage
 Configurable; the default is 0.10% commission + 0.10% slippage per side, taken off the % return. Settings are stored in the URL, so a scenario is a shareable link.
@@ -309,7 +317,7 @@ Effort is relative (1 ≈ half a day of agent work). Each phase ships and is ver
 | 6 | Positions, History (including the journal port) and Method pages; full drawer | journal pairing matches today's on a fixture; stop ladder order matches today's Confirmed sort | **Sonnet 5.5** | 3 |
 | 6b | Signals page (Q9): `series.json` from `fetch_bars.py` (weekly/monthly, phantom bar dropped by period), `src/engine/ma.ts` ported from `ma.js` (averages, slope, held/lost/reclaimed) with tests, index map, sector medians | MA values and slope states equal macro-compass's for 5 sample symbols on the same day; phantom-bar test; phone layout | **Sonnet 5.5** (well-specified port; tests guard it) | 2 |
 | 7 | Backtest engine: S1–S5, re-entry depth, sizing schemes, stats, bootstrap, currency model; fixtures with hand-computed answers | fixtures pass (a gap through the stop, a short, two re-entries, an open trade, `reached`, removed after breakout); the printed universe count equals the engine's breakout count | **Fable 5.1** (the semantics are the whole value) | 4 |
-| 8 | Model page UI: controls in the URL, sensitivity grid, equity and drawdown charts, trade list, caveats, excluded list | re-runs in under 200 ms for 82 trades; a scenario link reproduces the same numbers; phone layout; units on every number | **Sonnet 5.5** | 3 |
+| 8 | Model page UI: controls in the URL, sensitivity grid, equity and drawdown charts, trade list, caveats, excluded list | re-runs in under 200 ms for the day's whole trade list (82 on 1 Nov 2026); a scenario link reproduces the same numbers; phone layout; units on every number | **Sonnet 5.5** | 3 |
 | 9 | Polish: Method page, weekly-process doc, performance, accessibility, final console and phone sweep | console clean on all 7 routes, phone and desktop | **Haiku 4.5** for docs; **Sonnet 5.5** for the sweep | 2 |
 
 **Why this order:** phases 1–3 put the tested engine and the new foundation live before any redesign, so nothing gets built twice. Phases 5–6 deliver "miss nothing, stop hunting". Phases 7–8 don't depend on 5–6 and can run in parallel sessions once phase 2 is done.
@@ -371,6 +379,14 @@ Checked against the machine and the answers to Q7 and Q9:
 
 ## Progress
 
+- **Phase 5b (Today page, acknowledgements, last-visit marks): done 2 Nov 2026.** `#/today` is the landing page, and the Today tab carries the badge (live + Act + Watch still to look at) on the desktop bar and the phone bar. Built as described under A3 "As built". 541 tests; checked in the browser at 1280 and 375 px, light and dark, console clean.
+  - **Revision 4 (Joe): too many at once.** About 48 flags no longer show together. On the 2 Nov data Today opens on Act (8 flags in five groups); Watch (40) is five group lines until one is opened.
+  - **Acknowledgements:** per flag, per group and per tier, with Undo for eight seconds and from the folded "Acknowledged today" group, which empties at local midnight. They are kept in this browser (`st-acks-v1`, and `st-acks-benchmarks-v1`), forgotten after 90 days, and Export and Import carry them. A reload keeps them (checked in the browser, and in `tests/data/acks.test.ts`).
+  - **Since your last visit:** the page remembers which flag ids it was showing when it was last looked at (`st-visit-v1`), and marks the others as new: a dot on the row, "n new" on the group and in the list header, a dot on the tier. Half an hour away is a new visit. A first visit marks nothing. Only a visit that looked at Today is remembered.
+  - **Checked against the old page, live, on 2 Nov:** the weekly log lists the same 2 + 23 events as the old page's "Setup events", in the same order. Two lines read differently, both explained in `docs/PARITY.md`: REH.AX's boundary event (last full day low 16.58 here, 17.38 there) and NCX.V's failure ("closed 2.8" here, "touched 2.8" there).
+  - **Engine bug found and fixed on the way** (separate commit): a breakout on the newest session, whose close is known from the tip but whose bar is not yet on file, took its last full day from a bar months earlier (REH.AX: an August low, and a stop "hit" before the breakout). It now anchors to that session and reads the full day before it. One row on 2 Nov changed (REH.AX: 16.87 → 16.58, no section or type change); the 148 frozen parity rows are unchanged. Details in `docs/PARITY.md`.
+  - **Choices made (say if any is wrong):** (1) Today shows the watchlist only; the benchmarks raise flags and keep their own acknowledgements, but have no surface for them until the Benchmarks board gets its Flags chips. (2) Live flags are counted in the badge and sit above the tiers, not in them. (3) The drawer opens over Today (`#/today/AME/long`), so Back returns to the same tier and groups. (4) "New" is what was not on screen at the last visit, not what is dated after it, because bars arrive up to an hour after a close. (5) A group opens by itself at three flags or fewer (`GROUP_OPEN_UP_TO`). (6) The tape line is the old gauge as one sentence; its "check Market signals" became "weigh single names against it", since there is no such panel here. (7) A data flag is a plain line in the footer until the Method page exists (Phase 6), so it has no link yet.
+  - **Left out on purpose:** the Flags column and chips on the Setups board, so `late-entry` (surface: Setups chip only) still has no place to show; the History and Positions surfaces (Phase 6); the Home Screen icon (Phase 9).
 - **Phase 5a (flags engine): done 1 Nov 2026.** `src/engine/flags.ts`: the 19 rules of A2 as data (tier, surfaces, how each clears, the rule's words) and as code; named thresholds; ids `sym|dir|kind|when` (`*|*|data.<topic>|<day>` for data flags); five-session expiry; pure acknowledgement helpers (`ackable`, `expired`, `badgeCount`) for 5b's store to use. 52 tests: at least one per rule, id stability (same inputs, any order, a new session, a price move, a level edit, a move to another section, long against short, either board), the old weekly log's settled events carried one for one with the same words, expiry, the badge. On today's data the watchlist raises 352 flags, 48 on Today, badge 47 (16 of them earnings this week).
   - **Choices made for the rules (say if any is wrong):** "in trade" is Confirmed, Re-entered or At target (not Stopped out). `live-negation` follows the plan's "in trade", so a stopped-out row no longer raises it (the old page did). `boundary` stays on the record after the confirmation, as the old log kept it; its text drops "not confirmed" then. A condition's id carries the day it was read (near-trigger, near-stop) or the event's date (earnings, ex-dividend), so an acknowledgement lasts that session or that event. Live flags cannot be acknowledged and count in the badge while they last. Expiry also has a backstop the plan did not name: ten weekdays on the board, for a symbol that stops trading (WBS has no bar after 19-08-26, so its flags would never age).
 - **Revision 3 (1 Nov 2026):** Phase 4 and the cut-over are removed (macro-compass stays live and separate). Prices and levels are compared at 7 significant digits (`src/engine/precision.ts`). Fourteen watchlist rows changed a count, a stop or a date, none a section or a type, and no benchmark changed: listed in `docs/PARITY.md`.
@@ -397,3 +413,8 @@ Checked against the machine and the answers to Q7 and Q9:
 1. **No cut-over.** Phase 4 and the cut-over checklist are removed. The macro-compass page stays live and separate; it does not read this repo's data, and this repo never edits macro-compass. From the next weekly report on, the weekly sync happens here only.
 2. **Rounding.** Prices and levels are rounded to 7 significant digits before every level comparison, so a close exactly on a level follows the written rule instead of Yahoo's float noise. "At or past" stays only in the search for an imported setup's confirming close, because for those rows the stored trigger is often that close's exact price (KRO, 3107.T, UBER). The rows this changed are listed in `docs/PARITY.md`.
 3. **Phase 5 split.** 5a is the flags engine (Opus 5.5); 5b is the Today page (Sonnet 5.5).
+
+## Revision 4 (Joe, 2 Nov 2026)
+
+1. **Today groups its flags by tier.** About 48 at once was too much. Today shows one tier at a time, with each tier's flags grouped by kind (see A3, "As built").
+2. **Nothing hard-codes how many rows there are.** The lists change every week. Counts in code, page text and tests are derived from the data; a test on the live files asserts what is true of every row; a test on a frozen capture reads its counts from the capture. The rule is in `CLAUDE.md`. Tests changed for it: `tests/data.test.ts` (no row-count floor, no "23 benchmarks": the lists are checked with the same validation the page applies, and the live list is checked to still hold every row of the 1 Nov capture), `tests/parity/parity.test.ts` and `tests/ui/columns.test.ts` (counts read from the capture), `tests/engine/flags.test.ts` (no size floor).

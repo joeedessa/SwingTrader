@@ -43,10 +43,11 @@ const ours = (r: OldRow) => {
 const theirs = (r: OldRow) => strip({ section: r.section, btype: r.btype, lfd: r.lfd, breakout: r.breakout, targetHit: r.targetHit, failed: r.failed });
 
 describe('parity with the old page on frozen inputs', () => {
-  it('covers every row the old page had, and every adjudicated row is one of them', () => {
-    expect(old.rows).toHaveLength(148);
-    for (const r of old.rows) expect(setups.has(r.sym + '|' + r.dir), r.sym + '|' + r.dir).toBe(true);
-    for (const id of Object.keys(ruled)) expect(old.rows.some(r => r.sym + '|' + r.dir === id), id).toBe(true);
+  it('covers every row the old page had and nothing else, and every adjudicated row is one of them', () => {
+    const dumped = old.rows.map(r => r.sym + '|' + r.dir).sort();
+    expect(dumped.length).toBeGreaterThan(0);
+    expect([...setups.keys()].sort()).toEqual(dumped);
+    for (const id of Object.keys(ruled)) expect(dumped, id).toContain(id);
   });
 
   for (const r of old.rows) {
@@ -67,11 +68,11 @@ describe('parity with the old page on frozen inputs', () => {
   }
 
   it('reproduces the section counts the old page showed', () => {
-    const counts: Record<string, number> = {};
-    for (const r of old.rows) {
-      const s = (ours(r) as { section: string }).section;
-      counts[s] = (counts[s] || 0) + 1;
-    }
-    expect(counts).toEqual({ watch: 31, breakout: 18, reentered: 11, stopped: 6, target: 15, failed: 30, removed: 37 });
+    const tally = (sections: string[]) => {
+      const counts: Record<string, number> = {};
+      for (const s of sections) counts[s] = (counts[s] || 0) + 1;
+      return counts;
+    };
+    expect(tally(old.rows.map(r => (ours(r) as { section: string }).section))).toEqual(tally(old.rows.map(r => r.section)));
   });
 });

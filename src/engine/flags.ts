@@ -87,6 +87,18 @@ export const THRESHOLDS = {
 
 export type DataTopic = 'no-history' | 'no-bars' | 'snapshot' | 'stale-tip' | 'no-events';
 
+/** The one comparison a flag turns on, for a list row: what was read, and the level it was read against.
+    Prices stay in the listing currency; `ccy` says which. */
+export interface Figure {
+  read: 'close' | 'low' | 'high' | 'live' | 'last close' | 'last full day';
+  price: number;
+  vs: 'trigger' | 'last full day' | 'negation' | 'target' | 'boundary';
+  level: number;
+  /** ATRs between the two, for the rules that are about distance. */
+  atrs?: number;
+  ccy: string;
+}
+
 export interface Flag {
   /** `sym|dir|kind|when`; for a data flag `*|*|data.<topic>|<today>`. */
   id: string;
@@ -103,6 +115,7 @@ export interface Flag {
   surfaces: Surface[];
   /** Pullback, exit and re-entry number, counted from 1. */
   n?: number;
+  figure?: Figure;
   topic?: DataTopic;
   /** The symbols a data flag is about. */
   syms?: string[];
@@ -173,6 +186,29 @@ export function nearTrigger(r: Row): { money: number; atrs: number } | null {
   return d && d.money >= 0 && d.atrs <= THRESHOLDS.nearAtr ? d : null;
 }
 
+/** The number a flag turns on, read off the row the way the rule read it: the close that broke out against the trigger,
+    the low that touched against the last full day, the live price against the level it is past. */
+export function figureOf(r: Row, kind: FlagKind, n?: number): Figure | undefined {
+  const { p, st } = r;
+  const touch = p.dir === 'long' ? 'low' : 'high';
+  const T = r.btype;
+  const fig = (read: Figure['read'], price: number | null | undefined, vs: Figure['vs'], level: number | null | undefined, atrs?: number): Figure | undefined =>
+    price == null || level == null ? undefined : { read, price, vs, level, ccy: r.currency, ...(atrs != null ? { atrs } : {}) };
+  switch (kind) {
+    case 'breakout': return st.breakout ? fig('close', st.breakout.close, 'trigger', p.breakthrough) : undefined;
+    case 'target': return st.targetHit ? fig('close', st.targetHit.close, 'target', p.target) : undefined;
+    case 'failed': return st.failed ? fig(st.failed.byTouch ? touch : 'close', st.failed.byTouch ? st.failed.at : st.failed.close, 'negation', p.negation) : undefined;
+    case 'pullback': { const x = T && T.pullbacks && n != null ? T.pullbacks[n - 1] : null; return x ? fig(touch, x.at, 'trigger', T!.trig) : undefined; }
+    case 'exit': { const x = T && T.breaches && n != null ? T.breaches[n - 1] : null; return x ? fig(touch, x.at, 'last full day', T!.stop) : undefined; }
+    case 'reentry': { const x = T && T.reentries && n != null ? T.reentries[n - 1] : null; return x ? fig('close', x.close, 'trigger', p.breakthrough) : undefined; }
+    case 'boundary': return r.lfd && r.lfd.at != null ? fig('last full day', r.lfd.at, 'boundary', p.boundary) : undefined;
+    case 'live-trigger': return fig('live', r.live, 'trigger', p.breakthrough);
+    case 'live-stop': return T ? fig('live', r.live, 'last full day', T.stop) : undefined;
+    case 'live-negation': return fig('live', r.live, 'negation', p.negation);
+    default: return undefined;
+  }
+}
+
 /* ------------------------------------------------------------------ the rules */
 
 const EVENT_KINDS: Record<LogItem['kind'], FlagKind> = {
@@ -215,13 +251,16 @@ export function setupFlags(r: Row, ctx: FlagContext): Flag[] {
   // is "in trade", and the old page also raised it on a stopped-out row, where there is no position to act on.
   for (const e of setupEvents(r)) {
     if (e.kind === 'live-negation' && !inTrade(r)) continue;
-    out.push(make(r, ctx, EVENT_KINDS[e.kind], e.when, e.text, e.n != null ? { n: e.n } : {}));
+    const kind = EVENT_KINDS[e.kind];
+    const figure = figureOf(r, kind, e.n);
+    out.push(make(r, ctx, kind, e.when, e.text, { ...(e.n != null ? { n: e.n } : {}), ...(figure ? { figure } : {}) }));
   }
 
   // A target the source counted where our closes fell short: the log left it out, the flags do not.
   if (st.targetHit && st.targetHit.bySource) {
+    const figure = figureOf(r, 'target');
     out.push(make(r, ctx, 'target', st.targetHit.when, who + 'reached its target per the source (' + fmtD(st.targetHit.when) +
-      '); our closes fell just short of ' + fmt(p.target)));
+      '); our closes fell just short of ' + fmt(p.target), figure ? { figure } : {}));
   }
 
   const div = dividendFlag(r, ctx);
@@ -229,16 +268,19 @@ export function setupFlags(r: Row, ctx: FlagContext): Flag[] {
 
   const near = nearTrigger(r);
   if (near && r.prevDate) {
+    const figure = r.prevClose != null && p.breakthrough != null
+      ? { read: 'last close', price: r.prevClose, vs: 'trigger', level: p.breakthrough, atrs: near.atrs, ccy: r.currency } as const : null;
     out.push(make(r, ctx, 'near-trigger', r.prevDate, who + 'last close ' + fmt(r.prevClose) + ' is ' + fmt(near.money) + ' ' + r.currency +
-      ' (' + fmtRatio(near.atrs) + ' ATR) from its trigger ' + fmt(p.breakthrough)));
+      ' (' + fmtRatio(near.atrs) + ' ATR) from its trigger ' + fmt(p.breakthrough), figure ? { figure } : {}));
   }
 
   if (inTrade(r) && r.prevDate) {
     const stop = activeStop(r);
     const d = stop ? distance(r, stop.level, 'below-for-long') : null;
     if (stop && d && d.money >= 0 && d.atrs <= THRESHOLDS.nearAtr) {
+      const figure = r.prevClose != null ? { read: 'last close', price: r.prevClose, vs: stop.kind, level: stop.level, atrs: d.atrs, ccy: r.currency } as const : null;
       out.push(make(r, ctx, 'near-stop', r.prevDate, who + 'last close ' + fmt(r.prevClose) + ' is ' + fmt(d.money) + ' ' + r.currency +
-        ' (' + fmtRatio(d.atrs) + ' ATR) from its ' + stop.kind + ' ' + fmt(stop.level) + (stop.kind === 'negation' ? ' (no last full day)' : '')));
+        ' (' + fmtRatio(d.atrs) + ' ATR) from its ' + stop.kind + ' ' + fmt(stop.level) + (stop.kind === 'negation' ? ' (no last full day)' : ''), figure ? { figure } : {}));
     }
   }
 

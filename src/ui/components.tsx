@@ -13,6 +13,8 @@ export interface SegItem {
   /** A shorter label for a narrow screen. */
   short?: string;
   count?: number;
+  /** Something in this segment is new since the last visit. */
+  dot?: boolean;
 }
 
 export function Segmented({ items, value, onChange, label, panelId }: {
@@ -39,6 +41,7 @@ export function Segmented({ items, value, onChange, label, panelId }: {
           <span class="lfull">{it.label}</span>
           <span class="lshort">{it.short ?? it.label}</span>
           {it.count != null && <span class="n">{it.count}</span>}
+          {it.dot && <span class="segdot" role="img" aria-label="new since your last visit" />}
         </button>
       ))}
     </div>

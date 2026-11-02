@@ -1,10 +1,13 @@
 import { useEffect } from 'preact/hooks';
 import { app, load, recompute } from './data/app';
+import { todayOf } from './data/selectors';
+import { visits } from './data/visit';
 import { route } from './router';
 import { useStore } from './store';
 import { dismiss, notice } from './ui/notice';
 import { TabBar, TopNav } from './ui/nav';
 import { BoardPage } from './ui/page';
+import { TodayPage } from './ui/today';
 import { useNarrow } from './ui/hooks';
 
 const REFRESH_AFTER_MS = 5 * 60 * 1000;
@@ -15,6 +18,7 @@ function Notice() {
   return (
     <div class={'notice ' + n.tone} role="status" aria-live="polite">
       <span>{n.text}</span>
+      {n.action ? <button type="button" class="linkbtn strong" onClick={() => { n.action!.run(); dismiss(); }}>{n.action.label}</button> : null}
       <button type="button" class="linkbtn" onClick={dismiss}>Dismiss</button>
     </div>
   );
@@ -30,17 +34,30 @@ export function App() {
        because a session may have opened or closed while the page sat there. */
     const back = () => {
       if (document.hidden) return;
+      visits.back(Date.now());
       const at = app.get().loadedAt;
       if (at && Date.now() - at > REFRESH_AFTER_MS) void load(); else recompute();
     };
+    /* Leaving the page, by hiding it or closing it, is when Today's last look is written down. */
+    const away = () => {
+      const s = app.get();
+      if (s.phase === 'ready') visits.leave(Date.now(), todayOf(s, 'watchlist', null).ids);
+    };
+    const hide = () => { if (document.hidden) away(); };
     document.addEventListener('visibilitychange', back);
-    return () => document.removeEventListener('visibilitychange', back);
+    document.addEventListener('visibilitychange', hide);
+    addEventListener('pagehide', away);
+    return () => {
+      document.removeEventListener('visibilitychange', back);
+      document.removeEventListener('visibilitychange', hide);
+      removeEventListener('pagehide', away);
+    };
   }, []);
 
   return (
     <div class="app">
       {narrow ? null : <TopNav page={r.page} />}
-      <BoardPage key={r.page} set={r.page === 'benchmarks' ? 'benchmarks' : 'watchlist'} />
+      {r.page === 'today' ? <TodayPage key="today" /> : <BoardPage key={r.page} set={r.page === 'benchmarks' ? 'benchmarks' : 'watchlist'} />}
       {narrow ? <TabBar page={r.page} /> : null}
       <Notice />
     </div>

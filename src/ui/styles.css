@@ -12,6 +12,7 @@
   --on-bg: rgba(12, 163, 12, 0.10); --off-bg: rgba(208, 59, 59, 0.10); --mixed-bg: rgba(250, 178, 25, 0.14);
   /* Market state is amber, not green or red: a market being open is not good news. */
   --open: #a06a00; --open-bg: rgba(250, 178, 25, 0.16);
+  --badge: #d93025;
 
   --accent: var(--series-1);
   --radius: 14px;
@@ -40,6 +41,7 @@
     --up: #0ca30c; --down: #e66767;
     --on-bg: rgba(12, 163, 12, 0.14); --off-bg: rgba(230, 103, 103, 0.14); --mixed-bg: rgba(250, 178, 25, 0.16);
     --open: #fab219; --open-bg: rgba(250, 178, 25, 0.16);
+    --badge: #e5584c;
     --shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
     --pop: 0 0 0 0.5px rgba(255, 255, 255, 0.10), 0 16px 48px rgba(0, 0, 0, 0.6);
     --lift: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.5);
@@ -53,6 +55,7 @@
   --up: #0ca30c; --down: #e66767;
   --on-bg: rgba(12, 163, 12, 0.14); --off-bg: rgba(230, 103, 103, 0.14); --mixed-bg: rgba(250, 178, 25, 0.16);
   --open: #fab219; --open-bg: rgba(250, 178, 25, 0.16);
+  --badge: #e5584c;
   --shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06);
   --pop: 0 0 0 0.5px rgba(255, 255, 255, 0.10), 0 16px 48px rgba(0, 0, 0, 0.6);
   --lift: 0 0 0 0.5px rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.5);
@@ -64,6 +67,7 @@
   :root { --hair: rgba(128, 128, 128, 0.22); --fill: rgba(128, 128, 128, 0.14); --fill-2: rgba(128, 128, 128, 0.24); }
   .segbar { background: var(--page); }
   .chip.on, .seg button[aria-selected="true"], .choice button[aria-pressed="true"] { background: var(--card); }
+  .gnew { background: var(--fill); }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -91,6 +95,10 @@ a { color: inherit; }
 .topnav nav a { padding: 6px 14px; border-radius: 999px; color: var(--text-secondary); text-decoration: none; font-size: 13px; }
 .topnav nav a:hover { color: var(--text-primary); }
 .topnav nav a[aria-current="page"] { background: var(--card); color: var(--text-primary); font-weight: 600; box-shadow: var(--lift); }
+.navbadge {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 7px; border-radius: 999px;
+  background: var(--badge); color: #fff; font-size: 11px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+}
 
 /* ------------------------------------------------------------------ page and header */
 
@@ -358,6 +366,94 @@ pre.list { margin: 0; font: inherit; font-size: 12.5px; color: var(--text-second
 .form .row, .confirm .row { display: flex; justify-content: flex-end; gap: 8px; }
 .form .btn, .confirm .btn { padding: 9px 18px; font-size: 14px; }
 
+/* ------------------------------------------------------------------ today */
+
+.tone-info { color: var(--text-secondary); }
+.tone-fill-good { background: var(--up); }
+.tone-fill-warn { background: var(--open); }
+.tone-fill-bad { background: var(--down); }
+
+.tape {
+  display: flex; align-items: center; gap: 12px; margin: 18px 0 0; padding: 11px 16px;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); font-size: 13.5px; line-height: 1.4;
+}
+.tape strong { font-weight: 650; font-variant-numeric: tabular-nums; }
+.tape .read { color: var(--text-secondary); }
+.meter { flex: none; width: 54px; height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 3px; }
+
+.livequiet { display: flex; align-items: center; gap: 8px; margin: 12px 2px 0; font-size: 13px; color: var(--text-muted); }
+.livebox { margin-top: 16px; }
+.livebox .livedot { margin: 0; font-size: 11.5px; }
+
+.seg button { position: relative; }
+.segdot { position: absolute; top: 4px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+.listhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 14px 2px 0; font-size: 13px; color: var(--text-secondary); }
+.listhead .linkbtn { padding-left: 0; white-space: nowrap; }
+.newcount { color: var(--accent); font-weight: 650; }
+
+.flaggroup { margin-top: 16px; }
+.ghead { display: flex; align-items: center; gap: 12px; padding: 0 2px 7px; }
+.gtoggle { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 8px; border: 0; background: none; padding: 4px 0; text-align: left; color: inherit; }
+.gchev { align-self: center; display: inline-grid; color: var(--text-muted); transition: transform .15s; }
+.gtoggle[aria-expanded="true"] .gchev, details[open] > summary .gchev { transform: rotate(90deg); }
+.gtitle { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; }
+.gcount { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
+.grule { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--text-muted); }
+.gnew {
+  flex: none; align-self: center; font-size: 11.5px; font-weight: 650; padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.groupack { flex: none; padding-left: 0; font-size: 12.5px; white-space: nowrap; }
+.gpreview {
+  display: block; width: 100%; margin: 0; padding: 11px 14px; border: 0; text-align: left; font-size: 13px; color: var(--text-secondary);
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.gpreview:hover { color: var(--text-primary); }
+
+ul.flags { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.flag {
+  position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; align-items: start; column-gap: 10px;
+  padding: 12px 8px 12px 6px; border-bottom: 1px solid var(--hair);
+}
+.flag:last-child { border-bottom: 0; }
+.flag:hover { background: color-mix(in srgb, var(--card) 95%, var(--text-primary)); }
+.flag .hit { position: absolute; inset: 0; border: 0; background: none; z-index: 1; border-radius: inherit; }
+.flag .hit:focus-visible { outline-offset: -3px; }
+.flag > :not(.hit) { position: relative; pointer-events: none; }
+.flag .ackbtn, .flag .undo { pointer-events: auto; z-index: 2; }
+.flag.done { opacity: .72; }
+.gutter { display: grid; place-items: start center; padding-top: 7px; }
+.newdot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.flagmain { min-width: 0; }
+.flagtitle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.flagsym { font-size: 15px; font-weight: 650; letter-spacing: -0.005em; }
+.flagkind { font-size: 12.5px; font-weight: 600; }
+.flagdetail { margin-top: 3px; font-size: 13px; line-height: 1.4; color: var(--text-secondary); }
+.flagmeta { display: flex; align-items: flex-start; gap: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+.flagfig { min-width: 120px; }
+.flagfig .v { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.flagfig .s, .flagwhen .s { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.flagwhen { min-width: 74px; }
+.flagwhen .v { padding-top: 1px; font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.ackbtn { display: grid; place-items: center; width: 34px; height: 34px; margin: -2px 0; border: 0; border-radius: 50%; background: none; color: var(--text-muted); }
+.ackbtn:hover { background: var(--fill); color: var(--up); }
+.noack { width: 34px; }
+.undo { align-self: center; }
+
+.folded { margin-top: 22px; }
+.folded > summary { display: flex; align-items: baseline; gap: 8px; padding: 6px 2px; cursor: pointer; list-style: none; }
+.folded > summary::-webkit-details-marker { display: none; }
+.folded[open] > summary { padding-bottom: 8px; }
+.logbar { padding: 0 2px 10px; }
+ol.events.log { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 4px 16px; }
+.log .ev { grid-template-columns: 84px minmax(0, 1fr); }
+.linklike { border: 0; background: none; padding: 0; text-align: left; color: inherit; font: inherit; line-height: inherit; }
+.linklike:hover { color: var(--accent); }
+.dataarea { margin-top: 28px; }
+.linkbtn.strong { font-weight: 650; }
+
 /* ------------------------------------------------------------------ odds and ends */
 
 .foot { margin-top: 36px; }
@@ -443,6 +539,30 @@ pre.list { margin: 0; font: inherit; font-size: 12.5px; color: var(--text-second
     flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     min-height: 49px; padding: 6px 4px 4px; text-decoration: none; color: var(--text-muted); font-size: 10.5px; font-weight: 500;
   }
+  .tabbar a { position: relative; }
   .tabbar a[aria-current="page"] { color: var(--accent); }
+  .tabbar .navbadge { position: absolute; top: 3px; left: calc(50% + 3px); min-width: 17px; height: 17px; margin: 0; font-size: 10.5px; }
   @supports not (color: color-mix(in srgb, red, blue)) { .tabbar { background: var(--page); } }
+}
+
+/* Today on a phone: each flag is a short card, the number it turns on under its sentence, the tick at the right with a thumb-sized target. */
+@media (max-width: 700px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .page.today .hero { padding-right: 52px; }       /* one round button, not the board's three */
+  .tape { margin-top: 14px; padding: 10px 14px; font-size: 13px; }
+  .tape .read { display: block; }
+  .segdot { top: 3px; right: 4px; }
+  .listhead { margin-top: 12px; }
+  .ghead { gap: 8px; }
+  .grule { display: none; }
+  .flag { grid-template-columns: 14px minmax(0, 1fr) auto; padding: 12px 4px 10px 4px; row-gap: 5px; }
+  .flagmain { grid-column: 2; grid-row: 1; }
+  .flagmeta { grid-column: 2; grid-row: 2; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: 2px 14px; text-align: left; }
+  .flagfig { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+  .flagfig .s { white-space: normal; }
+  .flagwhen { min-width: 0; display: flex; align-items: baseline; gap: 6px; }
+  .flagwhen .v { padding: 0; font-size: 12px; color: var(--text-muted); }
+  .ackbtn, .noack { grid-column: 3; grid-row: 1 / span 2; align-self: center; width: 44px; height: 44px; margin: -8px 0; }
+  .undo { grid-column: 3; grid-row: 1 / span 2; }
+  .log .ev { grid-template-columns: minmax(0, 1fr); }
+  .folded { margin-top: 18px; }
 }

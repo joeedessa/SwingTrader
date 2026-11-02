@@ -1,14 +1,14 @@
 import { Store } from './store';
 
 /* Hash routes, because GitHub Pages has no single-page fallback: a reload on /SwingTrader/#/setups always
-   finds index.html. Three shapes today:
-     #/setups            the board
-     #/setups/AME/long   the board with that setup's drawer open (a Back press closes it)
-     #/benchmarks[...]   the same on the benchmarks list
-   The old `?set=benchmarks` address is handled by the redirect page that replaces watch.html. */
+   finds index.html. Each page takes an optional setup, which opens its drawer over that page (a Back press closes it):
+     #/today             the landing page: what needs a decision this morning
+     #/today/AME/long    Today with that setup's drawer open
+     #/setups[...]       the board
+     #/benchmarks[...]   the same board on the benchmarks list */
 
-export type Page = 'setups' | 'benchmarks';
-export const PAGES: readonly Page[] = ['setups', 'benchmarks'];
+export type Page = 'today' | 'setups' | 'benchmarks';
+export const PAGES: readonly Page[] = ['today', 'setups', 'benchmarks'];
 
 export interface RowRef {
   sym: string;
@@ -20,7 +20,7 @@ export interface Route {
   row: RowRef | null;
 }
 
-export const DEFAULT_ROUTE: Route = { page: 'setups', row: null };
+export const DEFAULT_ROUTE: Route = { page: 'today', row: null };
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);

@@ -2,6 +2,7 @@ import { allHistories } from '../engine/bars';
 import type { BarsFile, LatestFile } from '../engine/bars';
 import type { History, Setup, SymbolEvents } from '../engine/types';
 import { Store } from '../store';
+import { localKV } from './kv';
 import { loadJson } from './load';
 import { emptyOverlay, readOverlay, SETS, workingList, writeOverlay } from './overlay';
 import type { Overlay, SetId } from './overlay';
@@ -37,10 +38,6 @@ export interface AppState {
   now: number;
 }
 
-const storage = (): Storage | null => {
-  try { return typeof localStorage === 'undefined' ? null : localStorage; } catch { return null; }
-};
-
 export const app = new Store<AppState>({
   phase: 'loading',
   refreshing: false,
@@ -48,8 +45,8 @@ export const app = new Store<AppState>({
   problems: [],
   shared: { watchlist: [], benchmarks: [] },
   overlays: {
-    watchlist: readOverlay(storage(), SETS.watchlist.key),
-    benchmarks: readOverlay(storage(), SETS.benchmarks.key),
+    watchlist: readOverlay(localKV(), SETS.watchlist.key),
+    benchmarks: readOverlay(localKV(), SETS.benchmarks.key),
   },
   saveFailed: false,
   events: {},
@@ -156,7 +153,7 @@ async function fillMissingBars(): Promise<void> {
 export function updateOverlay(set: SetId, fn: (ov: Overlay) => Overlay): void {
   const s = app.get();
   const next = fn(s.overlays[set] ?? emptyOverlay());
-  const saved = writeOverlay(storage(), SETS[set].key, next);
+  const saved = writeOverlay(localKV(), SETS[set].key, next);
   app.set({ overlays: { ...s.overlays, [set]: next }, saveFailed: !saved });
   // A setup added here may need bars the snapshot does not have.
   if (next.added.length !== s.overlays[set].added.length) void fillMissingBars();

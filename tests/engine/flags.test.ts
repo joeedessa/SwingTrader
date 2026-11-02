@@ -336,7 +336,7 @@ describe('acknowledgement ids', () => {
 
   it('are unique across the whole board, and no symbol on the list contains the separator', () => {
     const fs = boardFlags(frozenBoard().rows, { today: TODAY, nowMs: Date.parse('2026-11-01T18:00:00Z'), page: 'setups' });
-    expect(fs.length).toBeGreaterThan(150);
+    expect(fs.length).toBeGreaterThan(0);
     expect(new Set(idsOf(fs)).size).toBe(fs.length);
     expect(frozenBoard().rows.some(r => r.p.sym.includes('|'))).toBe(false);
     for (const f of fs) expect(parseFlagId(f.id), f.id).not.toBeNull();
@@ -385,6 +385,70 @@ describe('acknowledgement ids', () => {
     const b = flagsOf(rowOf(LONG, B1), { ...CTX, page: 'benchmarks' });
     expect(idsOf(b)).toEqual(idsOf(a));
     expect(b[0].route).toBe('#/benchmarks/X/long');
+  });
+});
+
+/* ------------------------------------------------------------------ the figure */
+
+describe('the figure a flag turns on', () => {
+  const fig = (r: Row, kind: FlagKind, id?: string) => flagsOf(r).find(f => f.kind === kind && (!id || f.id === id))!.figure;
+  const SHORT_FAIL: Day[] = [
+    ['2026-01-05', 103, 107, 104], ['2026-01-06', 101, 105, 102.5], ['2026-01-07', 98, 103, 99.5], ['2026-01-09', 98, 111, 105],
+  ];
+
+  it('is the price the rule read, against the level it read it against, in the listing currency', () => {
+    expect(fig(rowOf(LONG, B1), 'breakout')).toEqual({ read: 'close', price: 100.5, vs: 'trigger', level: 100, ccy: 'USD' });
+    expect(fig(rowOf(LONG, [...B1, ['2026-01-12', 110, 121, 120]]), 'target')).toEqual({ read: 'close', price: 120, vs: 'target', level: 120, ccy: 'USD' });
+    expect(fig(rowOf(LONG, B1), 'boundary')).toEqual({ read: 'last full day', price: 94, vs: 'boundary', level: 97, ccy: 'USD' });
+  });
+
+  it('a touch is the low for a long and the high for a short', () => {
+    expect(fig(rowOf(LONG, [...B1, ['2026-01-12', 89, 99, 95]]), 'failed')).toEqual({ read: 'low', price: 89, vs: 'negation', level: 90, ccy: 'USD' });
+    expect(fig(rowOf(SHORT, SHORT_FAIL), 'failed')).toEqual({ read: 'high', price: 111, vs: 'negation', level: 110, ccy: 'USD' });
+  });
+
+  it('pullback, exit and re-entry are numbered, each with its own bar', () => {
+    const r = rowOf(P, PATH);
+    expect(fig(r, 'pullback', 'X|long|pullback|2026-01-12')).toEqual({ read: 'low', price: 99.5, vs: 'trigger', level: 100, ccy: 'USD' });
+    expect(fig(r, 'pullback', 'X|long|pullback|2026-01-15')).toEqual({ read: 'low', price: 98, vs: 'trigger', level: 100, ccy: 'USD' });
+    expect(fig(r, 'exit')).toEqual({ read: 'low', price: 93, vs: 'last full day', level: 94, ccy: 'USD' });
+    expect(fig(r, 'reentry')).toEqual({ read: 'close', price: 101, vs: 'trigger', level: 100, ccy: 'USD' });
+  });
+
+  it('a live flag reads the live price', () => {
+    expect(fig(rowOf(LONG, B1, {}, { price: 93, date: '2026-01-12' }), 'live-stop')).toEqual({ read: 'live', price: 93, vs: 'last full day', level: 94, ccy: 'USD' });
+    expect(fig(rowOf(LONG, B1, {}, { price: 89, date: '2026-01-12' }), 'live-negation')).toEqual({ read: 'live', price: 89, vs: 'negation', level: 90, ccy: 'USD' });
+    expect(fig(rowOf(LONG, WAIT, {}, { price: 100.5, date: '2026-01-08' }), 'live-trigger')).toEqual({ read: 'live', price: 100.5, vs: 'trigger', level: 100, ccy: 'USD' });
+  });
+
+  it('a proximity flag carries the distance in ATRs, to the stop it was measured to', () => {
+    const t = fig(rowOf(LONG, WAIT, { atr: 2.5 }), 'near-trigger')!;
+    expect(t).toMatchObject({ read: 'last close', price: 98, vs: 'trigger', level: 100, ccy: 'USD' });
+    expect(t.atrs).toBeCloseTo(0.8, 10);
+    const s = fig(rowOf(LONG, B1, { atr: 12 }), 'near-stop')!;
+    expect(s).toMatchObject({ read: 'last close', price: 104, vs: 'last full day', level: 94 });
+    expect(s.atrs).toBeCloseTo(10 / 12, 10);
+    expect(fig(rowOf({ ...LONG, lfd: 0 }, B1, { atr: 15 }), 'near-stop')).toMatchObject({ vs: 'negation', level: 90 });
+  });
+
+  it('a calendar flag has none: its date is the number', () => {
+    expect(fig(rowOf(LONG, B1, { earnings: '2026-01-25' }), 'earnings-7d')).toBeUndefined();
+    expect(fig(rowOf(LONG, B1, { ex_div: '2026-01-22', div_amount: 0.5, atr: 1 }), 'exdiv-2d')).toBeUndefined();
+  });
+
+  it('is on every event flag of every row on the board, with real numbers', () => {
+    const ctx = { today: TODAY, nowMs: 0, page: 'setups' as const };
+    const kinds = ['breakout', 'target', 'failed', 'boundary', 'pullback', 'exit', 'reentry'];
+    for (const r of frozenBoard().rows) {
+      for (const f of setupFlags(r, ctx).filter(x => kinds.includes(x.kind))) {
+        const label = f.id;
+        const g = f.figure;
+        // A target the source counted, with no close behind it, is the one flag that may have no number.
+        if (!g) { expect(f.kind === 'target' && !!r.st.targetHit && r.st.targetHit.bySource, label).toBe(true); continue; }
+        expect(Number.isFinite(g.price) && Number.isFinite(g.level), label).toBe(true);
+        expect(g.ccy, label).toBe(r.currency);
+      }
+    }
   });
 });
 

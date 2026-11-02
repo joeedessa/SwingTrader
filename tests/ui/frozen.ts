@@ -11,15 +11,35 @@ import { emptyOverlay } from '../../src/data/overlay';
 export const TODAY = '2026-11-01';
 
 let cache: Board | null = null;
+let histCache: Record<string, History> | null = null;
+let barsCache: Record<string, Bars> | null = null;
+let sharedCache: Setup[] | null = null;
+
+function load(): { BARS: Record<string, Bars>; HIST: Record<string, History> } {
+  return JSON.parse(readFileSync(new URL('../parity/old-page-2026-11-01.json', import.meta.url), 'utf8'));
+}
 
 export function frozenBoard(): Board {
   if (cache) return cache;
-  const dump = JSON.parse(readFileSync(new URL('../parity/old-page-2026-11-01.json', import.meta.url), 'utf8')) as {
-    BARS: Record<string, Bars>; HIST: Record<string, History>;
-  };
+  const dump = load();
   const shared = JSON.parse(readFileSync(new URL('../parity/watchlist-2026-11-01.json', import.meta.url), 'utf8')) as Setup[];
+  histCache = dump.HIST;
+  barsCache = dump.BARS;
+  sharedCache = shared;
   cache = board(workingList(shared, emptyOverlay()), dump.HIST, dump.BARS, {}, TODAY);
   return cache;
+}
+
+/** The shared list and the daily bars of that day, for tests that load the app's own store. */
+export function frozenInputs(): { shared: Setup[]; bars: Record<string, Bars>; hist: Record<string, History> } {
+  frozenBoard();
+  return { shared: sharedCache as Setup[], bars: barsCache as Record<string, Bars>, hist: histCache as Record<string, History> };
+}
+
+/** The settled closes of the same day, for the rules that count sessions. */
+export function frozenHist(): Record<string, History> {
+  frozenBoard();
+  return histCache as Record<string, History>;
 }
 
 export function rowOf(sym: string, dir: 'long' | 'short' = 'long'): Row {

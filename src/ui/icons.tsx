@@ -38,3 +38,9 @@ export const IconDown = () => (
 export const IconMore = () => (
   <Svg><circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.4" fill="currentColor" stroke="none" /></Svg>
 );
+export const IconToday = () => (
+  <Svg><path d="M4 13.5 6.4 6.2A1.5 1.5 0 0 1 7.8 5h8.4a1.5 1.5 0 0 1 1.4 1.2L20 13.5" /><path d="M4 13.5V18a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 18v-4.5h-4.6a3.4 3.4 0 0 1-6.8 0z" /></Svg>
+);
+export const IconCheck = () => (
+  <Svg size={24}><circle cx="12" cy="12" r="9" /><path d="m8.2 12.4 2.7 2.7 5-5.4" /></Svg>
+);

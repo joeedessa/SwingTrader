@@ -16,9 +16,10 @@ public/data/   watchlist.json, benchmarks.json, tradelog.json   (the data, publi
                prices-latest.json, watch-events.json            (refreshed by jobs)
 scripts/       fetch_bars.py, fetch_latest.py, fetch_events.py, yahoo.py, quality.py
 scripts/report/  weekly Tech Charts report sync (the report itself is never committed)
-src/engine/    the rules: bars (settled/live), replay, last full day, types, sections, events
-src/data/      loading, the browser overlay (saved edits), the Worker live upgrade
-src/ui/        the board: columns, cells, table and cards, drawer, forms, styles
+src/engine/    the rules: bars (settled/live), replay, last full day, types, sections, events,
+               flags (19 rules), today (what the Today page shows), tape
+src/data/      loading, the browser overlay (saved edits), acknowledgements, last visit, the Worker live upgrade
+src/ui/        Today and the board: columns, cells, table and cards, drawer, forms, styles
 tests/         Vitest: engine, data layer, UI wording, and parity with the old page (tests/parity)
 .github/workflows/  update-data (hourly), update-prices (15-minute loop), deploy (Pages)
 ```

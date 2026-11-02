@@ -86,3 +86,18 @@ Checked on 2026-11-01 (Sunday, every market shut) by loading the old page and th
 | 1038.HK long | Confirmed | the run past the boundary starts 21-10 (was 13-10): the close of 20-10 is the 67.15 boundary. Its "closed above its pattern boundary" event moves to 21-10; the stop is from the report and does not move. |
 
 **How it is held.** `tests/parity/parity.test.ts` still holds the other 134 rows to the old page field by field; these fourteen are held to the values in `tests/parity/adjudicated-2026-11-01.json`, each with its reason, and the test fails if any of them moves to another section or type. `tests/engine/precision.test.ts` pins the rule itself with float32 values on either side of a level. The old macro-compass page keeps its old behaviour, so it will disagree with this site on these rows; it is separate now and not compared again.
+
+## After Phase 5b: the weekly log against the old page's, and a stop taken from the wrong bar (2 Nov 2026)
+
+**Conclusion.** On the morning of Mon 2 Nov the Today page's weekly log and the old page's "Setup events" list the same 25 events (2 this week, 23 last), in the same order. Two read differently, and the comparison found one real bug in this site's engine, now fixed.
+
+| Event | Old page | This site | Why |
+|---|---|---|---|
+| REH.AX boundary, Mon 2 Nov | last full day low **17.38** | low **16.58** (before the fix: 16.87, from an August bar) | The rule is the low of the bar before the first close past the boundary: the Fri 30 Oct bar, 16.58. 17.38 is the low of the 2 Nov session itself (Yahoo stamps it Sunday 23:00 UTC), so the old page took the breakout day's own bar. That is the Australian date keying explained above for S32.AX and NWH.AX. |
+| NCX.V failure, Fri 30 Oct | "touched 2.8 vs negation 2.85" | "closed 2.8 vs negation 2.85" | The day closed at its low (low = close = 2.8). The old page compared a rounded close with a raw bar low, which differ by float noise, so it read as a touch. Here both are the same raw number, so it reads as a close. Same failure, same date, same level. |
+
+**The bug.** For a setup that breaks out on the newest session, the close comes from the tip (the data job's latest print, or a live quote) and its bar is not on file until the next hourly run. The last-full-day derivation looked for the confirming close among the bars, did not find it, and fell back to the search made for setups imported already confirmed: the latest cross of the boundary before the row was listed. For REH.AX that was 12 Aug 2026, so the stop was 16.87 (the low of 11 Aug) and was "hit" on 5 Oct, before the breakout. It lasted until the day's bar arrived, up to an hour after each close, and would have fed false stops into the flags.
+
+**The fix** (`src/engine/lfd.ts`). Settled closes newer than the newest bar join the series as close-only days. The confirming close then has a place, the run past the boundary is walked back through the real bars as usual, and the stop is read from the bar before the anchor. A close-only day is never taken as a full day: if the day before the anchor is itself close-only there is no stop yet, and no touch of a stop is looked for in a close-only day. Five new tests in `tests/engine/lfd.test.ts` fail on the old code and pass on the new.
+
+**What it changed.** One row on the 2 Nov data: REH.AX (stop 16.87 → 16.58, anchor 12 Aug → 2 Nov, no "hit"; section and type unchanged). The 148 rows of the frozen 1 Nov capture are unchanged: `tests/parity/parity.test.ts` still passes with no new adjudication.

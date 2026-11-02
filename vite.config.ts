@@ -19,5 +19,7 @@ export default defineConfig({
   server: { proxy: { '/SwingTrader/__yahoo': yahoo } },
   preview: { proxy: { '/SwingTrader/__yahoo': yahoo } },
   // The parity and data tests read multi-megabyte JSON; the generous timeout is for a loaded machine, not a slow test.
-  test: { include: ['tests/**/*.test.{ts,tsx}'], testTimeout: 30_000 },
+  // Node 26 ships a localStorage global that warns when it is touched without a backing file. The unit tests run with
+  // no browser storage at all (the same case as a private-mode tab), so it is switched off rather than half there.
+  test: { include: ['tests/**/*.test.{ts,tsx}'], testTimeout: 30_000, execArgv: ['--no-experimental-webstorage'] },
 });

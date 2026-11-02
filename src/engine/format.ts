@@ -18,6 +18,10 @@ export const fmtD = (iso: string | null | undefined): string => {
   return iso.slice(8, 10) + '-' + iso.slice(5, 7) + '-' + iso.slice(2, 4);
 };
 
+/** An ISO date the way a person says it: "Fri 30 Oct". Read at noon UTC so no time zone can move the day. */
+export const fmtDay = (iso: string): string =>
+  new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+
 /** A signed percentage: "+1.2%", "−0.4%" (a real minus), "0.0%". One decimal, so a move under a tenth is not "+0%". */
 export const signedPct = (v: number | null | undefined): string => {
   if (v == null || !isFinite(v)) return '–';
