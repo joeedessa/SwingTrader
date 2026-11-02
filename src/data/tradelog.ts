@@ -1,14 +1,15 @@
 import type { Fill } from '../engine/journal';
+import { KEYS } from './keys';
 import type { KV } from './overlay';
 
-/* The journal's storage, in the old page's own format, unchanged, so a fill logged there is here (same origin, same
-   key) and the old page can still read what is written back.
+/* The journal's storage, in the old page's own format, unchanged. The key is this site's own: what the old page saved under
+   its key was copied into it once (migrate.ts), and the old key is never written from here.
 
    The shared journal ships in the repo (tradelog.json, committed from an Export); fills added in this browser live in
    localStorage as `added`; an edit to a shared fill is an `over` entry and a delete is a `deleted` id. Export merges them
    all, and committing that file publishes them. The pairing and the statistics are in the engine (journal.ts). */
 
-export const LOG_KEY = 'macro-compass-tradelog-v1';
+export const LOG_KEY = KEYS.journal;
 
 export type { Fill };
 

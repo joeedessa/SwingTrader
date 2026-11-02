@@ -113,6 +113,7 @@ export function MethodPage() {
       <section class="prose" aria-labelledby="m-kept">
         <h2 id="m-kept">What this browser keeps</h2>
         <p>Your edits to levels, setups added here, what you moved by hand, your acknowledgements, when you last looked at Today, the section you were in, and the journal are kept in this browser's own storage and nowhere else: there is no server. Clearing the site's data removes them. Export writes the setups, the journal and the acknowledgements to a file, and Import reads one back.</p>
+        <p>These are this site's own keys. The first time it opened in this browser it copied what the old watchlist page had saved (its edits and its journal) into them, once; it never writes the old page's keys, and what the old page saves from then on does not reach this site, so a save on one cannot overwrite a save on the other. Another tab of this site is read before every save, so two tabs do not erase each other's.</p>
       </section>
 
       <footer class="foot">

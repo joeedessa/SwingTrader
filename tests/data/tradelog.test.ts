@@ -19,8 +19,8 @@ const fill = (id: string, over: Partial<Fill> = {}): Fill => ({
 const shared = [fill('s1'), fill('s2', { date: '2026-10-03', side: 'sell', price: 110, logged_at: '2026-10-03T10:00:00.000Z' })];
 
 describe('the storage key and shape', () => {
-  it('are the old page\'s, so a fill logged there is here and the old page can read what is written back', () => {
-    expect(LOG_KEY).toBe('macro-compass-tradelog-v1');
+  it('are this site\'s own key and the old page\'s shape, so the old page never reads what is written here', () => {
+    expect(LOG_KEY).toBe('st-journal-v1');
     const kv = map();
     const ov: LogOverlay = { added: [fill('a1')], over: { s1: fill('s1', { price: 101 }) }, deleted: ['s2'] };
     expect(writeLogOverlay(kv, ov)).toBe(true);

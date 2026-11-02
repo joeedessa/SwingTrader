@@ -19,9 +19,9 @@ const map = (): KV & { store: Map<string, string> } => {
 };
 
 describe('storage keys', () => {
-  it('are the old page\'s, unchanged, so existing edits survive', () => {
-    expect(SETS.watchlist.key).toBe('macro-compass-watch-overlay-v2');
-    expect(SETS.benchmarks.key).toBe('macro-compass-benchmarks-overlay-v1');
+  it('are this site\'s own: what the old page saved was copied into them once, and the old keys are never written from here', () => {
+    expect(SETS.watchlist.key).toBe('st-overlay-v1');
+    expect(SETS.benchmarks.key).toBe('st-overlay-benchmarks-v1');
   });
 });
 

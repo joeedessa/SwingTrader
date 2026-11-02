@@ -1,18 +1,19 @@
 import { idOf } from './schema';
+import { KEYS } from './keys';
 import type { ManualState, Setup } from '../engine/types';
 
 /* Personal edits live in this browser's localStorage, never in the repo: added setups, level overrides,
-   manual moves and hides, keyed by `sym|dir`. The keys and the shape are the old page's, unchanged, so
-   edits made there are still here (the two sites share an origin, so they share storage) and the old
-   page can still read what is written back. States are never stored: they are replayed from settled
-   closes on every load. */
+   manual moves and hides, keyed by `sym|dir`. The shape is the old page's, unchanged. The keys are this site's own:
+   what the old page saved under its keys was copied into them once (migrate.ts), and the old keys are never written
+   from here, so a save on either site cannot overwrite a save on the other. States are never stored: they are
+   replayed from settled closes on every load. */
 
 export type SetId = 'watchlist' | 'benchmarks';
 
 export const SETS: Record<SetId, { file: string; title: string; key: string; extras: boolean }> = {
-  watchlist: { file: 'watchlist.json', title: 'Setups', key: 'macro-compass-watch-overlay-v2', extras: true },
+  watchlist: { file: 'watchlist.json', title: 'Setups', key: KEYS.overlay.watchlist, extras: true },
   // No trade log, calendar, import or add form: the same board on a different list.
-  benchmarks: { file: 'benchmarks.json', title: 'Benchmarks', key: 'macro-compass-benchmarks-overlay-v1', extras: false },
+  benchmarks: { file: 'benchmarks.json', title: 'Benchmarks', key: KEYS.overlay.benchmarks, extras: false },
 };
 
 export const LEVEL_FIELDS = ['breakthrough', 'boundary', 'target', 'negation', 'lfd'] as const;

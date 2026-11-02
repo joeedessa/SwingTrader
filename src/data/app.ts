@@ -5,6 +5,7 @@ import type { History, Setup, SymbolEvents } from '../engine/types';
 import { Store } from '../store';
 import { reloadAcks } from './acks';
 import { localKV } from './kv';
+import { migrateLegacyKeys } from './migrate';
 import { loadJson } from './load';
 import { emptyOverlay, readOverlay, SETS, workingList, writeOverlay } from './overlay';
 import type { Overlay, SetId } from './overlay';
@@ -47,6 +48,10 @@ export interface AppState {
   loadedAt: number | null;
   now: number;
 }
+
+/* Before anything reads the saved edits or the journal: copy what the old watchlist page saved into this site's own keys,
+   once (see migrate.ts). */
+migrateLegacyKeys(localKV());
 
 export const app = new Store<AppState>({
   phase: 'loading',
