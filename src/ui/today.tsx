@@ -12,6 +12,7 @@ import { fmtDay } from '../engine/format';
 import type { Row } from '../engine/row';
 import { tapeOf } from '../engine/tape';
 import type { Tape } from '../engine/tape';
+import { shownIds } from '../engine/today';
 import type { Group, ShownTier, TierView } from '../engine/today';
 import { go } from '../router';
 import { Store, useStore } from '../store';
@@ -145,7 +146,7 @@ function GroupView({ tier, g, open, today, fresh, onToggle, onOpen, onAck }: {
   );
 }
 
-function LiveNow({ flags, today, fresh, status, marketsOpen, onOpen }: {
+export function LiveNow({ flags, today, fresh, status, marketsOpen, onOpen }: {
   flags: Flag[];
   today: string;
   fresh: ReadonlySet<string>;
@@ -238,16 +239,17 @@ export function TodayPage() {
   const tape = useMemo(() => tapeOf(bd.rows), [bd]);
   const fresh = useMemo(() => new Set(view.newIds), [view]);
 
-  const idsKey = view.ids.join(' ');
-  useEffect(() => { if (ready) visits.noteShown(view.ids); }, [ready, idsKey]);
+  const tier: ShownTier = ui.tier ?? (view.act.count || !view.watch.count ? 'act' : 'watch');
+  const tv: TierView = view[tier];
+
+  /* Looking at a tier is what makes its flags seen; the other tier is a count and a dot until it is opened. */
+  const seenKey = shownIds(view, tier).join(' ');
+  useEffect(() => { if (ready) visits.noteShown(shownIds(view, tier)); }, [ready, tier, seenKey]);
   useEffect(() => {
     if (!ready) return;
     publish('watchlist', bd, bd.counts, s.problems, flagsOf(s, 'watchlist'), dataInfo(s));
     publishToday(view, visit.since ? visit.since.at : null);
   }, [ready, view, bd, s.problems]);
-
-  const tier: ShownTier = ui.tier ?? (view.act.count || !view.watch.count ? 'act' : 'watch');
-  const tv: TierView = view[tier];
   const since = sinceLabel(visit.since);
 
   const open = (f: Flag) => { if (f.sym && f.dir) go({ page: 'today', row: { sym: f.sym, dir: f.dir } }); };

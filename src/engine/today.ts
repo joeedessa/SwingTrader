@@ -86,6 +86,13 @@ function tierView(tier: ShownTier, flags: Flag[], isFresh: (f: Flag) => boolean)
   return { tier, count: flags.length, fresh: groups.reduce((n, g) => n + g.fresh, 0), groups };
 }
 
+/** What a person has been shown by looking at one tier: the live strip, that tier's groups (folded ones show their names and
+    their count of new), and whatever they acknowledged. The other tier is on the page only as a count and a dot, so it is
+    not seen until it is opened: a visit that never left Act must not mark Watch's new flags as old. */
+export function shownIds(v: TodayView, tier: ShownTier): string[] {
+  return [...v.live.map(f => f.id), ...v[tier].groups.flatMap(g => g.flags.map(f => f.id)), ...v.acked.map(f => f.id)];
+}
+
 export function todayView({ flags, acks, hist, seen, dayStart }: TodayInput): TodayView {
   const latest = latestSettled(hist);
   const onToday = (f: Flag) => (f.tier === 'act' || f.tier === 'watch') && f.surfaces.includes('today');

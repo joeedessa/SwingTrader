@@ -9,7 +9,7 @@ import type { LogItem } from '../../src/engine/events';
 import { ackable, badgeCount, boardFlags, setupFlags } from '../../src/engine/flags';
 import type { Flag } from '../../src/engine/flags';
 import { TabBar, TopNav } from '../../src/ui/nav';
-import { FlagRow, GROUP_OPEN_UP_TO, TapeLine, TodayPage, todayUi, WeeklyLog } from '../../src/ui/today';
+import { FlagRow, GROUP_OPEN_UP_TO, LiveNow, TapeLine, TodayPage, todayUi, WeeklyLog } from '../../src/ui/today';
 import { tapeOf } from '../../src/engine/tape';
 import { frozenBoard, frozenHist, frozenInputs, TODAY } from './frozen';
 
@@ -150,10 +150,13 @@ describe('the page', () => {
     const v = view();
     const ids = v.ids.slice(1);                         // the first one was not on screen last time
     visits.state.set({ since: { at: Date.parse('2026-10-31T21:14:00'), seen: ids } });
-    const t = text(page());
+    const html = page();
+    const t = text(html);
     const now = view(new Set(ids));
     expect(now.fresh).toBeGreaterThan(0);
     expect(t).toContain('since Sat 31 Oct, 21:14');
+    // A dot on each tier that has something new, and on each new row that is on screen.
+    expect(count(html, /class="segdot"/g)).toBe([now.act.fresh, now.watch.fresh].filter(n => n > 0).length);
     visits.state.set({ since: null });
   });
 
@@ -183,6 +186,32 @@ describe('the page', () => {
     expect(t).toContain('Nothing needs a decision.');
     unacknowledge('watchlist', ids);
     todayUi.set({ tier: null });
+  });
+});
+
+describe('the live strip', () => {
+  const live = (): Flag => ({
+    id: 'AME|long|live-stop|live', tier: 'act', kind: 'live-stop', sym: 'AME', dir: 'long', when: 'live',
+    text: 'AME long — trading below its last full day low (93 vs 94): a touch is exit 1', route: '#/setups/AME/long',
+    clears: 'itself', surfaces: ['today', 'positions'], figure: { read: 'live', price: 93, vs: 'last full day', level: 94, ccy: 'USD' },
+  });
+  const strip = (over: Partial<Parameters<typeof LiveNow>[0]> = {}) =>
+    text(render(<LiveNow flags={[]} today={TODAY} fresh={new Set()} status="ok" marketsOpen={false} onOpen={noop} {...over} />));
+
+  it('says there is nothing live, and why: shut markets, open markets, a quote feed that failed, or one still loading', () => {
+    expect(strip()).toBe('No live flags; markets shut.');
+    expect(strip({ marketsOpen: true })).toBe('Markets are open; nothing live needs you.');
+    expect(strip({ status: 'failed' })).toContain('Live prices are unavailable');
+    expect(strip({ status: 'loading' })).toBe('Checking live prices…');
+  });
+
+  it('lists the live flags with their count, and gives them no acknowledge button', () => {
+    const html = render(<LiveNow flags={[live()]} today={TODAY} fresh={new Set()} status="ok" marketsOpen onOpen={noop} />);
+    const t = text(html);
+    expect(t).toContain('Live now 1');
+    expect(t).toContain('trading below its last full day low (93 vs 94)');
+    expect(t).toContain('93 USD live vs last full day 94');
+    expect(html).not.toContain('Acknowledge');
   });
 });
 

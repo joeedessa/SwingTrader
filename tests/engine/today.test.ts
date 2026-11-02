@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { badgeCount, boardFlags, flagId, RULES } from '../../src/engine/flags';
 import type { Acks, Flag, FlagKind } from '../../src/engine/flags';
-import { GROUPS, todayView } from '../../src/engine/today';
+import { GROUPS, shownIds, todayView } from '../../src/engine/today';
 import type { TodayInput } from '../../src/engine/today';
 import { series } from './helpers';
 import type { Day } from './helpers';
@@ -218,5 +218,30 @@ describe('on the whole board', () => {
     }
     expect(v.fresh).toBe(v.badge);          // seen nothing: everything is new
     expect(v.newIds.length).toBe(v.fresh);
+  });
+});
+
+describe('what a visit has seen', () => {
+  const flags = [mk('breakout'), mk('exit'), mk('live-stop'), mk('pullback'), mk('near-stop'), mk('target')];
+
+  it('is the live strip and the tier that was on screen, and not the other tier', () => {
+    const v = view(flags);
+    const act = shownIds(v, 'act');
+    const watch = shownIds(v, 'watch');
+    expect(act.sort()).toEqual([...ids(v.live), ...v.act.groups.flatMap(g => ids(g.flags))].sort());
+    expect(watch.sort()).toEqual([...ids(v.live), ...v.watch.groups.flatMap(g => ids(g.flags))].sort());
+    for (const f of v.watch.groups.flatMap(g => g.flags)) expect(act).not.toContain(f.id);
+    for (const f of v.act.groups.flatMap(g => g.flags)) expect(watch).not.toContain(f.id);
+  });
+
+  it('includes what was acknowledged, which was certainly looked at', () => {
+    const a = flags[0];
+    const v = view(flags, { acks: { [a.id]: NOON } });
+    expect(shownIds(v, 'watch')).toContain(a.id);
+  });
+
+  it('together, the two tiers cover every flag on screen', () => {
+    const v = view(flags);
+    expect([...new Set([...shownIds(v, 'act'), ...shownIds(v, 'watch')])].sort()).toEqual(v.ids.slice().sort());
   });
 });

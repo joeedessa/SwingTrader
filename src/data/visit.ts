@@ -5,9 +5,9 @@ import type { KV } from './overlay';
 /* "Since your last visit". A skipped morning should be visible on Today, so the page remembers what it was showing
    when this browser last looked, and marks what has appeared since.
 
-   It remembers the flag ids that were on screen, not a time. Bars arrive up to an hour after a close, so a flag dated
-   before you left can still have appeared after you left; comparing dates would call it old. Comparing what you were
-   shown cannot make that mistake. The time is kept for the label.
+   It remembers the flag ids it showed (the live strip and the tier that was open), not a time. Bars arrive up to an hour
+   after a close, so a flag dated before you left can still have appeared after you left; comparing dates would call it
+   old. Comparing what you were shown cannot make that mistake. The time is kept for the label.
 
    A visit is one stretch of looking: coming back within half an hour is the same visit, so the marks do not vanish the
    moment you glance at another app. */
@@ -18,7 +18,7 @@ export const NEW_VISIT_AFTER_MS = 30 * 60 * 1000;
 export interface Visit {
   /** When this browser last left a page it had looked at Today on, ms. */
   at: number;
-  /** The flag ids Today had on screen by then, sorted. */
+  /** The flag ids Today had shown by then, sorted. */
   seen: string[];
 }
 
