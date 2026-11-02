@@ -144,6 +144,10 @@ function JournalBlock({ title, count, children }: { title: string; count: number
 
 const today = () => localISODate();
 
+/** A fill whose price was typed by hand keeps it when its date is edited: the table says "the date no longer sets it", so the
+    form must not quietly set it again. A new fill, and one whose price came from a close, follow the date until a price is typed. */
+export const priceStartsByHand = (editing: Fill | null | undefined): boolean => !!(editing && editing.priceManual);
+
 /** The form, a port of the old page's: the price follows the date until a price is typed by hand. */
 function FillForm({ draft }: { draft: FillDraft }) {
   const s = useStore(app);
@@ -156,7 +160,7 @@ function FillForm({ draft }: { draft: FillDraft }) {
   const [dur, setDur] = useState(editing && editing.duration_m != null ? String(editing.duration_m) : '');
   const [market, setMarket] = useState(editing ? editing.market ?? '' : '');
   const [note, setNote] = useState(editing ? editing.note ?? '' : '');
-  const [touched, setTouched] = useState(false);
+  const [touched, setTouched] = useState(priceStartsByHand(editing));
   const [priceNote, setPriceNote] = useState(editing ? `Editing the ${editing.side} of ${editing.sym} on ${fmtD(editing.date)}: saving replaces it.` : '');
   const [error, setError] = useState('');
   const ask = useRef(0);

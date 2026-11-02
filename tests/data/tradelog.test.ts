@@ -97,6 +97,21 @@ describe('adding, editing and deleting', () => {
   });
 });
 
+describe('a fill that has been published', () => {
+  it('is not listed twice when it is still among the ones added here: the shared copy is the fill', () => {
+    const local = addFill(emptyLog(), fill('s1', { price: 999 }));
+    const rows = logRows(shared, local);
+    expect(rows.map(f => f.id)).toEqual(['s1', 's2']);
+    expect(rows[0].price).toBe(100);
+  });
+
+  it('still takes an edit made here on the shared copy, and a delete', () => {
+    const edited = { ...addFill(emptyLog(), fill('s1')), over: { s1: fill('s1', { price: 101 }) } };
+    expect(logRows(shared, edited).find(f => f.id === 's1')!.price).toBe(101);
+    expect(logRows(shared, { ...edited, deleted: ['s1'] }).map(f => f.id)).toEqual(['s2']);
+  });
+});
+
 describe('ordering', () => {
   it('is the day traded, then the moment logged, whichever list a fill came from', () => {
     const ov = addFill(addFill(emptyLog(), fill('a2', { date: '2026-10-01', logged_at: '2026-10-01T12:00:00.000Z' })), fill('a1', { date: '2026-10-01', logged_at: '2026-10-01T09:00:00.000Z' }));

@@ -104,7 +104,7 @@ Checked on 2026-11-01 (Sunday, every market shut) by loading the old page and th
 
 ## After Phase 6: the journal and the moving averages against the old site's (2 Nov 2026)
 
-**Conclusion.** The journal's order, pairing and summary, and the daily 150/200 read, agree with the old site's own code to the last digit on fixtures. Four small differences are by design.
+**Conclusion.** The journal's order, pairing and summary, and the daily 150/200 read, agree with the old site's own code to the last digit on fixtures. Six small differences are by design.
 
 **How it was checked.** The old functions were run, not re-read: `logRows`, `pairFills` and the summary expression were cut out of macro-compass's `watch.html` by line range (a check that each is where it should be, and a sha256 of the cut text, are in the fixture), and the whole of `ma.js` was loaded with a stub `window`. They were run over twelve synthetic shared fills plus an overlay (one deleted, one edited, two added; a short opened by a sell; two fills on one day; a duration of 0 months) and over the closes of the frozen 1 Nov capture for seven symbols, five periods each. What they answered is frozen in `tests/fixtures/journal-old-page.json` and `tests/fixtures/ma-old-page.json`; `tests/engine/journal.test.ts` and `tests/engine/ma.test.ts` hold the new code to it. Nothing reads the old site at test time, and macro-compass was not touched.
 
@@ -123,7 +123,9 @@ A one-off fuzz run went further than the fixture: two thousand seeded random jou
 1. The summary writes a real minus ("avg loss −2.0%", the old page "-2.0%"), like every other number here.
 2. A fill with no `logged_at` sorts first among its day's fills here, and last on the old page, because the old sort key concatenated the missing value in as the text "undefined". It cannot happen to a fill either page wrote: both always record `logged_at`.
 3. Open positions are listed by symbol in the order each was first traded. The old page kept them in an object, which lists an integer-like key first; no symbol on the lists is one.
-4. A new fill's date starts as the date on the person's own clock; the old page started it at the UTC date. The price for a symbol that is not on a list is read from Yahoo's chart endpoint (two years of daily bars) rather than the old page's spark call; both give the settled close on or before the date.
+4. A fill added here and later published (an export committed as `tradelog.json`) is listed once, as the shared copy; the old page listed it twice, because it never looked for a fill in both lists.
+5. A fill whose price was typed by hand keeps it when its date is edited. The old form re-derived the price from the new date, which its own table ("the date no longer sets it") says it does not.
+6. A new fill's date starts as the date on the person's own clock; the old page started it at the UTC date. The price for a symbol that is not on a list is read from Yahoo's chart endpoint (two years of daily bars) rather than the old page's spark call; both give the settled close on or before the date.
 
 **The stop ladder against the Confirmed section.** The plan's check, "stop ladder order matches today's Confirmed sort", holds for every Confirmed row that has a tight stop, on the frozen capture and on the live files, whatever the count (`tests/engine/positions.test.ts`): the ladder is sorted by the same give-back to the stop, with the same tie order. It does not hold for a row that has only a negation: the Confirmed section puts such rows last (it has no tight-stop distance to sort by), and the ladder places them by their distance to the negation, since that is the stop they actually have. The same goes for Re-entered rows against their section.
 

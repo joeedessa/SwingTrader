@@ -10,7 +10,7 @@ import type { Fill } from '../../src/engine/journal';
 import { outcomesOf } from '../../src/engine/outcomes';
 import type { Outcomes } from '../../src/engine/outcomes';
 import { HistoryPage, outcomeTiles, tileNote } from '../../src/ui/history';
-import { FillDialog, JournalPanel, journalUi, openFillForm } from '../../src/ui/journal';
+import { FillDialog, JournalPanel, journalUi, openFillForm, priceStartsByHand } from '../../src/ui/journal';
 import golden from '../fixtures/journal-old-page.json';
 import { frozenInputs } from './frozen';
 
@@ -237,5 +237,20 @@ describe('the fill dialog', () => {
     expect(text(dialog())).toContain('Delete this buy of AME on 01-09-26?');
     expect(text(dialog())).not.toContain('shared journal');
     app.set({ tradelog: [] });
+  });
+});
+
+describe('a fill\'s price and its date', () => {
+  const base: Fill = { id: 'f', sym: 'AME', side: 'buy', date: '2026-10-01', price: 100 };
+
+  it('follows the date for a new fill, and for one whose price came from a close', () => {
+    expect(priceStartsByHand(null)).toBe(false);
+    expect(priceStartsByHand(undefined)).toBe(false);
+    expect(priceStartsByHand({ ...base, priceManual: false })).toBe(false);
+    expect(priceStartsByHand(base)).toBe(false);
+  });
+
+  it('stays where it is for a fill whose price was typed by hand: editing the date must not set it again', () => {
+    expect(priceStartsByHand({ ...base, priceManual: true })).toBe(true);
   });
 });

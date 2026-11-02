@@ -56,7 +56,9 @@ export function writeLogOverlay(storage: KV | null, ov: LogOverlay): boolean {
 export function logRows(shared: readonly Fill[], ov: LogOverlay): Fill[] {
   const rows: Fill[] = [];
   for (const f of shared) if (!ov.deleted.includes(f.id)) rows.push({ ...f, ...(ov.over[f.id] || {}) });
-  for (const f of ov.added) if (!ov.deleted.includes(f.id)) rows.push({ ...f });
+  // A fill added here and then published (an export committed as tradelog.json) is in both lists: the shared copy is the fill.
+  const published = new Set(shared.map(f => f.id));
+  for (const f of ov.added) if (!ov.deleted.includes(f.id) && !published.has(f.id)) rows.push({ ...f });
   return rows.sort((a, b) => (a.date + (a.logged_at || '')).localeCompare(b.date + (b.logged_at || '')));
 }
 
