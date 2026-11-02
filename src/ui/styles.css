@@ -224,7 +224,7 @@ th[aria-sort] .thbtn { color: var(--accent); }
 .s { margin-top: 1px; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .cell .v { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cell .s { white-space: normal; }
-.board .cell .s { max-width: 260px; white-space: nowrap; }
+.board .cell .s { max-width: 240px; }
 .board td:not(.left):not(.text) .cell .s { margin-left: auto; }
 .tone-good { color: var(--up); }
 .tone-bad { color: var(--down); }
@@ -453,6 +453,25 @@ ol.events.log { background: var(--card); border-radius: var(--radius); box-shado
 .linklike:hover { color: var(--accent); }
 .dataarea { margin-top: 28px; }
 .linkbtn.strong { font-weight: 650; }
+
+/* ------------------------------------------------------------------ flag chips: the Flags column and the phone cards */
+
+.fchips { display: flex; flex-wrap: wrap; gap: 4px 6px; max-width: 232px; }
+.fchip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border-radius: 999px; background: var(--fill);
+  font-size: 12px; font-weight: 550; line-height: 1.5; white-space: nowrap; color: var(--text-secondary);
+}
+.fchip.act { color: var(--text-primary); }
+.fdot { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.fdot.act { background: var(--badge); }
+.fdot.watch { background: var(--open); }
+.ficon { flex: none; display: inline-grid; color: var(--text-muted); }
+.cardchips { position: relative; margin-top: 10px; pointer-events: none; }
+.cardchips .fchips { max-width: none; }
+.heldpill {
+  flex: none; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
 
 /* ------------------------------------------------------------------ odds and ends */
 

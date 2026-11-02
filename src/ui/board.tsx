@@ -1,11 +1,13 @@
+import type { Chip } from '../engine/chips';
 import type { Row } from '../engine/row';
 import type { Section } from '../engine/types';
 import { SECTION_LABELS } from '../engine/types';
 import { humanDates } from '../engine/format';
 import { liveCell, symbolCell } from './cells';
 import type { Cell } from './cells';
-import { COLUMNS, LIVE_SORT, SYMBOL_SORT } from './columns';
-import type { Sort } from './columns';
+import { Chips } from './chips';
+import { COLUMNS, isChips, LIVE_SORT, SYMBOL_SORT } from './columns';
+import type { ColSpec, Sort } from './columns';
 import { IconExternal } from './icons';
 import { chartUrl } from './links';
 
@@ -26,6 +28,21 @@ export function CellView({ cell }: { cell: Cell }) {
 }
 
 const DirPill = ({ dir }: { dir: 'long' | 'short' }) => <span class={'dirpill ' + dir}>{dir}</span>;
+
+/** Next to the direction: a position the journal says is open. `title` says which fill. */
+const HeldPill = ({ title }: { title: string | null }) => (title ? <span class="heldpill" title={title}>held</span> : null);
+
+/** What a page hands the board beyond its rows: where the columns come from, and the two things only the page knows. */
+export interface BoardExtras {
+  /** The columns to draw; a section's own by default. */
+  cols?: readonly ColSpec[];
+  /** The table's accessible name; the section's by default. */
+  label?: string;
+  /** A row's chips, for the Flags column. */
+  chipsFor?: (r: Row) => readonly Chip[];
+  /** Set when the journal holds an open fill for the row: the words for its tooltip. */
+  heldFor?: (r: Row) => string | null;
+}
 
 const ChartLink = ({ sym }: { sym: string }) => (
   <a class="ext" href={chartUrl(sym)} target="_blank" rel="noopener noreferrer" aria-label={sym + ' chart on Yahoo Finance, opens in a new tab'}>
@@ -62,7 +79,7 @@ function Th({ id, label, sub, sort, onSort, sortable = true, className }: {
   );
 }
 
-export function BoardTable({ rows, section, sort, onSort, onOpen, today, panelId }: {
+export function BoardTable({ rows, section, sort, onSort, onOpen, today, panelId, cols = COLUMNS[section], label = SECTION_LABELS[section] + ' setups', chipsFor, heldFor }: {
   rows: Row[];
   section: Section;
   sort: Sort;
@@ -70,10 +87,9 @@ export function BoardTable({ rows, section, sort, onSort, onOpen, today, panelId
   onOpen: (r: Row) => void;
   today: string;
   panelId: string;
-}) {
-  const cols = COLUMNS[section];
+} & BoardExtras) {
   return (
-    <table class="board" id={panelId} aria-label={SECTION_LABELS[section] + ' setups'}>
+    <table class="board" id={panelId} aria-label={label}>
       <thead>
         <tr>
           <Th id={SYMBOL_SORT} label="Symbol" sub="settled closes drive the rules" sort={sort} onSort={onSort} className="left" />
@@ -91,11 +107,16 @@ export function BoardTable({ rows, section, sort, onSort, onOpen, today, panelId
                   <button type="button" class="symbtn" onClick={() => onOpen(r)} aria-label={`${s.sym} ${s.dir}: open details`}>{s.sym}</button>
                   <DirPill dir={s.dir} />
                   <ChartLink sym={s.sym} />
+                  <HeldPill title={heldFor ? heldFor(r) : null} />
                 </div>
                 {s.name ? <div class="s name">{s.name}</div> : null}
               </td>
               <td><LiveView r={r} /></td>
-              {cols.map(c => <td class={c.text ? 'text' : undefined}><CellView cell={c.cell(r, section, today)} /></td>)}
+              {cols.map(c => (
+                <td class={c.text ? 'text' : undefined}>
+                  {isChips(c) ? <Chips chips={chipsFor ? chipsFor(r) : []} today={today} /> : <CellView cell={c.cell(r, section, today)} />}
+                </td>
+              ))}
             </tr>
           );
         })}
@@ -106,25 +127,26 @@ export function BoardTable({ rows, section, sort, onSort, onOpen, today, panelId
 
 /* ------------------------------------------------------------------ cards */
 
-export function BoardCards({ rows, section, onOpen, today, panelId }: {
+export function BoardCards({ rows, section, onOpen, today, panelId, cols = COLUMNS[section], label = SECTION_LABELS[section] + ' setups', chipsFor, heldFor }: {
   rows: Row[];
   section: Section;
   onOpen: (r: Row) => void;
   today: string;
   panelId: string;
-}) {
-  const cols = COLUMNS[section];
+} & BoardExtras) {
+  const hasChips = cols.some(isChips);
   return (
-    <ul class="cards" id={panelId} aria-label={SECTION_LABELS[section] + ' setups'}>
+    <ul class="cards" id={panelId} aria-label={label}>
       {rows.map(r => {
         const s = symbolCell(r);
         const c = liveCell(r);
+        const chips = hasChips && chipsFor ? chipsFor(r) : [];
         return (
           <li key={rowKey(r)} class="card">
             <button type="button" class="cardhit" aria-label={`${s.sym} ${s.dir}: open details`} onClick={() => onOpen(r)} />
             <div class="cardhead">
               <div class="cardsym">
-                <div class="symline"><span class="sym">{s.sym}</span><DirPill dir={s.dir} /><ChartLink sym={s.sym} /></div>
+                <div class="symline"><span class="sym">{s.sym}</span><DirPill dir={s.dir} /><ChartLink sym={s.sym} /><HeldPill title={heldFor ? heldFor(r) : null} /></div>
                 {s.name ? <div class="s name">{s.name}</div> : null}
               </div>
               <div class="cardlive">
@@ -135,8 +157,9 @@ export function BoardCards({ rows, section, onOpen, today, panelId }: {
                 </div>
               </div>
             </div>
+            {chips.length ? <div class="cardchips"><Chips chips={chips} today={today} /></div> : null}
             <dl class="metrics">
-              {cols.map(col => {
+              {cols.filter((col): col is Exclude<ColSpec, { chips: true }> => !isChips(col)).map(col => {
                 const cell = col.cell(r, section, today);
                 // A long line takes the whole row; short ones sit two to a row.
                 const wide = (cell.sub || '').length > 24 || cell.value.length > 18;

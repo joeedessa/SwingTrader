@@ -8,6 +8,7 @@ import { logRows, readLogOverlay } from '../data/tradelog';
 import type { Fill } from '../data/tradelog';
 import { loadJson } from '../data/load';
 import { dataInfo, publish } from '../debug';
+import { chipsOf, flagRank, openByRow, rowKeyOf } from '../engine/chips';
 import type { Row } from '../engine/row';
 import { SECTIONS, SECTION_LABELS } from '../engine/types';
 import type { Section, Setup } from '../engine/types';
@@ -54,7 +55,14 @@ export function BoardPage({ set }: { set: SetId }) {
   const file = useRef<HTMLInputElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLElement>(null);
+  const acks = useStore(ackStore);
   const { list, bd, today } = boardView(s, set);
+
+  /* The Flags column: each row's open flags, the ones Today lists, read from the same acknowledgements. */
+  const flags = flagsOf(s, set);
+  const open = useMemo(() => openByRow(flags, acks.acks[set], s.hist), [flags, acks.acks[set], s.hist]);
+  const chipsFor = (x: Row) => chipsOf(open.get(rowKeyOf(x.p.sym, x.p.dir)) ?? []);
+  const sortCtx = useMemo(() => ({ flagRank: (x: Row) => flagRank(open.get(rowKeyOf(x.p.sym, x.p.dir))) }), [open]);
 
   const visible = useMemo(() => bd.rows.filter(x => matches(x, filters)), [bd, filters]);
   const shownCounts = useMemo(() => {
@@ -62,7 +70,7 @@ export function BoardPage({ set }: { set: SetId }) {
     for (const x of visible) out[x.section]++;
     return out;
   }, [visible]);
-  const rows = useMemo(() => sortRows(visible.filter(x => x.section === section), section as Section, sorts[section as Section]), [visible, section, sorts]);
+  const rows = useMemo(() => sortRows(visible.filter(x => x.section === section), section as Section, sorts[section as Section], sortCtx), [visible, section, sorts, sortCtx]);
 
   // Keep the sticky table head just under the segment bar, whatever height the bar wraps to.
   useEffect(() => {
@@ -76,11 +84,11 @@ export function BoardPage({ set }: { set: SetId }) {
   // The page's own account of itself, for a check in the console.
   useEffect(() => {
     if (s.phase !== 'ready') return;
-    publish(set, bd, shownCounts, s.problems, flagsOf(s, set), dataInfo(s));
-  }, [bd, shownCounts, s.phase, s.problems, s.liveStatus, s.noBars]);
+    publish(set, bd, shownCounts, s.problems, flags, dataInfo(s));
+  }, [bd, shownCounts, s.phase, s.problems, s.liveStatus, s.noBars, flags]);
 
   const sec = section as Section;
-  const open = (x: Row) => go({ page: set === 'watchlist' ? 'setups' : 'benchmarks', row: { sym: x.p.sym, dir: x.p.dir } });
+  const openRow = (x: Row) => go({ page: set === 'watchlist' ? 'setups' : 'benchmarks', row: { sym: x.p.sym, dir: x.p.dir } });
 
   /* ---- add, export, import */
   const onAdd = (setup: Setup): string | null => {
@@ -153,9 +161,9 @@ export function BoardPage({ set }: { set: SetId }) {
       </div>
     );
   } else if (narrow) {
-    body = <BoardCards rows={rows} section={sec} onOpen={open} today={today} panelId={panelId} />;
+    body = <BoardCards rows={rows} section={sec} onOpen={openRow} today={today} panelId={panelId} chipsFor={chipsFor} />;
   } else {
-    body = <BoardTable rows={rows} section={sec} sort={sorts[sec]} onSort={k => setSorts(o => ({ ...o, [sec]: nextSort(sec, o[sec], k) }))} onOpen={open} today={today} panelId={panelId} />;
+    body = <BoardTable rows={rows} section={sec} sort={sorts[sec]} onSort={k => setSorts(o => ({ ...o, [sec]: nextSort(sec, o[sec], k) }))} onOpen={openRow} today={today} panelId={panelId} chipsFor={chipsFor} />;
   }
 
   return (

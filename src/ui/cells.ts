@@ -334,10 +334,20 @@ export function addedText(r: Row, today: string): string {
 
 /* ------------------------------------------------------------------ sorting */
 
+/** What a page can add to the sort: the values only it knows (a row's chips, a position's stop), by key. A value of
+    `undefined` falls through to the board's own keys. */
+export interface SortContext {
+  flagRank?: (r: Row) => number;
+  extra?: (r: Row, key: string) => number | string | null | undefined;
+}
+
 /** The value a column sorts by: numbers sort numerically, strings alphabetically, null always last. */
-export function sortValue(r: Row, key: string): number | string | null {
+export function sortValue(r: Row, key: string, ctx: SortContext = {}): number | string | null {
   const T = r.btype;
+  const own = ctx.extra ? ctx.extra(r, key) : undefined;
+  if (own !== undefined) return own;
   switch (key) {
+    case 'flags': return ctx.flagRank ? ctx.flagRank(r) : null;
     case 'sym': return r.p.sym;
     case 'live': return r.dayPct;
     case 'gap': return r.gap == null ? null : Math.abs(r.gap);

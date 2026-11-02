@@ -44,3 +44,6 @@ export const IconToday = () => (
 export const IconCheck = () => (
   <Svg size={24}><circle cx="12" cy="12" r="9" /><path d="m8.2 12.4 2.7 2.7 5-5.4" /></Svg>
 );
+export const IconCalendar = () => (
+  <Svg size={13}><rect x="4" y="5.5" width="16" height="14" rx="2.5" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></Svg>
+);

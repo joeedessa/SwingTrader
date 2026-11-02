@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COLUMNS, DEFAULT_SORT, LIVE_SORT, nextSort, SYMBOL_SORT, sortRows } from '../../src/ui/columns';
+import { cellOf, COLUMNS, DEFAULT_SORT, isChips, LIVE_SORT, nextSort, SYMBOL_SORT, sortRows } from '../../src/ui/columns';
 import { isFiltered, marketsOf, matches, NO_FILTERS } from '../../src/ui/filters';
 import { SECTIONS } from '../../src/engine/types';
 import { sortValue } from '../../src/ui/cells';
@@ -10,7 +10,7 @@ describe('columns', () => {
     for (const s of SECTIONS) {
       const cols = COLUMNS[s];
       expect(cols.length, s).toBeGreaterThanOrEqual(2);
-      expect(cols.length, s).toBeLessThanOrEqual(5);
+      expect(cols.length, s).toBeLessThanOrEqual(6);
       expect(cols.map(c => c.key), s).toContain(DEFAULT_SORT[s][0]);
       expect(new Set(cols.map(c => c.key)).size, s).toBe(cols.length);
     }
@@ -18,19 +18,25 @@ describe('columns', () => {
 
   it('the sections keep what A4 of the plan says they keep', () => {
     const keys = (s: (typeof SECTIONS)[number]) => COLUMNS[s].map(c => c.label);
-    expect(keys('watch')).toEqual(['Trigger', 'Target', 'Reward : risk', 'Tight stop']);
-    expect(keys('breakout')).toEqual(['Trigger', 'Target', 'Type', 'Tight stop', 'Negation']);
-    expect(keys('reentered')).toEqual(['Trigger', 'Status', 'Breaches', 'Target']);
-    expect(keys('stopped')).toEqual(['Trigger', 'Breaches', 'Negation']);
+    expect(keys('watch')).toEqual(['Trigger', 'Target', 'Reward : risk', 'Tight stop', 'Flags']);
+    expect(keys('breakout')).toEqual(['Trigger', 'Target', 'Type', 'Tight stop', 'Negation', 'Flags']);
+    expect(keys('reentered')).toEqual(['Trigger', 'Status', 'Breaches', 'Target', 'Flags']);
+    expect(keys('stopped')).toEqual(['Trigger', 'Breaches', 'Negation', 'Flags']);
     expect(keys('target')).toEqual(['Reached', 'Type', 'Target', 'Since target']);
     expect(keys('failed')).toEqual(['Failed', 'Negation', 'Reason', 'Still listed by source']);
     expect(keys('removed')).toEqual(['Trigger', 'Removed']);
   });
 
+  it('the Flags column closes the four sections that are still in play, and no other', () => {
+    const withFlags = SECTIONS.filter(s => COLUMNS[s].some(isChips));
+    expect(withFlags).toEqual(['watch', 'breakout', 'reentered', 'stopped']);
+    for (const s of withFlags) expect(COLUMNS[s][COLUMNS[s].length - 1].key, s).toBe('flags');
+  });
+
   it('every cell of every column renders for every row in its section', () => {
     for (const s of SECTIONS) {
       for (const r of frozenBoard().bySection[s]) {
-        for (const c of COLUMNS[s]) expect(typeof c.cell(r, s, TODAY).value, `${s} ${c.key} ${r.p.sym}`).toBe('string');
+        for (const c of COLUMNS[s]) expect(typeof cellOf(c, r, s, TODAY).value, `${s} ${c.key} ${r.p.sym}`).toBe('string');
       }
     }
   });

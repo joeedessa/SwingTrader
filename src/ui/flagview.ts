@@ -1,4 +1,5 @@
 import type { Visit } from '../data/visit';
+import type { Chip } from '../engine/chips';
 import { THRESHOLDS } from '../engine/flags';
 import type { Figure, Flag, FlagKind } from '../engine/flags';
 import { daysUntil, fmt, fmtDay, fmtRatio } from '../engine/format';
@@ -67,6 +68,7 @@ const SINGULAR: Partial<Record<FlagKind, string>> = {
   'breakout': 'Breakout', 'target': 'Target reached', 'failed': 'Failed', 'boundary': 'Boundary close',
   'near-trigger': 'Near trigger', 'near-stop': 'Near stop', 'earnings-7d': 'Earnings', 'exdiv-2d': 'Ex-dividend', 'exdiv-7d': 'Ex-dividend',
   'live-trigger': 'Past the trigger', 'live-stop': 'Past the last full day', 'live-negation': 'Past the negation',
+  'late-entry': 'Late entry',
 };
 const NUMBERED: Partial<Record<FlagKind, string>> = { 'pullback': 'Pullback', 'exit': 'Exit', 'reentry': 'Re-entry' };
 
@@ -121,3 +123,15 @@ export function summaryOf(v: Pick<TodayView, 'live' | 'act' | 'watch'>): string 
 /** When the last visit ended, the way the screen says a time: "Sat 31 Oct, 21:14". */
 export const sinceLabel = (since: Visit | null): string | null =>
   since ? new Date(since.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
+
+/** What a chip says. The tier chips lead with the flag's own name ("Breakout", "Near stop") and how many more stand
+    behind it; the calendar chip says what and when ("Earnings in 3 days"). The title is the engine's sentence. */
+export function chipText(c: Chip, today: string): { text: string; title: string } {
+  const label = kindLabel(c.flag);
+  const behind = c.more ? ' +' + c.more : '';
+  const when = c.kind === 'calendar' ? whenOf(c.flag, today).sub : undefined;
+  return {
+    text: (c.kind === 'calendar' && when ? label + ' ' + when : label) + behind,
+    title: detailOf(c.flag) + (c.more ? ' (and ' + c.more + ' more)' : ''),
+  };
+}
