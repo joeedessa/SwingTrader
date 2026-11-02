@@ -61,3 +61,15 @@ export function count(noun: string, k: number): string {
 /** Every ISO date inside a sentence, written the board's way (DD-MM-YY). */
 export const humanDates = (text: string): string =>
   text.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (_m, y: string, mo: string, d: string) => d + '-' + mo + '-' + y.slice(2));
+
+/** How long ago, for a file's timestamp: "just now", "12 minutes ago", "3 hours ago", "2 days ago". */
+export function ageText(ms: number): string {
+  if (!isFinite(ms) || ms < 0) return 'just now';
+  const min = Math.floor(ms / 6e4);
+  if (min < 1) return 'just now';
+  if (min < 60) return min + (min === 1 ? ' minute ago' : ' minutes ago');
+  const h = Math.floor(min / 60);
+  if (h < 48) return h + (h === 1 ? ' hour ago' : ' hours ago');
+  const d = Math.floor(h / 24);
+  return d + ' days ago';
+}

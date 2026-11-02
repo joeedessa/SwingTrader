@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoText, count, daysTag, daysUntil, direction, fmt, fmtD, fmtRatio, humanDates, MINUS, signedFmt, signedPct } from '../../src/engine/format';
+import { ageText, agoText, count, daysTag, daysUntil, direction, fmt, fmtD, fmtRatio, humanDates, MINUS, signedFmt, signedPct } from '../../src/engine/format';
 
 describe('numbers', () => {
   it('print one decimal from 100 up and two below, with thousands separators, and a dash for nothing', () => {
@@ -72,5 +72,25 @@ describe('plurals', () => {
     expect(count('breach', 2)).toBe('2 breaches');
     expect(count('pullback', 0)).toBe('0 pullbacks');
     expect(count('time', 2)).toBe('2 times');
+  });
+});
+
+describe('how long ago a file was written', () => {
+  it('says just now under a minute, then minutes, hours up to two days, then days', () => {
+    expect(ageText(0)).toBe('just now');
+    expect(ageText(59_000)).toBe('just now');
+    expect(ageText(60_000)).toBe('1 minute ago');
+    expect(ageText(12 * 60_000)).toBe('12 minutes ago');
+    expect(ageText(59 * 60_000)).toBe('59 minutes ago');
+    expect(ageText(60 * 60_000)).toBe('1 hour ago');
+    expect(ageText(19 * 3_600_000)).toBe('19 hours ago');
+    expect(ageText(47 * 3_600_000)).toBe('47 hours ago');
+    expect(ageText(48 * 3_600_000)).toBe('2 days ago');
+    expect(ageText(5 * 86_400_000)).toBe('5 days ago');
+  });
+
+  it('reads a clock that is a little behind the file, or no number at all, as just now', () => {
+    expect(ageText(-5000)).toBe('just now');
+    expect(ageText(NaN)).toBe('just now');
   });
 });

@@ -65,7 +65,7 @@ export function Choice<T extends string>({ items, value, onChange, label }: {
 
 /** A button that opens a panel under it. Closes on an outside press or Escape; Escape returns focus to the button.
     `round` is an icon-only trigger; `sheet` makes the panel a bottom sheet on a phone (for long lists). */
-export function Popover({ label, badge, children, align = 'left', icon, round, sheet }: {
+export function Popover({ label, badge, children, align = 'left', icon, round, sheet, triggerClass, current }: {
   label: string;
   badge?: number;
   children: ComponentChildren;
@@ -73,6 +73,10 @@ export function Popover({ label, badge, children, align = 'left', icon, round, s
   icon?: ComponentChildren;
   round?: boolean;
   sheet?: boolean;
+  /** Replaces the chip look of the trigger (the top bar's "More" looks like one of its own links). */
+  triggerClass?: string;
+  /** The trigger stands for the page being shown. */
+  current?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -93,7 +97,8 @@ export function Popover({ label, badge, children, align = 'left', icon, round, s
       {round ? (
         <button type="button" ref={btn} class="btn round" aria-label={label} aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>{icon}</button>
       ) : (
-        <button type="button" ref={btn} class={'chip' + (badge ? ' on' : '')} aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+        <button type="button" ref={btn} class={triggerClass ?? 'chip' + (badge ? ' on' : '')} aria-haspopup="true" aria-expanded={open}
+          aria-current={current ? 'page' : undefined} onClick={() => setOpen(o => !o)}>
           {label}{badge ? <span class="chipn">{badge}</span> : null}<IconDown />
         </button>
       )}

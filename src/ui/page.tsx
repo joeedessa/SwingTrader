@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ackStore, importAcks } from '../data/acks';
-import { app, load, updateOverlay } from '../data/app';
+import { app, load, updateLog, updateOverlay } from '../data/app';
 import { addSetup, importSetups, SETS } from '../data/overlay';
 import type { SetId } from '../data/overlay';
 import { boardView, flagsOf } from '../data/selectors';
-import { logRows, readLogOverlay } from '../data/tradelog';
-import type { Fill } from '../data/tradelog';
-import { loadJson } from '../data/load';
+import { importFills, logRows } from '../data/tradelog';
 import { dataInfo, publish } from '../debug';
 import { chipsOf, flagRank, openByRow, rowKeyOf } from '../engine/chips';
 import type { Row } from '../engine/row';
@@ -102,13 +100,10 @@ export function BoardPage({ set }: { set: SetId }) {
     return null;
   };
 
-  const exportData = async () => {
-    let shared: Fill[] = [];
-    try { shared = await loadJson<Fill[]>('tradelog.json'); } catch { /* the journal is optional */ }
-    let ls: Storage | null = null;
-    try { ls = localStorage; } catch { /* private mode */ }
-    // The acknowledgements go too: they are this browser's, and the phone and the desktop each keep their own.
-    const payload = { watchlist: list, tradelog: logRows(shared, readLogOverlay(ls)), acks: ackStore.get().acks.watchlist };
+  const exportData = () => {
+    // The journal goes too, merged (the shared fills with this browser's changes applied): that is the file to commit as
+    // tradelog.json. So do the acknowledgements, which are this browser's: the phone and the desktop each keep their own.
+    const payload = { watchlist: list, tradelog: logRows(s.tradelog, s.log), acks: ackStore.get().acks.watchlist };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
     a.download = 'swingtrader-export.json';
@@ -126,10 +121,14 @@ export function BoardPage({ set }: { set: SetId }) {
       if (!items) throw new Error('not a list of setups');
       const res = importSetups(s.overlays[set], list, items);
       updateOverlay(set, () => res.overlay);
-      const acks = Array.isArray(data) ? undefined : (data as { acks?: unknown }).acks;
-      const newAcks = acks === undefined ? 0 : importAcks('watchlist', acks);
-      say(`Imported ${res.added} new ${res.added === 1 ? 'setup' : 'setups'} (${res.skipped} already present or invalid)` +
-        (newAcks ? ` and ${newAcks} ${newAcks === 1 ? 'acknowledgement' : 'acknowledgements'}.` : '.'), res.added || newAcks ? 'ok' : 'warn');
+      const extra = Array.isArray(data) ? {} : (data as { acks?: unknown; tradelog?: unknown });
+      const newAcks = extra.acks === undefined ? 0 : importAcks('watchlist', extra.acks);
+      const fills = Array.isArray(extra.tradelog) ? importFills(s.log, s.tradelog, extra.tradelog) : null;
+      if (fills && fills.added) updateLog(() => fills.overlay);
+      const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+      const more = [fills && fills.added ? plural(fills.added, 'fill', 'fills') : '', newAcks ? plural(newAcks, 'acknowledgement', 'acknowledgements') : ''].filter(Boolean);
+      say(`Imported ${plural(res.added, 'new setup', 'new setups')} (${res.skipped} already present or invalid)` + (more.length ? ' and ' + more.join(' and ') : '') + '.',
+        res.added || more.length ? 'ok' : 'warn');
     } catch (err) {
       say('Could not import: ' + (err as Error).message, 'warn');
     }
@@ -181,7 +180,7 @@ export function BoardPage({ set }: { set: SetId }) {
             {meta.extras && !narrow ? (
               <>
                 <button type="button" class="btn" onClick={() => setAdding(true)}>Add setup</button>
-                <button type="button" class="btn" onClick={() => void exportData()}>Export</button>
+                <button type="button" class="btn" onClick={exportData}>Export</button>
                 <button type="button" class="btn" onClick={() => file.current?.click()}>Import</button>
               </>
             ) : null}
@@ -189,7 +188,7 @@ export function BoardPage({ set }: { set: SetId }) {
               <>
                 <button type="button" class="btn round" aria-label="Add setup" onClick={() => setAdding(true)}><IconPlus /></button>
                 <Popover label="More" icon={<IconMore />} round align="right">
-                  <button type="button" class="menuitem" data-closes onClick={() => void exportData()}>Export setups, journal and acknowledgements</button>
+                  <button type="button" class="menuitem" data-closes onClick={exportData}>Export setups, journal and acknowledgements</button>
                   <button type="button" class="menuitem" data-closes onClick={() => file.current?.click()}>Import a list or an export</button>
                 </Popover>
               </>

@@ -57,13 +57,53 @@ export interface History {
   currency: string;
 }
 
+/** The last reported quarter, as watch-events.json has it. Every field can be missing: the feed does not have all of them for every name. */
+export interface LastEps {
+  reported?: string | null;
+  /** "before open", "after close" or "during session". */
+  when?: string | null;
+  actual?: number | null;
+  estimate?: number | null;
+  surprise_pct?: number | null;
+  /** In the listing currency. */
+  revenue?: number | null;
+  revenue_est?: number | null;
+  revenue_surprise_pct?: number | null;
+  eps_yoy?: number | null;
+}
+
+/** One headline the wires ran after a release; its language is classified, no number is read out of it. */
+export interface WireHead {
+  t: string;
+  u: string;
+  d: string;
+  s?: string;
+}
+
+export interface Ratings {
+  buy?: number;
+  over?: number;
+  hold?: number;
+  under?: number;
+  sell?: number;
+  total?: number;
+}
+
 /** Earnings, dividend and volatility facts for one symbol, from watch-events.json. */
 export interface SymbolEvents {
   earnings?: string | null;
+  /** The reporting slot of the next report. */
+  earnings_when?: string | null;
+  earnings_to?: string | null;
   ex_div?: string | null;
   div_amount?: number | null;
   atr?: number | null;
   sector?: string | null;
+  last_eps?: LastEps | null;
+  next_est?: { eps?: number | null; revenue?: number | null } | null;
+  target_avg?: number | null;
+  ratings?: Ratings | null;
+  wire?: { cues?: string[]; heads?: WireHead[] } | null;
   [key: string]: unknown;
 }
 

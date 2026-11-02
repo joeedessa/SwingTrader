@@ -1,5 +1,7 @@
 import type { AppState } from './data/app';
 import type { Flag } from './engine/flags';
+import type { Outcomes } from './engine/outcomes';
+import type { PositionsView } from './engine/positions';
 import type { Board } from './engine/row';
 import type { TodayView } from './engine/today';
 import type { Section } from './engine/types';
@@ -31,10 +33,24 @@ export interface TodayDebug {
   since: number | null;
 }
 
+export interface PositionsDebug {
+  ladder: { key: string; section: string; gapPct: number | null; atrs: number | null; r: number | null; days: number | null; stop: number | null; stopKind: string | null; entry: string | null }[];
+  stopped: string[];
+  tiles: { inTrade: number; stopped: number; nearest: string | null; events: number };
+}
+
+export interface HistoryDebug {
+  outcomes: Outcomes;
+  counts: Record<Section, number>;
+  fills: number;
+}
+
 declare global {
   interface Window {
     __board?: BoardDebug;
     __today?: TodayDebug;
+    __positions?: PositionsDebug;
+    __history?: HistoryDebug;
   }
 }
 
@@ -61,6 +77,21 @@ export function publishToday(v: TodayView, since: number | null): void {
     badge: v.badge, fresh: v.fresh, live: v.live.map(f => f.id), act: tier(v.act), watch: tier(v.watch),
     acked: v.acked.map(f => f.id), data: v.data.map(f => f.id), since,
   };
+}
+
+export function publishPositions(v: PositionsView): void {
+  window.__positions = {
+    ladder: v.ladder.map(p => ({
+      key: p.key, section: p.row.section, gapPct: p.gapPct, atrs: p.atrs, r: p.r, days: p.days,
+      stop: p.stop ? p.stop.level : null, stopKind: p.stop ? p.stop.kind : null, entry: p.entry ? p.entry.when + (p.entry.price != null ? ' @ ' + p.entry.price : '') : null,
+    })),
+    stopped: v.stopped.map(r => r.p.sym + '|' + r.p.dir),
+    tiles: { inTrade: v.tiles.inTrade, stopped: v.tiles.stopped, nearest: v.tiles.nearest ? v.tiles.nearest.key : null, events: v.tiles.events },
+  };
+}
+
+export function publishHistory(outcomes: Outcomes, counts: Record<Section, number>, fills: number): void {
+  window.__history = { outcomes, counts, fills };
 }
 
 /** What the console check says about the data behind a board, the same on every page. */

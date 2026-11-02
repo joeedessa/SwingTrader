@@ -350,7 +350,7 @@ export function TodayPage() {
 
         <section class="dataarea" aria-label="Data">
           <DataLine set="watchlist" />
-          {view.data.map(f => <p class="dataline warn">{f.text}.</p>)}
+          {view.data.map(f => <p class="dataline warn">{f.text}. <a class="datalink" href={f.route}>Method</a></p>)}
           {acks.saveFailed ? <p class="dataline bad">This browser would not save the last acknowledgement, so it will be gone on reload.</p> : null}
         </section>
 

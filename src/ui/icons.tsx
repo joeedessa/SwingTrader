@@ -47,3 +47,12 @@ export const IconCheck = () => (
 export const IconCalendar = () => (
   <Svg size={13}><rect x="4" y="5.5" width="16" height="14" rx="2.5" /><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" /></Svg>
 );
+export const IconPositions = () => (
+  <Svg><path d="M8 3v18M16 3v18M8 8h8M8 13h8M8 18h8" /></Svg>
+);
+export const IconHistory = () => (
+  <Svg><path d="M3.6 12a8.4 8.4 0 1 0 2.5-6" /><path d="M3.6 4.6V9H8" /><path d="M12 7.5V12l3 2" /></Svg>
+);
+export const IconMethod = () => (
+  <Svg><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v14H7.5A2.5 2.5 0 0 0 5 19.5V5.5z" /><path d="M5 19.5A2.5 2.5 0 0 0 7.5 22H19v-5" /></Svg>
+);

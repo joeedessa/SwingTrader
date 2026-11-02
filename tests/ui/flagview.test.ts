@@ -45,7 +45,7 @@ describe('a row\'s labels', () => {
     expect(kindLabel(flag('exit'))).toBe('Exit');
     expect(kindLabel(flag('breakout'))).toBe('Breakout');
     expect(kindLabel(flag('exdiv-2d'))).toBe('Ex-dividend');
-    expect(kindLabel(flag('late-entry'))).toBe(GROUP_TITLE['late-entry']);
+    expect(kindLabel(flag('late-entry'))).toBe('Late entry');          // a row is one of them, a group is several
   });
 
   it('drops the "AME long — " the sentence opens with, and nothing else', () => {

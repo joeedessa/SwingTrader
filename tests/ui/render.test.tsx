@@ -1,17 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'preact-render-to-string';
 import { BoardCards, BoardTable } from '../../src/ui/board';
-import { DEFAULT_SORT } from '../../src/ui/columns';
+import { COLUMNS, DEFAULT_SORT } from '../../src/ui/columns';
 import { SetupDrawer } from '../../src/ui/drawer';
 import { EditLevels } from '../../src/ui/forms';
 import { emptyOverlay } from '../../src/data/overlay';
+import type { Row } from '../../src/engine/row';
+import { boardFlags } from '../../src/engine/flags';
 import { SECTIONS } from '../../src/engine/types';
-import { frozenBoard, rowOf, TODAY } from './frozen';
+import { drawerDataOf } from '../../src/ui/drawerdata';
+import { frozenBoard, frozenHist, rowOf, TODAY } from './frozen';
 
 /* The components are plain functions of their props, so a section can be rendered to a string and read. These
    check what the board puts on the screen, not how it looks. */
 
 const noop = () => {};
+
+/** What the drawer's host hands it, for a row of the frozen board: the flags and averages of that day. */
+const drawerData = (r: Row) => {
+  const flags = boardFlags(frozenBoard().rows, { today: TODAY, nowMs: Date.parse(TODAY + 'T12:00:00Z'), page: 'setups' });
+  return drawerDataOf(r, frozenHist(), flags, {});
+};
+const handlers = { canLog: true, onAck: noop, onUndo: noop, onLog: noop };
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 
 describe('the table', () => {
@@ -20,7 +30,7 @@ describe('the table', () => {
       const rows = frozenBoard().bySection[s];
       const html = render(<BoardTable rows={rows} section={s} sort={DEFAULT_SORT[s]} onSort={noop} onOpen={noop} today={TODAY} panelId="p" />);
       expect((html.match(/<tr class="row"/g) || []).length, s).toBe(rows.length);
-      expect((html.match(/<th /g) || []).length, s).toBe(2 + (s === 'watch' ? 4 : s === 'breakout' ? 5 : s === 'reentered' ? 4 : s === 'stopped' ? 3 : s === 'target' ? 4 : s === 'failed' ? 4 : 2));
+      expect((html.match(/<th /g) || []).length, s).toBe(2 + COLUMNS[s].length);
     }
   });
 
@@ -75,7 +85,7 @@ describe('the drawer', () => {
   const draw = (sym: string, dir: 'long' | 'short' = 'long', over: Partial<Parameters<typeof SetupDrawer>[0]> = {}) => {
     const r = rowOf(sym, dir);
     return text(render(
-      <SetupDrawer r={r} sharedRow={r.p} overlay={emptyOverlay()} showExDiv today={TODAY} canAct onEdit={noop} onResetField={noop} onAction={noop} {...over} />,
+      <SetupDrawer r={r} sharedRow={r.p} overlay={emptyOverlay()} showExDiv today={TODAY} canAct data={drawerData(r)} {...handlers} onEdit={noop} onResetField={noop} onAction={noop} {...over} />,
     ));
   };
 
@@ -116,7 +126,7 @@ describe('the drawer', () => {
   it('a setup added in this browser says so, and can be deleted', () => {
     const r = rowOf('TVE.TO');
     const mine = { ...r, p: { ...r.p, shared: false } };
-    const t = text(render(<SetupDrawer r={mine} sharedRow={null} overlay={emptyOverlay()} showExDiv today={TODAY} canAct onEdit={noop} onResetField={noop} onAction={noop} />));
+    const t = text(render(<SetupDrawer r={mine} sharedRow={null} overlay={emptyOverlay()} showExDiv today={TODAY} canAct data={drawerData(r)} {...handlers} onEdit={noop} onResetField={noop} onAction={noop} />));
     expect(t).toContain('Only in this browser');
     expect(t).toContain('Delete');
   });
@@ -124,7 +134,7 @@ describe('the drawer', () => {
   it('shows what this browser has overridden, with the shared value', () => {
     const r = rowOf('TVE.TO');
     const ov = { added: [], over: { 'TVE.TO|long': { target: 17 } } };
-    const t = text(render(<SetupDrawer r={{ ...r, p: { ...r.p, target: 17 } }} sharedRow={r.p} overlay={ov} showExDiv today={TODAY} canAct onEdit={noop} onResetField={noop} onAction={noop} />));
+    const t = text(render(<SetupDrawer r={{ ...r, p: { ...r.p, target: 17 } }} sharedRow={r.p} overlay={ov} showExDiv today={TODAY} canAct data={drawerData(r)} {...handlers} onEdit={noop} onResetField={noop} onAction={noop} />));
     expect(t).toContain('Edited in this browser · shared value 16.1');
   });
 });

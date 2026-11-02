@@ -82,3 +82,30 @@ export function flagRank(open: readonly Flag[] | undefined): number {
   }
   return act * 10000 + watch * 100 + cal;
 }
+
+/* ------------------------------------------------------------------ one row's whole record */
+
+export type FlagState = 'open' | 'acked' | 'past';
+
+export interface TimelineItem {
+  flag: Flag;
+  /** `open`: on Today and on the board until dealt with. `acked`: acknowledged here. `past`: aged out, or an Info flag. */
+  state: FlagState;
+}
+
+const TIER_RANK = { act: 0, watch: 1, info: 2 } as const;
+
+/** Every flag one row has raised, newest first (live ones first of all), each marked as open, acknowledged, or past. The
+    setup's drawer shows this: the record of everything the engine has said about it, with what still needs a look. */
+export function timelineOf(flags: readonly Flag[], acks: Acks, hist: Record<string, History | undefined>): TimelineItem[] {
+  const latest = latestSettled(hist);
+  return flags.map((flag): TimelineItem => {
+    const acked = ackable(flag) && acks[flag.id] != null;
+    const live = flag.tier === 'act' || flag.tier === 'watch';
+    return { flag, state: acked ? 'acked' : live && !expired(flag, hist, latest) ? 'open' : 'past' };
+  }).sort((a, b) =>
+    (b.flag.when === 'live' ? 1 : 0) - (a.flag.when === 'live' ? 1 : 0) ||
+    cmp(b.flag.when, a.flag.when) ||
+    TIER_RANK[a.flag.tier] - TIER_RANK[b.flag.tier] ||
+    cmp(a.flag.id, b.flag.id));
+}

@@ -5,8 +5,13 @@ import { visits } from './data/visit';
 import { route } from './router';
 import { useStore } from './store';
 import { dismiss, notice } from './ui/notice';
+import { HistoryPage } from './ui/history';
+import { FillDialog } from './ui/journal';
+import { MethodPage } from './ui/method';
+import { MorePage } from './ui/more';
 import { TabBar, TopNav } from './ui/nav';
 import { BoardPage } from './ui/page';
+import { PositionsPage } from './ui/positions';
 import { TodayPage } from './ui/today';
 import { useNarrow } from './ui/hooks';
 
@@ -57,9 +62,15 @@ export function App() {
   return (
     <div class="app">
       {narrow ? null : <TopNav page={r.page} />}
-      {r.page === 'today' ? <TodayPage key="today" /> : <BoardPage key={r.page} set={r.page === 'benchmarks' ? 'benchmarks' : 'watchlist'} />}
+      {r.page === 'today' ? <TodayPage key="today" />
+        : r.page === 'positions' ? <PositionsPage key="positions" />
+        : r.page === 'history' ? <HistoryPage key="history" />
+        : r.page === 'method' ? <MethodPage key="method" />
+        : r.page === 'more' ? <MorePage key="more" />
+        : <BoardPage key={r.page} set={r.page === 'benchmarks' ? 'benchmarks' : 'watchlist'} />}
       {narrow ? <TabBar page={r.page} /> : null}
       <Notice />
+      <FillDialog />
     </div>
   );
 }

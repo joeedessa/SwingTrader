@@ -5,10 +5,17 @@ import { Store } from './store';
      #/today             the landing page: what needs a decision this morning
      #/today/AME/long    Today with that setup's drawer open
      #/setups[...]       the board
-     #/benchmarks[...]   the same board on the benchmarks list */
+     #/positions[...]    the stop ladder: what is in trade, and where it gets out
+     #/history[...]      outcomes, and the trade journal
+     #/benchmarks[...]   the same board on the benchmarks list
+     #/method            the rules, where the data comes from, how fresh it is
+     #/more              the pages that do not fit the tab bar (a phone's last tab) */
 
-export type Page = 'today' | 'setups' | 'benchmarks';
-export const PAGES: readonly Page[] = ['today', 'setups', 'benchmarks'];
+export type Page = 'today' | 'setups' | 'positions' | 'history' | 'benchmarks' | 'method' | 'more';
+export const PAGES: readonly Page[] = ['today', 'setups', 'positions', 'history', 'benchmarks', 'method', 'more'];
+
+/** The pages a setup's drawer can open over. */
+export const ROW_PAGES: readonly Page[] = ['today', 'setups', 'positions', 'history', 'benchmarks'];
 
 export interface RowRef {
   sym: string;
@@ -26,7 +33,7 @@ export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const page = PAGES.find(p => p === parts[0]);
   if (!page) return DEFAULT_ROUTE;
-  if (parts.length >= 3 && (parts[2] === 'long' || parts[2] === 'short')) {
+  if (ROW_PAGES.includes(page) && parts.length >= 3 && (parts[2] === 'long' || parts[2] === 'short')) {
     try {
       return { page, row: { sym: decodeURIComponent(parts[1]), dir: parts[2] } };
     } catch {

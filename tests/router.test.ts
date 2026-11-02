@@ -1,27 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ROUTE, hashFor, PAGES, parseHash } from '../src/router';
+import { DEFAULT_ROUTE, hashFor, PAGES, parseHash, ROW_PAGES } from '../src/router';
 
 describe('routes', () => {
   it('open on Today, and fall back to it for an address nobody knows', () => {
     expect(DEFAULT_ROUTE).toEqual({ page: 'today', row: null });
-    for (const h of ['', '#', '#/', '#/nonsense', '#/method', '#//']) expect(parseHash(h), h).toEqual(DEFAULT_ROUTE);
+    for (const h of ['', '#', '#/', '#/nonsense', '#/model', '#//']) expect(parseHash(h), h).toEqual(DEFAULT_ROUTE);
   });
 
   it('know the pages that exist, Today first', () => {
-    expect(PAGES).toEqual(['today', 'setups', 'benchmarks']);
+    expect(PAGES).toEqual(['today', 'setups', 'positions', 'history', 'benchmarks', 'method', 'more']);
     for (const page of PAGES) expect(parseHash('#/' + page)).toEqual({ page, row: null });
   });
 
-  it('open a setup over any of them, so a trip into a drawer leaves the page it came from', () => {
-    for (const page of PAGES) {
+  it('open a setup over any page that lists setups, so a trip into a drawer leaves the page it came from', () => {
+    expect(ROW_PAGES).toEqual(['today', 'setups', 'positions', 'history', 'benchmarks']);
+    for (const page of ROW_PAGES) {
       expect(parseHash(`#/${page}/AME/long`)).toEqual({ page, row: { sym: 'AME', dir: 'long' } });
       expect(parseHash(`#/${page}/BANKINDIA.NS/short`)).toEqual({ page, row: { sym: 'BANKINDIA.NS', dir: 'short' } });
     }
   });
 
+  it('keep the pages that list no setups free of a drawer: the address is the page', () => {
+    for (const page of PAGES.filter(p => !ROW_PAGES.includes(p))) expect(parseHash(`#/${page}/AME/long`)).toEqual({ page, row: null });
+  });
+
   it('round-trip, whatever characters a symbol has', () => {
     for (const sym of ['AME', '^GSPC', 'GC=F', 'ROKO-B.ST', '0135.HK', 'DX-Y.NYB', 'A B']) {
-      for (const page of PAGES) {
+      for (const page of ROW_PAGES) {
         const r = { page, row: { sym, dir: 'short' as const } };
         expect(parseHash(hashFor(r)), sym).toEqual(r);
       }

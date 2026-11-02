@@ -1,5 +1,6 @@
 import { allHistories } from '../engine/bars';
 import type { BarsFile, LatestFile } from '../engine/bars';
+import type { Fill } from '../engine/journal';
 import type { History, Setup, SymbolEvents } from '../engine/types';
 import { Store } from '../store';
 import { localKV } from './kv';
@@ -9,6 +10,8 @@ import type { Overlay, SetId } from './overlay';
 import { parseEvents, parseSetups } from './schema';
 import { fetchBarsFor, fetchLive, mergeLive } from './sources';
 import type { LiveResult } from './sources';
+import { emptyLog, readLogOverlay, writeLogOverlay } from './tradelog';
+import type { LogOverlay } from './tradelog';
 
 /* Everything the board reads, in one place: the shared files, this browser's overlays, the snapshot, and the
    live upgrade laid over it. The board paints as soon as the snapshot is in; the live upgrade and the bars for
@@ -26,7 +29,13 @@ export interface AppState {
   overlays: Record<SetId, Overlay>;
   /** The browser refused to save an edit (private mode, storage full). */
   saveFailed: boolean;
+  /** The shared journal (tradelog.json), and what this browser has added, edited or deleted on top of it. */
+  tradelog: Fill[];
+  log: LogOverlay;
+  logSaveFailed: boolean;
   events: Record<string, SymbolEvents>;
+  /** When watch-events.json was written, for the Method page's freshness table. */
+  eventsAt: string | null;
   barsFile: BarsFile | null;
   snapshot: LatestFile | null;
   live: LiveResult | null;
@@ -49,7 +58,11 @@ export const app = new Store<AppState>({
     benchmarks: readOverlay(localKV(), SETS.benchmarks.key),
   },
   saveFailed: false,
+  tradelog: [],
+  log: readLogOverlay(localKV()),
+  logSaveFailed: false,
   events: {},
+  eventsAt: null,
   barsFile: null,
   snapshot: null,
   live: null,
@@ -91,12 +104,13 @@ export function load(): Promise<void> {
     const first = app.get().phase === 'loading';
     app.set({ refreshing: true, ...(first ? {} : { error: null }) });
     const problems: string[] = [];
-    const [watch, bench, events, bars, latest] = await Promise.all([
+    const [watch, bench, events, bars, latest, trades] = await Promise.all([
       tryLoad<unknown>('watchlist.json', problems),
       tryLoad<unknown>('benchmarks.json', problems),
       tryLoad<unknown>('watch-events.json', problems),
       tryLoad<BarsFile>('bars.json', problems),
       tryLoad<LatestFile>('prices-latest.json', problems),
+      tryLoad<unknown>('tradelog.json', problems),
     ]);
     const lists: Partial<Record<SetId, Setup[]>> = {};
     if (watch) { const p = parseSetups(watch, 'watchlist.json'); lists.watchlist = p.rows; problems.push(...p.problems); }
@@ -109,6 +123,9 @@ export function load(): Promise<void> {
       problems,
       shared: { watchlist: lists.watchlist ?? prev.shared.watchlist, benchmarks: lists.benchmarks ?? prev.shared.benchmarks },
       events: events ? parseEvents(events).symbols : prev.events,
+      eventsAt: events ? (parseEvents(events).generated_at ?? null) : prev.eventsAt,
+      // The journal is optional: a file that is missing or not a list leaves what was there.
+      tradelog: Array.isArray(trades) ? (trades as Fill[]) : prev.tradelog,
       barsFile: bars ?? prev.barsFile,
       snapshot: latest ?? prev.snapshot,
       live: null,
@@ -157,4 +174,13 @@ export function updateOverlay(set: SetId, fn: (ov: Overlay) => Overlay): void {
   app.set({ overlays: { ...s.overlays, [set]: next }, saveFailed: !saved });
   // A setup added here may need bars the snapshot does not have.
   if (next.added.length !== s.overlays[set].added.length) void fillMissingBars();
+}
+
+/** Apply a change to this browser's journal and keep it. If the browser refuses the write the change still shows for
+    this visit, and the page says it will not survive a reload. */
+export function updateLog(fn: (ov: LogOverlay) => LogOverlay): void {
+  const s = app.get();
+  const next = fn(s.log ?? emptyLog());
+  const saved = writeLogOverlay(localKV(), next);
+  app.set({ log: next, logSaveFailed: !saved });
 }

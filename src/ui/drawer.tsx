@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { setupEvents, sortLog } from '../engine/events';
+import type { Flag } from '../engine/flags';
 import { daysTag, direction, fmt, fmtD, humanDates, MINUS, signedPct } from '../engine/format';
 import type { Row } from '../engine/row';
 import { SECTION_LABELS } from '../engine/types';
@@ -10,6 +10,8 @@ import { Confirm } from './components';
 import { addedText, brokeOutCell, breachesCell, lfdCell, negationCell, pullbacksText, statusCell, targetCell, trailingStopCell, triggerCell, typeCell } from './cells';
 import type { Cell } from './cells';
 import { CellView } from './board';
+import type { DrawerData } from './drawerdata';
+import { AveragesSection, DSection as Section, EarningsSection, FlagsSection } from './drawersections';
 import { EditLevels } from './forms';
 import { IconExternal } from './icons';
 import { chartUrl } from './links';
@@ -49,16 +51,7 @@ const Level = ({ label, cell, edited, onReset, extra }: {
   </div>
 );
 
-function Section({ title, children, action }: { title: string; children: preact.ComponentChildren; action?: preact.ComponentChildren }) {
-  return (
-    <section class="dsec">
-      <header><h3>{title}</h3>{action}</header>
-      {children}
-    </section>
-  );
-}
-
-export function SetupDrawer({ r, sharedRow, overlay, showExDiv, today, canAct, onEdit, onResetField, onAction }: {
+export function SetupDrawer({ r, sharedRow, overlay, showExDiv, today, canAct, canLog, data, onAck, onUndo, onLog, onEdit, onResetField, onAction }: {
   r: Row;
   /** The row as the repo has it, for rows that came from the shared list; null for rows added here. */
   sharedRow: Setup | null;
@@ -67,6 +60,12 @@ export function SetupDrawer({ r, sharedRow, overlay, showExDiv, today, canAct, o
   showExDiv: boolean;
   today: string;
   canAct: boolean;
+  /** The watchlist keeps a journal; the benchmarks do not. */
+  canLog: boolean;
+  data: DrawerData;
+  onAck: (flags: Flag[]) => void;
+  onUndo: (flags: Flag[]) => void;
+  onLog: () => void;
   onEdit: (changes: LevelChanges) => void;
   onResetField: (field: string) => void;
   onAction: (a: Action) => void;
@@ -81,7 +80,6 @@ export function SetupDrawer({ r, sharedRow, overlay, showExDiv, today, canAct, o
     return e ? { field, shared: e.shared == null ? 'none' : String(e.shared) } : undefined;
   };
   const T = r.btype;
-  const events = sortLog(setupEvents(r));
   const trailing = trailingStopCell(r, today);
   const earn = r.earnings ? daysTag(r.earnings, today) : null;
   const exTag = r.exdiv ? daysTag(r.exdiv, today) : null;
@@ -117,7 +115,10 @@ export function SetupDrawer({ r, sharedRow, overlay, showExDiv, today, canAct, o
           {p.note ? <div class="dname">{p.note}</div> : null}
           <div class="s">{[p.country, p.exchange, r.currency].filter(Boolean).join(' · ')}</div>
         </div>
-        <a class="btn" href={chartUrl(p.sym)} target="_blank" rel="noopener noreferrer">Chart <IconExternal /></a>
+        <div class="dtopbtns">
+          {canLog ? <button type="button" class="btn" onClick={onLog}>Log fill</button> : null}
+          <a class="btn" href={chartUrl(p.sym)} target="_blank" rel="noopener noreferrer">Chart <IconExternal /></a>
+        </div>
       </div>
 
       <Section title="Price">
@@ -168,18 +169,11 @@ export function SetupDrawer({ r, sharedRow, overlay, showExDiv, today, canAct, o
         </Section>
       ) : null}
 
-      <Section title="Events">
-        {events.length ? (
-          <ol class="events">
-            {events.map(e => (
-              <li class={'ev ' + e.cls}>
-                <span class="evdate">{e.when === 'live' ? 'Live' : fmtD(e.when)}</span>
-                <span class="evtext">{e.text.slice(e.text.indexOf(' — ') + 3)}</span>
-              </li>
-            ))}
-          </ol>
-        ) : <p class="note">Nothing has happened to this setup yet.</p>}
-      </Section>
+      <FlagsSection timeline={data.timeline} onAck={onAck} onUndo={onUndo} />
+
+      <AveragesSection lines={data.averages} />
+
+      {data.earnings ? <EarningsSection v={data.earnings} ccy={r.currency} today={today} sym={p.sym} name={p.note || ''} live={r.live} /> : null}
 
       <Section title="Calendar">
         <dl class="facts">

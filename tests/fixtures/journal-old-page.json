@@ -1,0 +1,298 @@
+{
+  "about": "Synthetic fills (not Joe's). expected.* was produced by running the old page's own logRows, pairFills and summary expression (macro-compass docs/watch.html, the lines named in source) over them; see docs/PARITY.md.",
+  "source": {
+    "file": "macro-compass docs/watch.html",
+    "lines": {
+      "logRows": [
+        3567,
+        3579
+      ],
+      "pairFills": [
+        3613,
+        3631
+      ],
+      "summary": [
+        3644,
+        3652
+      ]
+    },
+    "sha256": "ccee86eef8eb4874f71b7fb13b38ecf489bd5d05bda55a1844bd70804fb96483"
+  },
+  "shared": [
+    {
+      "id": "f01",
+      "sym": "AME",
+      "side": "buy",
+      "date": "2026-09-01",
+      "price": 200,
+      "priceManual": false,
+      "pattern": "Cup & handle",
+      "duration_m": 8,
+      "market": "US",
+      "note": null,
+      "logged_at": "2026-09-01T14:00:00.000Z"
+    },
+    {
+      "id": "f02",
+      "sym": "AME",
+      "side": "sell",
+      "date": "2026-10-05",
+      "price": 230,
+      "priceManual": true,
+      "pattern": null,
+      "duration_m": null,
+      "market": null,
+      "note": "target",
+      "logged_at": "2026-10-05T15:30:00.000Z"
+    },
+    {
+      "id": "f03",
+      "sym": "NUTX",
+      "side": "buy",
+      "date": "2026-09-10",
+      "price": 50,
+      "priceManual": false,
+      "pattern": "Ascending triangle",
+      "duration_m": 0,
+      "market": "US",
+      "note": null,
+      "logged_at": "2026-09-10T13:00:00.000Z"
+    },
+    {
+      "id": "f04",
+      "sym": "NUTX",
+      "side": "buy",
+      "date": "2026-09-20",
+      "price": 52,
+      "priceManual": false,
+      "pattern": null,
+      "duration_m": 3,
+      "market": "US",
+      "note": "added",
+      "logged_at": "2026-09-20T13:00:00.000Z"
+    },
+    {
+      "id": "f05",
+      "sym": "NUTX",
+      "side": "sell",
+      "date": "2026-10-01",
+      "price": 49,
+      "priceManual": false,
+      "pattern": null,
+      "duration_m": null,
+      "market": null,
+      "note": null,
+      "logged_at": "2026-10-01T13:00:00.000Z"
+    },
+    {
+      "id": "f06",
+      "sym": "BANKINDIA.NS",
+      "side": "sell",
+      "date": "2026-09-15",
+      "price": 140,
+      "priceManual": false,
+      "pattern": "Head & shoulders",
+      "duration_m": 5,
+      "market": "India",
+      "note": "short",
+      "logged_at": "2026-09-15T04:00:00.000Z"
+    },
+    {
+      "id": "f07",
+      "sym": "BANKINDIA.NS",
+      "side": "buy",
+      "date": "2026-10-02",
+      "price": 130,
+      "priceManual": false,
+      "pattern": null,
+      "duration_m": null,
+      "market": null,
+      "note": null,
+      "logged_at": "2026-10-02T04:00:00.000Z"
+    },
+    {
+      "id": "f08",
+      "sym": "3107.T",
+      "side": "buy",
+      "date": "2026-09-25",
+      "price": 1500,
+      "priceManual": false,
+      "pattern": "Rectangle",
+      "duration_m": 6,
+      "market": "Japan",
+      "note": null,
+      "logged_at": "2026-09-25T01:00:00.000Z"
+    },
+    {
+      "id": "f09",
+      "sym": "TVE.TO",
+      "side": "sell",
+      "date": "2026-10-08",
+      "price": 15.2,
+      "priceManual": false,
+      "pattern": null,
+      "duration_m": null,
+      "market": "Canada",
+      "note": null,
+      "logged_at": "2026-10-08T18:00:00.000Z"
+    },
+    {
+      "id": "f10",
+      "sym": "TVE.TO",
+      "side": "buy",
+      "date": "2026-10-08",
+      "price": 14.9,
+      "priceManual": false,
+      "pattern": "Flag",
+      "duration_m": 2,
+      "market": "Canada",
+      "note": null,
+      "logged_at": "2026-10-08T16:00:00.000Z"
+    },
+    {
+      "id": "f11",
+      "sym": "GDX",
+      "side": "buy",
+      "date": "2026-10-09",
+      "price": 60,
+      "priceManual": false,
+      "pattern": null,
+      "duration_m": null,
+      "market": null,
+      "note": "typo",
+      "logged_at": "2026-10-09T14:00:00.000Z"
+    },
+    {
+      "id": "f12",
+      "sym": "GDX",
+      "side": "sell",
+      "date": "2026-10-20",
+      "price": 66,
+      "priceManual": false,
+      "pattern": null,
+      "duration_m": null,
+      "market": null,
+      "note": null,
+      "logged_at": "2026-10-20T14:00:00.000Z"
+    }
+  ],
+  "overlay": {
+    "deleted": [
+      "f11"
+    ],
+    "over": {
+      "f12": {
+        "id": "f12",
+        "sym": "GDX",
+        "side": "sell",
+        "date": "2026-10-20",
+        "price": 63,
+        "priceManual": true,
+        "pattern": null,
+        "duration_m": null,
+        "market": null,
+        "note": "edited price",
+        "logged_at": "2026-10-20T14:00:00.000Z"
+      }
+    },
+    "added": [
+      {
+        "id": "fk1",
+        "sym": "AME",
+        "side": "buy",
+        "date": "2026-10-28",
+        "price": 245,
+        "priceManual": false,
+        "pattern": null,
+        "duration_m": null,
+        "market": "US",
+        "note": "re-entry",
+        "logged_at": "2026-10-28T15:00:00.000Z"
+      },
+      {
+        "id": "fk2",
+        "sym": "HWX.TO",
+        "side": "sell",
+        "date": "2026-10-30",
+        "price": 14.1,
+        "priceManual": false,
+        "pattern": "Wedge",
+        "duration_m": 4,
+        "market": "Canada",
+        "note": null,
+        "logged_at": "2026-10-30T15:00:00.000Z"
+      }
+    ]
+  },
+  "expected": {
+    "rows": [
+      "f01",
+      "f03",
+      "f06",
+      "f04",
+      "f08",
+      "f05",
+      "f07",
+      "f02",
+      "f10",
+      "f09",
+      "f12",
+      "fk1",
+      "fk2"
+    ],
+    "opens": [
+      "fk1",
+      "f04",
+      "f08",
+      "f12",
+      "fk2"
+    ],
+    "closed": [
+      {
+        "sym": "NUTX",
+        "dir": "long",
+        "entry": "f03",
+        "exit": "f05",
+        "pnl": -2.0000000000000018,
+        "days": 21,
+        "pattern": "Ascending triangle",
+        "duration_m": 0,
+        "market": "US"
+      },
+      {
+        "sym": "BANKINDIA.NS",
+        "dir": "short",
+        "entry": "f06",
+        "exit": "f07",
+        "pnl": 7.692307692307687,
+        "days": 17,
+        "pattern": "Head & shoulders",
+        "duration_m": 5,
+        "market": "India"
+      },
+      {
+        "sym": "AME",
+        "dir": "long",
+        "entry": "f01",
+        "exit": "f02",
+        "pnl": 14.999999999999991,
+        "days": 34,
+        "pattern": "Cup & handle",
+        "duration_m": 8,
+        "market": "US"
+      },
+      {
+        "sym": "TVE.TO",
+        "dir": "long",
+        "entry": "f10",
+        "exit": "f09",
+        "pnl": 2.0134228187919323,
+        "days": 0,
+        "pattern": "Flag",
+        "duration_m": 2,
+        "market": "Canada"
+      }
+    ],
+    "summary": "5 open · 4 closed · 3 winners (75%) · avg win +8.2% · avg loss -2.0% — P&L in each instrument's own currency, price-based, no sizes."
+  }
+}
