@@ -3,7 +3,7 @@
 Breakout watchlist and trading dashboard: classical chart-pattern setups from the
 Tech Charts research service, tracked from "waiting" to "target" or "failed".
 
-Live site (once Pages is enabled): https://joeedessa.github.io/SwingTrader/
+Live site: https://joeedessa.github.io/SwingTrader/
 
 Standing rules for every session are in [CLAUDE.md](CLAUDE.md). The plan is
 [docs/PLAN.md](docs/PLAN.md); the original brief is [docs/BRIEF.md](docs/BRIEF.md).
