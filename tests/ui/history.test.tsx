@@ -84,6 +84,12 @@ describe('the outcome tiles', () => {
     expect(tileNote(o)).not.toContain('reached their target first');
   });
 
+  it('say it in the singular for one', () => {
+    const t = tileNote({ ...o, failedAfterTarget: 1, removedAfterTarget: 1 });
+    expect(t).toContain('1 of the failed reached its target first and was negated afterwards: it counts as failed (B4), where it ended; counted as having reached it, the hit rate would be 36%.');
+    expect(t).toContain('1 reached its target and was then removed by the source: it is in neither.');
+  });
+
   it('say how many reached their target and were then removed by the source, which are in neither count', () => {
     expect(tileNote({ ...o, removedAfterTarget: 2 })).toContain('2 reached their target and were then removed by the source: they are in neither.');
     expect(tileNote(o)).not.toContain('removed by the source');

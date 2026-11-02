@@ -59,11 +59,15 @@ export function tileNote(o: Outcomes): string {
     parts.push(`The ${o.byHand} you moved to Failed by hand are not in these numbers.`);
   }
   if (o.failedAfterTarget) {
-    const alt = o.resolved ? Math.round((o.reached + o.failedAfterTarget) / o.resolved * 100) : null;
-    parts.push(`${o.failedAfterTarget} of the failed reached their target first and were negated afterwards: they count as failed (B4), where they ended` +
+    const n = o.failedAfterTarget;
+    const alt = o.resolved ? Math.round((o.reached + n) / o.resolved * 100) : null;
+    parts.push(`${n} of the failed reached ${n === 1 ? 'its' : 'their'} target first and ${n === 1 ? 'was' : 'were'} negated afterwards: ${n === 1 ? 'it counts' : 'they count'} as failed (B4), where ${n === 1 ? 'it' : 'they'} ended` +
       (alt != null ? `; counted as having reached it, the hit rate would be ${alt}%.` : '.'));
   }
-  if (o.removedAfterTarget) parts.push(`${o.removedAfterTarget} reached their target and were then removed by the source: they are in neither.`);
+  if (o.removedAfterTarget) {
+    const n = o.removedAfterTarget;
+    parts.push(`${n} reached ${n === 1 ? 'its' : 'their'} target and ${n === 1 ? 'was' : 'were'} then removed by the source: ${n === 1 ? 'it is' : 'they are'} in neither.`);
+  }
   if (o.untyped) parts.push(`${o.untyped} that reached the target without daily bars have no type.`);
   parts.push('The list began with setups already confirmed, so read it as a record, not a forecast.');
   return parts.join(' ');
