@@ -52,12 +52,18 @@ const days = (n: number | null) => {
 
 /** What the tiles do and do not count, in the numbers of the day. */
 export function tileNote(o: Outcomes): string {
-  const parts = ['Settled closes, resolved setups only: those that reached the target or had the negation touched.'];
+  const parts = ['Settled closes. A setup is resolved when it ended At target or Failed, and the hit rate is the first as a share of both.'];
   if (o.open) {
     parts.push(`The ${o.open} still in play are not in these numbers${o.byHand ? `, nor are the ${o.byHand} you moved to Failed by hand` : ''}.`);
   } else if (o.byHand) {
     parts.push(`The ${o.byHand} you moved to Failed by hand are not in these numbers.`);
   }
+  if (o.failedAfterTarget) {
+    const alt = o.resolved ? Math.round((o.reached + o.failedAfterTarget) / o.resolved * 100) : null;
+    parts.push(`${o.failedAfterTarget} of the failed reached their target first and were negated afterwards: they count as failed (B4), where they ended` +
+      (alt != null ? `; counted as having reached it, the hit rate would be ${alt}%.` : '.'));
+  }
+  if (o.removedAfterTarget) parts.push(`${o.removedAfterTarget} reached their target and were then removed by the source: they are in neither.`);
   if (o.untyped) parts.push(`${o.untyped} that reached the target without daily bars have no type.`);
   parts.push('The list began with setups already confirmed, so read it as a record, not a forecast.');
   return parts.join(' ');

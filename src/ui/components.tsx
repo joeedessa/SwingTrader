@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { IconClose, IconDown } from './icons';
+import { lockPage, unlockPage } from './modallock';
 
 /* The small pieces the pages are built from: a segmented control, a popover, a modal. Each is a plain
    component with no knowledge of setups, so they stay easy to read and to reuse on the pages still to come. */
@@ -125,10 +126,10 @@ export function Modal({ title, heading, variant, onClose, children, id }: {
 }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    const behind = [...document.querySelectorAll<HTMLElement>('[data-underlay]')];
-    behind.forEach(n => n.setAttribute('inert', ''));
-    document.documentElement.classList.add('locked');
+    // An effect that runs after its modal has already gone (the drawer closed in the same breath as a form opened) has nothing
+    // to lock, and no cleanup will come for it.
+    if (!panel.current) return;
+    lockPage();
     const first = panel.current?.querySelector<HTMLElement>('[data-autofocus]') ?? panel.current?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? panel.current)?.focus({ preventScroll: true });
     const key = (e: KeyboardEvent) => {
@@ -143,9 +144,9 @@ export function Modal({ title, heading, variant, onClose, children, id }: {
     document.addEventListener('keydown', key);
     return () => {
       document.removeEventListener('keydown', key);
-      behind.forEach(n => n.removeAttribute('inert'));
-      document.documentElement.classList.remove('locked');
-      if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+      // Only the last modal to close gives the page back, and focus with it.
+      const back = unlockPage();
+      if (back instanceof HTMLElement) back.focus({ preventScroll: true });
     };
   }, []);
   return (

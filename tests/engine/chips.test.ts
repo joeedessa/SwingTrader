@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { CALENDAR_KINDS, chipsOf, flagRank, LEAD_ORDER, openByRow, rowKeyOf } from '../../src/engine/chips';
-import { boardFlags, RULES } from '../../src/engine/flags';
+import { CALENDAR_KINDS, chipsOf, flagRank, LEAD_ORDER, openByRow, rowKeyOf, timelineOf } from '../../src/engine/chips';
+import { ackable, boardFlags, expired, RULES } from '../../src/engine/flags';
+import { todayView } from '../../src/engine/today';
 import type { Flag, FlagKind } from '../../src/engine/flags';
 import { frozenBoard, frozenHist, TODAY } from '../ui/frozen';
 
@@ -165,5 +166,55 @@ describe('on the frozen board', () => {
 
   it('no row shows more than three chips', () => {
     for (const list of open.values()) expect(chipsOf(list).length).toBeLessThanOrEqual(3);
+  });
+
+  describe('with some flags acknowledged', () => {
+    const hist = frozenHist();
+    const candidates = flags.filter(x => (x.tier === 'act' || x.tier === 'watch') && x.sym && x.dir && ackable(x) && !expired(x, hist));
+    // Every fifth open flag, across kinds, so the set is not one kind's.
+    const acked = candidates.filter((_, i) => i % 5 === 0);
+    const acks = Object.fromEntries(acked.map(x => [x.id, 1]));
+    const openNow = openByRow(flags, acks, hist);
+    const view = todayView({ flags, acks, hist, seen: null, dayStart: 0 });
+    const onToday = [...view.live, ...view.act.groups.flatMap(g => g.flags), ...view.watch.groups.flatMap(g => g.flags)];
+
+    it('has something acknowledged to test with, and something aged out', () => {
+      expect(acked.length).toBeGreaterThan(2);
+      expect(new Set(acked.map(x => x.kind)).size).toBeGreaterThan(1);
+      expect(flags.some(x => expired(x, hist))).toBe(true);
+    });
+
+    it('never shows an acknowledged flag as open, on a row or on Today', () => {
+      const openIds = new Set([...openNow.values()].flat().map(x => x.id));
+      for (const x of acked) { expect(openIds.has(x.id), x.id).toBe(false); expect(onToday.map(t => t.id), x.id).not.toContain(x.id); }
+    });
+
+    it('has every flag on Today open on its own row', () => {
+      expect(onToday.length).toBeGreaterThan(0);
+      for (const x of onToday) expect((openNow.get(rowKeyOf(x.sym as string, x.dir as string)) ?? []).map(o => o.id), x.id).toContain(x.id);
+    });
+
+    it('has on a row, beyond what Today lists, only flags that are not Today\'s to list', () => {
+      const todayIds = new Set(onToday.map(x => x.id));
+      for (const list of openNow.values()) for (const x of list) if (!todayIds.has(x.id)) expect(x.surfaces.includes('today'), x.id).toBe(false);
+    });
+
+    it('is the same set the drawer calls open: the timeline of a row agrees with the row\'s chips, flag for flag', () => {
+      const byRow = new Map<string, typeof flags>();
+      for (const x of flags) if (x.sym && x.dir) byRow.set(rowKeyOf(x.sym, x.dir), [...(byRow.get(rowKeyOf(x.sym, x.dir)) ?? []), x]);
+      for (const [key, list] of byRow) {
+        const fromTimeline = timelineOf(list, acks, hist).filter(t => t.state === 'open').map(t => t.flag.id).sort();
+        expect(fromTimeline, key).toEqual((openNow.get(key) ?? []).map(x => x.id).sort());
+      }
+    });
+
+    it('marks what was acknowledged as such in the timeline, and what aged out as past', () => {
+      const byId = new Map(flags.map(x => [x.id, x]));
+      for (const x of acked) {
+        const t = timelineOf([byId.get(x.id)!], acks, hist)[0];
+        expect(t.state, x.id).toBe('acked');
+      }
+      for (const x of flags.filter(f => expired(f, hist) && !acks[f.id])) expect(timelineOf([x], acks, hist)[0].state, x.id).toBe('past');
+    });
   });
 });

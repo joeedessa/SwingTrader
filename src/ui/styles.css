@@ -529,6 +529,8 @@ ol.events.log { background: var(--card); border-radius: var(--radius); box-shado
 .sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .jtable td { vertical-align: middle; }
 .jtable .cell .v { font-size: 13.5px; }
+/* Words the person typed (a pattern, a market, a note) wrap, or one long note pushes the table past a 1,100 px window. */
+.jtable td.text .cell .v { white-space: normal; overflow-wrap: anywhere; max-width: 30ch; }
 .jcards .jmetrics { pointer-events: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .jcards .card { padding-bottom: 14px; }
 .jcards .cardhead { pointer-events: auto; }

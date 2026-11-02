@@ -35,6 +35,10 @@ export interface Outcomes {
   untyped: number;
   /** Moved to Failed by hand: no bar ended them, so no outcome is counted. */
   byHand: number;
+  /** Failed, but only after reaching the target: they count as failed (B4), where they ended. */
+  failedAfterTarget: number;
+  /** Reached the target and were then removed by the source: in neither count. */
+  removedAfterTarget: number;
   medianToTarget: number | null;
   medianToFailure: number | null;
 }
@@ -54,7 +58,7 @@ export function outcomesOf(rows: readonly Row[]): Outcomes {
   const days: Record<OutcomeTag, number[]> = { B1: [], B2: [], B3: [], B4: [] };
   const counts: Record<OutcomeTag, number> = { B1: 0, B2: 0, B3: 0, B4: 0 };
   const toTarget: number[] = [], toFailure: number[] = [];
-  let reached = 0, failed = 0, open = 0, untyped = 0, byHand = 0;
+  let reached = 0, failed = 0, open = 0, untyped = 0, byHand = 0, failedAfterTarget = 0, removedAfterTarget = 0;
   for (const r of rows) {
     const s = r.section;
     if (s === 'breakout' || s === 'reentered' || s === 'stopped') { open++; continue; }
@@ -69,9 +73,12 @@ export function outcomesOf(rows: readonly Row[]): Outcomes {
     } else if (s === 'failed') {
       if (!r.st.failed) { byHand++; continue; }
       failed++;
+      if (r.st.targetHit) failedAfterTarget++;
       counts.B4++;
       const d = r.st.breakout ? spanDays(r.st.breakout.when, r.st.failed.when) : null;
       if (d != null) { toFailure.push(d); days.B4.push(d); }
+    } else if (s === 'removed' && r.st.targetHit) {
+      removedAfterTarget++;
     }
   }
   const resolved = reached + failed;
@@ -79,7 +86,7 @@ export function outcomesOf(rows: readonly Row[]): Outcomes {
     reached, failed, resolved,
     hitRate: resolved ? Math.round(reached / resolved * 100) : null,
     byType: OUTCOME_TAGS.map(tag => ({ tag, count: counts[tag], medianDays: median(days[tag]) })),
-    open, untyped, byHand,
+    open, untyped, byHand, failedAfterTarget, removedAfterTarget,
     medianToTarget: median(toTarget), medianToFailure: median(toFailure),
   };
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeFor, forgetFetched } from '../../src/data/journal';
+import { closeFor, forgetFetched, latestCloseFor } from '../../src/data/journal';
 import type { History } from '../../src/engine/types';
 
 const hist = (closes: [string, number][]): History => ({ settled: closes, live: null, liveDate: '', currency: 'USD' });
@@ -54,5 +54,31 @@ describe('the price a fill starts with', () => {
   it('is nothing for a date before the history starts', async () => {
     const h = { AME: hist([['2026-10-29', 10]]) };
     expect(await closeFor('AME', '2026-01-01', h)).toBeNull();
+  });
+});
+
+describe('the latest close of a position', () => {
+  it('is the last settled close on the lists, with the listing currency, without asking anyone', async () => {
+    const w = fakeWorker({});
+    const h = { AME: { ...hist([['2026-10-29', 10], ['2026-10-30', 11]]), currency: 'USD' } };
+    expect(await latestCloseFor('AME', h, { fetch: w.fetch })).toEqual({ date: '2026-10-30', close: 11, ccy: 'USD' });
+    expect(w.calls).toEqual([]);
+  });
+
+  it('is fetched once for a symbol on neither list, with the currency Yahoo gives, and kept', async () => {
+    const w = fakeWorker({ GDX: [['2026-10-28', 60], ['2026-10-29', 61], ['2026-10-30', 62]] });
+    const env = { local: false, base: '/' };
+    expect(await latestCloseFor('GDX', {}, { fetch: w.fetch, env })).toEqual({ date: '2026-10-30', close: 62, ccy: 'USD' });
+    expect(await latestCloseFor('GDX', {}, { fetch: w.fetch, env })).toMatchObject({ close: 62 });
+    expect(await closeFor('GDX', '2026-10-29', {}, { fetch: w.fetch, env })).toEqual({ date: '2026-10-29', close: 61 });
+    expect(w.calls).toHaveLength(1);
+  });
+
+  it('is nothing when Yahoo has nothing, and is tried again next time', async () => {
+    const w = fakeWorker({});
+    const env = { local: false, base: '/' };
+    expect(await latestCloseFor('NOPE', {}, { fetch: w.fetch, env })).toBeNull();
+    expect(await latestCloseFor('NOPE', {}, { fetch: w.fetch, env })).toBeNull();
+    expect(w.calls).toHaveLength(2);
   });
 });

@@ -25,6 +25,10 @@ const throughStop = rowOf(P, [...B1,                                            
   ['2026-01-15', 98, 101, 100.2], ['2026-01-16', 93, 99, 97], ['2026-01-19', 95, 102, 101], TARGET]);
 const negated = rowOf(P, [...B1, ['2026-01-12', 89, 99, 95]]);                                         // B4, 4 days
 const byHand = rowOf({ ...P, manualState: 'failed' }, B1);
+// Reached the target on 01-12, then the negation was touched on 01-13: it ended Failed, having reached it first.
+const targetThenNegated = rowOf(P, [...B1, ['2026-01-12', 110, 121, 120], ['2026-01-13', 85, 100, 95]]);
+// Reached the target, and then the source removed it.
+const targetThenRemoved = rowOf({ ...P, removed: '2026-01-14', manualState: 'removed' }, [...B1, ['2026-01-12', 110, 121, 120]]);
 const stillOpen = rowOf(P, B1);
 const waiting = rowOf(P, WAIT);
 
@@ -81,6 +85,26 @@ describe('what a setup ended as', () => {
   });
 });
 
+describe('a setup that reached its target and then ended some other way', () => {
+  it('counts as failed where the negation ended it, and says it reached the target first', () => {
+    expect(targetThenNegated.section).toBe('failed');
+    expect(targetThenNegated.st.targetHit).not.toBeNull();
+    const o = outcomesOf([straight, negated, targetThenNegated]);
+    expect(o).toMatchObject({ reached: 1, failed: 2, resolved: 3, failedAfterTarget: 1, hitRate: 33 });
+    expect(o.byType.find(t => t.tag === 'B4')!.count).toBe(2);
+  });
+
+  it('is in neither count when the source removed it after the target, and the page is told how many', () => {
+    expect(targetThenRemoved.section).toBe('removed');
+    const o = outcomesOf([straight, targetThenRemoved]);
+    expect(o).toMatchObject({ reached: 1, failed: 0, resolved: 1, removedAfterTarget: 1 });
+  });
+
+  it('is zero in both when nothing did', () => {
+    expect(outcomesOf([straight, negated])).toMatchObject({ failedAfterTarget: 0, removedAfterTarget: 0 });
+  });
+});
+
 describe('the middle number', () => {
   it('is the middle one of an odd list, the mean of the two middle ones of an even list, and nothing for none', () => {
     expect(median([5, 1, 3])).toBe(3);
@@ -110,6 +134,13 @@ describe('on the frozen board', () => {
   it('the type tiles add up to the setups that resolved, less any that could not be typed', () => {
     expect(o.byType.reduce((n, t) => n + t.count, 0)).toBe(o.resolved - o.untyped);
     expect(o.byType.find(t => t.tag === 'B4')!.count).toBe(o.failed);
+  });
+
+  it('counts the ones that reached their target first as a part of the failed and of the removed, never more', () => {
+    expect(o.failedAfterTarget).toBeGreaterThanOrEqual(0);
+    expect(o.failedAfterTarget).toBeLessThanOrEqual(o.failed);
+    expect(o.removedAfterTarget).toBeLessThanOrEqual(count('removed'));
+    expect(o.failedAfterTarget).toBe(rows.filter(r => r.section === 'failed' && r.st.failed && r.st.targetHit).length);
   });
 
   it('keeps the hit rate a whole per cent between 0 and 100', () => {

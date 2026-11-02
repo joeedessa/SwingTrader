@@ -10,7 +10,7 @@ import type { Fill } from '../../src/engine/journal';
 import { outcomesOf } from '../../src/engine/outcomes';
 import type { Outcomes } from '../../src/engine/outcomes';
 import { HistoryPage, outcomeTiles, tileNote } from '../../src/ui/history';
-import { FillDialog, JournalPanel, journalUi, openFillForm, priceStartsByHand } from '../../src/ui/journal';
+import { FillDialog, JournalPanel, journalUi, openFillForm } from '../../src/ui/journal';
 import golden from '../fixtures/journal-old-page.json';
 import { frozenInputs } from './frozen';
 
@@ -38,7 +38,7 @@ const outcomes = (): Outcomes => outcomesOf(boardView(app.get(), 'watchlist').bd
 
 describe('the outcome tiles', () => {
   const o: Outcomes = {
-    reached: 15, failed: 30, resolved: 45, hitRate: 33, open: 36, untyped: 0, byHand: 0, medianToTarget: 55, medianToFailure: 55,
+    reached: 15, failed: 30, resolved: 45, hitRate: 33, open: 36, untyped: 0, byHand: 0, failedAfterTarget: 0, removedAfterTarget: 0, medianToTarget: 55, medianToFailure: 55,
     byType: [
       { tag: 'B1', count: 2, medianDays: 46 }, { tag: 'B2', count: 8, medianDays: 55.5 },
       { tag: 'B3', count: 5, medianDays: 82 }, { tag: 'B4', count: 30, medianDays: 55 },
@@ -74,6 +74,19 @@ describe('the outcome tiles', () => {
     expect(tileNote({ ...o, untyped: 3 })).toContain('3 that reached the target without daily bars have no type');
     expect(tileNote({ ...o, open: 0 })).not.toContain('still in play');
     expect(tileNote(o)).toContain('a record, not a forecast');
+    expect(tileNote(o)).toContain('A setup is resolved when it ended At target or Failed');
+  });
+
+  it('say how many of the failed reached their target first, and what the hit rate would be if they counted as reached', () => {
+    const t = tileNote({ ...o, failedAfterTarget: 3 });
+    expect(t).toContain('3 of the failed reached their target first and were negated afterwards: they count as failed (B4), where they ended');
+    expect(t).toContain('the hit rate would be 40%.');           // (15 + 3) of 45
+    expect(tileNote(o)).not.toContain('reached their target first');
+  });
+
+  it('say how many reached their target and were then removed by the source, which are in neither count', () => {
+    expect(tileNote({ ...o, removedAfterTarget: 2 })).toContain('2 reached their target and were then removed by the source: they are in neither.');
+    expect(tileNote(o)).not.toContain('removed by the source');
   });
 });
 
@@ -237,20 +250,5 @@ describe('the fill dialog', () => {
     expect(text(dialog())).toContain('Delete this buy of AME on 01-09-26?');
     expect(text(dialog())).not.toContain('shared journal');
     app.set({ tradelog: [] });
-  });
-});
-
-describe('a fill\'s price and its date', () => {
-  const base: Fill = { id: 'f', sym: 'AME', side: 'buy', date: '2026-10-01', price: 100 };
-
-  it('follows the date for a new fill, and for one whose price came from a close', () => {
-    expect(priceStartsByHand(null)).toBe(false);
-    expect(priceStartsByHand(undefined)).toBe(false);
-    expect(priceStartsByHand({ ...base, priceManual: false })).toBe(false);
-    expect(priceStartsByHand(base)).toBe(false);
-  });
-
-  it('stays where it is for a fill whose price was typed by hand: editing the date must not set it again', () => {
-    expect(priceStartsByHand({ ...base, priceManual: true })).toBe(true);
   });
 });

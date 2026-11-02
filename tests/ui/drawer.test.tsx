@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'preact-render-to-string';
 import type { Acks, Flag } from '../../src/engine/flags';
-import { boardFlags } from '../../src/engine/flags';
-import { timelineOf } from '../../src/engine/chips';
+import { boardFlags, expired } from '../../src/engine/flags';
+import { openByRow, rowKeyOf, timelineOf } from '../../src/engine/chips';
 import { earningsView } from '../../src/engine/earnings';
 import type { SymbolEvents } from '../../src/engine/types';
 import { emptyOverlay } from '../../src/data/overlay';
@@ -133,16 +133,22 @@ describe('the timeline', () => {
     expect(dated).toEqual([...dated].sort().reverse());
   });
 
-  it('marks as open what Today and the board would still show, and past what they would not', () => {
-    const flags = mine('AME');
+  it('marks as open exactly what the board\'s chips show for the row, and as past what is Info or has aged out', () => {
+    const flags = allFlags();
     const hist = frozenHist();
-    for (const t of timelineOf(flags, {}, hist)) {
-      if (t.flag.tier === 'info') expect(t.state).toBe('past');
-      else expect(['open', 'past']).toContain(t.state);
+    const open = openByRow(flags, {}, hist);
+    for (const r of frozenBoard().rows) {
+      const key = rowKeyOf(r.p.sym, r.p.dir);
+      const items = timelineOf(flags.filter(f => f.sym === r.p.sym && f.dir === r.p.dir), {}, hist);
+      expect(items.filter(t => t.state === 'open').map(t => t.flag.id).sort(), key).toEqual((open.get(key) ?? []).map(f => f.id).sort());
+      for (const t of items.filter(x => x.state === 'past')) expect(t.flag.tier === 'info' || expired(t.flag, hist), t.flag.id).toBe(true);
     }
-    // Acknowledging a live flag does nothing: it is a condition.
-    const live = { ...flags[0], id: 'X|long|live-stop|live', when: 'live', tier: 'act' as const, kind: 'live-stop' as const, clears: 'itself' as const };
-    expect(timelineOf([live], { [live.id]: 9 }, hist)[0].state).toBe('open');
+  });
+
+  it('cannot acknowledge a live flag away: it is a condition, and stays open', () => {
+    const base = mine('AME')[0];
+    const live = { ...base, id: 'X|long|live-stop|live', when: 'live', tier: 'act' as const, kind: 'live-stop' as const, clears: 'itself' as const };
+    expect(timelineOf([live], { [live.id]: 9 }, frozenHist())[0].state).toBe('open');
   });
 });
 

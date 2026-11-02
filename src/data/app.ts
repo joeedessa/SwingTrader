@@ -3,6 +3,7 @@ import type { BarsFile, LatestFile } from '../engine/bars';
 import type { Fill } from '../engine/journal';
 import type { History, Setup, SymbolEvents } from '../engine/types';
 import { Store } from '../store';
+import { reloadAcks } from './acks';
 import { localKV } from './kv';
 import { loadJson } from './load';
 import { emptyOverlay, readOverlay, SETS, workingList, writeOverlay } from './overlay';
@@ -166,14 +167,21 @@ async function fillMissingBars(): Promise<void> {
   recompute();
 }
 
+/* Three things this page writes are shared with other tabs, and some with the old watchlist page, which uses the same keys: the
+   saved edits, the journal and the acknowledgements. A change is applied to what the browser has stored now, not to what was
+   stored when this page loaded, or writing it back would erase whatever another tab wrote in between. Where the last write
+   failed, or there is no storage, what is in memory is all there is. */
+
 /** Apply an overlay change for one list and keep it. If the browser refuses the write the edit still shows
     for this visit, and the page says it will not survive a reload. */
 export function updateOverlay(set: SetId, fn: (ov: Overlay) => Overlay): void {
   const s = app.get();
-  const next = fn(s.overlays[set] ?? emptyOverlay());
-  const saved = writeOverlay(localKV(), SETS[set].key, next);
+  const kv = localKV();
+  const base = kv && !s.saveFailed ? readOverlay(kv, SETS[set].key) : s.overlays[set] ?? emptyOverlay();
+  const next = fn(base);
+  const saved = writeOverlay(kv, SETS[set].key, next);
   app.set({ overlays: { ...s.overlays, [set]: next }, saveFailed: !saved });
-  // A setup added here may need bars the snapshot does not have.
+  // A setup added here (or in another tab) may need bars the snapshot does not have.
   if (next.added.length !== s.overlays[set].added.length) void fillMissingBars();
 }
 
@@ -181,7 +189,37 @@ export function updateOverlay(set: SetId, fn: (ov: Overlay) => Overlay): void {
     this visit, and the page says it will not survive a reload. */
 export function updateLog(fn: (ov: LogOverlay) => LogOverlay): void {
   const s = app.get();
-  const next = fn(s.log ?? emptyLog());
-  const saved = writeLogOverlay(localKV(), next);
+  const kv = localKV();
+  const base = kv && !s.logSaveFailed ? readLogOverlay(kv) : s.log ?? emptyLog();
+  const next = fn(base);
+  const saved = writeLogOverlay(kv, next);
   app.set({ log: next, logSaveFailed: !saved });
+}
+
+/** Take in what another tab, or the old page, wrote since this page last looked: the saved edits, the journal and the
+    acknowledgements. Anything identical leaves the state alone, so nothing redraws for nothing. Called when the tab comes
+    back to the front and when the browser says another document changed storage. */
+export function reloadStored(): void {
+  const kv = localKV();
+  if (kv) {
+    const s = app.get();
+    const patch: Partial<AppState> = {};
+    if (!s.saveFailed) {
+      const overlays = { ...s.overlays };
+      for (const id of Object.keys(SETS) as SetId[]) {
+        const next = readOverlay(kv, SETS[id].key);
+        if (JSON.stringify(next) !== JSON.stringify(s.overlays[id])) overlays[id] = next;
+      }
+      if ((Object.keys(SETS) as SetId[]).some(id => overlays[id] !== s.overlays[id])) patch.overlays = overlays;
+    }
+    if (!s.logSaveFailed) {
+      const log = readLogOverlay(kv);
+      if (JSON.stringify(log) !== JSON.stringify(s.log)) patch.log = log;
+    }
+    if (Object.keys(patch).length) {
+      app.set(patch);
+      if (patch.overlays) void fillMissingBars();
+    }
+  }
+  reloadAcks();
 }

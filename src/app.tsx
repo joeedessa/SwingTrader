@@ -1,5 +1,5 @@
 import { useEffect } from 'preact/hooks';
-import { app, load, recompute } from './data/app';
+import { app, load, recompute, reloadStored } from './data/app';
 import { todayOf } from './data/selectors';
 import { visits } from './data/visit';
 import { route } from './router';
@@ -39,6 +39,8 @@ export function App() {
        because a session may have opened or closed while the page sat there. */
     const back = () => {
       if (document.hidden) return;
+      // Another tab, or the old watchlist page, may have saved edits, fills or acknowledgements while this one sat behind.
+      reloadStored();
       visits.back(Date.now());
       const at = app.get().loadedAt;
       if (at && Date.now() - at > REFRESH_AFTER_MS) void load(); else recompute();
@@ -52,10 +54,13 @@ export function App() {
     document.addEventListener('visibilitychange', back);
     document.addEventListener('visibilitychange', hide);
     addEventListener('pagehide', away);
+    // The browser says so when another document changes storage: take it in at once.
+    addEventListener('storage', reloadStored);
     return () => {
       document.removeEventListener('visibilitychange', back);
       document.removeEventListener('visibilitychange', hide);
       removeEventListener('pagehide', away);
+      removeEventListener('storage', reloadStored);
     };
   }, []);
 

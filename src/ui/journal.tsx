@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { app, updateLog } from '../data/app';
-import { closeFor } from '../data/journal';
+import { closeFor, latestCloseFor } from '../data/journal';
 import { addFill, isSharedFill, logRows, newFillId, removeFill, saveFill } from '../data/tradelog';
 import { fmt, fmtD, localISODate, MINUS } from '../engine/format';
 import { journalStats, pairFills, statsLine, unrealised } from '../engine/journal';
 import type { ClosedTrade, Fill } from '../engine/journal';
 import { Store, useStore } from '../store';
 import { Confirm, Modal } from './components';
+import { FillFormModel } from './fillform';
+import type { FillDraft } from './fillform';
 import { DataTable } from './datatable';
 import type { DCol } from './datatable';
 import { chartUrl } from './links';
@@ -18,19 +20,14 @@ import { say } from './notice';
 
 /* ------------------------------------------------------------------ the dialog's own state */
 
-export interface FillDraft {
-  /** Set when an existing fill is being edited. */
-  editing?: Fill;
-  sym?: string;
-  side?: 'buy' | 'sell';
-}
-
 interface JournalUi {
   form: FillDraft | null;
   deleting: Fill | null;
 }
 
 export const journalUi = new Store<JournalUi>({ form: null, deleting: null });
+
+export type { FillDraft };
 
 export const openFillForm = (draft: FillDraft = {}): void => journalUi.set({ form: draft, deleting: null });
 const closeDialog = (): void => journalUi.set({ form: null, deleting: null });
@@ -43,8 +40,8 @@ const Sym = ({ sym }: { sym: string }) => (
   <a class="symlink" href={chartUrl(sym)} target="_blank" rel="noopener noreferrer" title={sym + ' chart on Yahoo Finance, opens in a new tab'}>{sym}</a>
 );
 
-const Two = ({ v, s, tone }: { v: string; s?: string; tone?: 'good' | 'bad' }) => (
-  <div class="cell"><div class={'v' + (tone ? ' tone-' + tone : '')}>{v}</div>{s ? <div class="s">{s}</div> : null}</div>
+const Two = ({ v, s, tone, title }: { v: string; s?: string; tone?: 'good' | 'bad'; title?: string }) => (
+  <div class="cell" title={title}><div class={'v' + (tone ? ' tone-' + tone : '')}>{v}</div>{s ? <div class="s">{s}</div> : null}</div>
 );
 
 const pctText = (v: number) => (v > 0 ? '+' : v < 0 ? MINUS : '') + Math.abs(v).toFixed(1) + '%';
@@ -58,14 +55,29 @@ export function JournalPanel({ narrow }: { narrow: boolean }) {
   const rows = useMemo(() => logRows(s.tradelog, s.log), [s.tradelog, s.log]);
   const { opens, closed } = useMemo(() => pairFills(rows), [rows]);
   const stats = journalStats(rows, opens, closed);
-  const live = (sym: string): number | null => { const h = s.hist[sym]; return h ? h.live : null; };
-  const ccy = (sym: string): string => { const h = s.hist[sym]; return h ? h.currency : ''; };
+  /* A position in a symbol that is on neither list has no live price here, so its latest settled close is fetched once. */
+  const [off, setOff] = useState<Record<string, { close: number; ccy: string; date: string }>>({});
+  const tried = useRef(new Set<string>());
+  const missing = useMemo(() => [...new Set(opens.map(o => o.sym))].filter(sym => !(s.hist[sym] && s.hist[sym].settled.length)), [opens, s.hist]);
+  useEffect(() => {
+    for (const sym of missing) {
+      if (tried.current.has(sym)) continue;
+      tried.current.add(sym);
+      void latestCloseFor(sym, app.get().hist).then(r => { if (r) setOff(o => ({ ...o, [sym]: r })); }, () => tried.current.delete(sym));
+    }
+  }, [missing.join(',')]);
+  const live = (sym: string): number | null => { const h = s.hist[sym]; return h ? h.live : off[sym] ? off[sym].close : null; };
+  const ccy = (sym: string): string => { const h = s.hist[sym]; return h ? h.currency : off[sym] ? off[sym].ccy : ''; };
   const price = (sym: string, v: number) => <span>{fmt(v)}{ccy(sym) ? <span class="ccy">{ccy(sym)}</span> : null}</span>;
 
   const openCols: DCol<Fill>[] = [
     { key: 'sym', label: 'Symbol', text: true, cell: e => <div class="symline"><Sym sym={e.sym} /><span class={'dirpill ' + sideWord(e.side)}>{sideWord(e.side)}</span></div> },
     { key: 'entry', label: 'Entry', cell: e => <Two v={fmtD(e.date)} s={fmt(e.price)} /> },
-    { key: 'now', label: 'Now', cell: e => { const lv = live(e.sym); return <Two v={lv != null ? fmt(lv) : '–'} s={lv != null ? ccy(e.sym) : undefined} />; } },
+    { key: 'now', label: 'Now', cell: e => {
+      const lv = live(e.sym);
+      const last = !s.hist[e.sym] && off[e.sym] ? 'Last settled close, ' + fmtD(off[e.sym].date) + ': this symbol is on neither list, so there is no live price' : undefined;
+      return <Two v={lv != null ? fmt(lv) : '–'} s={lv != null ? ccy(e.sym) : undefined} title={last} />;
+    } },
     { key: 'pnl', label: 'Unrealised', cell: e => { const u = unrealised(e, live(e.sym)); return u == null ? <Two v="–" /> : <Two v={pctText(u)} tone={u >= 0 ? 'good' : 'bad'} />; } },
     { key: 'pattern', label: 'Breakout', text: true, cell: e => <Two v={breakout(e.pattern, e.duration_m)} /> },
     { key: 'market', label: 'Market', text: true, cell: e => <Two v={e.market || '–'} /> },
@@ -142,137 +154,87 @@ function JournalBlock({ title, count, children }: { title: string; count: number
 
 /* ------------------------------------------------------------------ the dialog: log, edit, delete */
 
-const today = () => localISODate();
-
-/** A fill whose price was typed by hand keeps it when its date is edited: the table says "the date no longer sets it", so the
-    form must not quietly set it again. A new fill, and one whose price came from a close, follow the date until a price is typed. */
-export const priceStartsByHand = (editing: Fill | null | undefined): boolean => !!(editing && editing.priceManual);
-
-/** The form, a port of the old page's: the price follows the date until a price is typed by hand. */
+/** The form: the model holds what it says and does (fillform.ts); this draws it. */
 function FillForm({ draft }: { draft: FillDraft }) {
   const s = useStore(app);
-  const editing = draft.editing ?? null;
-  const [sym, setSym] = useState(editing ? editing.sym : draft.sym ?? '');
-  const [side, setSide] = useState<string>(editing ? editing.side : draft.side ?? 'buy');
-  const [date, setDate] = useState(editing ? editing.date : today());
-  const [price, setPrice] = useState(editing ? String(editing.price) : '');
-  const [pattern, setPattern] = useState(editing ? editing.pattern ?? '' : '');
-  const [dur, setDur] = useState(editing && editing.duration_m != null ? String(editing.duration_m) : '');
-  const [market, setMarket] = useState(editing ? editing.market ?? '' : '');
-  const [note, setNote] = useState(editing ? editing.note ?? '' : '');
-  const [touched, setTouched] = useState(priceStartsByHand(editing));
-  const [priceNote, setPriceNote] = useState(editing ? `Editing the ${editing.side} of ${editing.sym} on ${fmtD(editing.date)}: saving replaces it.` : '');
-  const [error, setError] = useState('');
-  const ask = useRef(0);
-  const manual = useRef(false);
-  manual.current = touched;
+  const [model] = useState(() => new FillFormModel(draft, {
+    lookup: (sym, date) => closeFor(sym, date, app.get().hist),
+    known: () => {
+      const a = app.get();
+      return [...a.shared.watchlist, ...a.overlays.watchlist.added].map(p => ({ sym: p.sym, pattern: p.pattern, duration_m: p.duration_m, country: p.country }));
+    },
+    today: () => localISODate(),
+    now: () => new Date(),
+    newId: () => newFillId(),
+  }));
+  const f = useStore(model);
+  const editing = model.editing;
+  useEffect(() => { model.start(); }, []);
 
   const lists = useMemo(() => {
     const all = [...s.shared.watchlist, ...s.overlays.watchlist.added];
     const uniq = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))].sort();
-    return { patterns: uniq(all.map(p => p.pattern)), markets: uniq(all.map(p => p.country)), all };
+    return { patterns: uniq(all.map(p => p.pattern)), markets: uniq(all.map(p => p.country)) };
   }, [s.shared, s.overlays]);
-
-  /* The settled close of the day traded, until a price has been typed by hand. A late answer for an old symbol or date is dropped. */
-  const autoPrice = async (forSym: string, forDate: string) => {
-    if (manual.current || !forSym || !forDate) return;
-    const mine = ++ask.current;
-    setPriceNote('fetching the close of ' + fmtD(forDate) + '…');
-    const got = await closeFor(forSym, forDate, app.get().hist);
-    if (mine !== ask.current || manual.current) return;
-    if (got) {
-      setPrice(String(Math.round(got.close * 10000) / 10000));
-      setPriceNote('settled close of ' + fmtD(got.date) + (got.date !== forDate ? ' (last trading day before your date)' : '') + ': type a price to override');
-    } else {
-      setPriceNote('no history found for ' + forSym + ': enter the price by hand');
-    }
-  };
-
-  useEffect(() => { if (!editing && sym) void autoPrice(sym.trim().toUpperCase(), date); }, []);
-
-  // Reads the box itself, not the state: a value pasted and left in one breath has not been rendered back yet.
-  const onSym = (raw: string) => {
-    const next = raw.trim().toUpperCase();
-    setSym(next);
-    // A name on the list brings its pattern, how long it took to form, and its market, where the form has none yet.
-    const p = lists.all.find(x => x.sym === next);
-    if (p) {
-      if (!pattern && p.pattern) setPattern(p.pattern);
-      if (!dur && p.duration_m != null) setDur(String(p.duration_m));
-      if (!market && p.country) setMarket(p.country);
-    }
-    void autoPrice(next, date);
-  };
 
   const submit = (e: Event) => {
     e.preventDefault();
-    const symbol = sym.trim().toUpperCase();
-    const px = parseFloat(price.replace(/,/g, ''));
-    if (!symbol) { setError('Enter a symbol.'); return; }
-    if (!isFinite(px)) { setError('Enter a price: the box above fills in the close of the day, or type your own.'); return; }
-    if (!date) { setError('Enter the date of the trade.'); return; }
-    const d = dur.trim() === '' ? null : Number(dur);
-    if (d != null && !isFinite(d)) { setError('Duration is a number of months.'); return; }
-    const fill: Fill = {
-      id: editing ? editing.id : newFillId(),
-      sym: symbol, side, date, price: px,
-      priceManual: editing ? (touched || (!!editing.priceManual && px === editing.price)) : touched,
-      pattern: pattern.trim() || null, duration_m: d, market: market.trim() || null, note: note.trim() || null,
-      logged_at: editing && editing.logged_at ? editing.logged_at : new Date().toISOString(),
-    };
-    updateLog(ov => (editing ? saveFill(ov, app.get().tradelog, fill) : addFill(ov, fill)));
-    say((editing ? 'Saved the ' : 'Logged ') + side + ' ' + symbol + ' @ ' + fmt(px) + '.');
+    const r = model.build();
+    if ('error' in r) { model.set({ error: r.error }); return; }
+    updateLog(ov => (editing ? saveFill(ov, app.get().tradelog, r.fill) : addFill(ov, r.fill)));
+    say(model.savedMessage(r.fill));
     closeDialog();
   };
 
+  const val = (e: Event) => (e.target as HTMLInputElement).value;
   return (
     <form class="form" onSubmit={submit} noValidate>
       <div class="grid2">
         <div class="field">
           <label for="fill-sym">Symbol</label>
-          <input id="fill-sym" type="text" autocomplete="off" autocapitalize="characters" spellcheck={false} value={sym} data-autofocus={!sym ? true : undefined}
-            onInput={e => setSym((e.target as HTMLInputElement).value)} onChange={e => onSym((e.target as HTMLInputElement).value)} />
+          {/* Leaving the box reads the box itself, not the state: a value pasted and left in one breath has not been rendered back yet. */}
+          <input id="fill-sym" type="text" autocomplete="off" autocapitalize="characters" spellcheck={false} value={f.sym} data-autofocus={!f.sym ? true : undefined}
+            onInput={e => model.field('sym', val(e))} onChange={e => model.commitSym(val(e))} />
         </div>
         <div class="field">
           <label for="fill-side">Side</label>
-          <select id="fill-side" value={side} onChange={e => setSide((e.target as HTMLSelectElement).value)}>
+          <select id="fill-side" value={f.side} onChange={e => model.field('side', (e.target as HTMLSelectElement).value)}>
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
         </div>
         <div class="field">
           <label for="fill-date">Date traded</label>
-          <input id="fill-date" type="date" value={date} onInput={e => { const v = (e.target as HTMLInputElement).value; setDate(v); void autoPrice(sym.trim().toUpperCase(), v); }} />
+          <input id="fill-date" type="date" value={f.date} onInput={e => model.setDate(val(e))} />
         </div>
         <div class="field">
           <label for="fill-price">Price</label>
-          <input id="fill-price" type="text" inputMode="decimal" autocomplete="off" value={price}
-            onInput={e => { setPrice((e.target as HTMLInputElement).value); setTouched(true); setPriceNote('price entered by hand: the date will not change it'); }} />
+          <input id="fill-price" type="text" inputMode="decimal" autocomplete="off" value={f.price} onInput={e => model.typePrice(val(e))} />
         </div>
       </div>
-      <p class="hint" aria-live="polite">{priceNote || 'The price starts as the settled close of the day traded, in the symbol\'s own currency.'}</p>
+      <p class="hint" aria-live="polite">{f.priceNote || 'The price starts as the settled close of the day traded, in the symbol\'s own currency.'}</p>
       <div class="grid2">
         <div class="field">
           <label for="fill-pattern">Breakout</label>
-          <input id="fill-pattern" type="text" list="fill-patterns" autocomplete="off" value={pattern} onInput={e => setPattern((e.target as HTMLInputElement).value)} />
+          <input id="fill-pattern" type="text" list="fill-patterns" autocomplete="off" value={f.pattern} onInput={e => model.field('pattern', val(e))} />
           <datalist id="fill-patterns">{lists.patterns.map(p => <option value={p} />)}</datalist>
         </div>
         <div class="field">
           <label for="fill-dur">Months forming</label>
-          <input id="fill-dur" type="text" inputMode="decimal" autocomplete="off" value={dur} onInput={e => setDur((e.target as HTMLInputElement).value)} />
+          <input id="fill-dur" type="text" inputMode="decimal" autocomplete="off" value={f.dur} onInput={e => model.field('dur', val(e))} />
         </div>
         <div class="field">
           <label for="fill-market">Market</label>
-          <input id="fill-market" type="text" list="fill-markets" autocomplete="off" value={market} onInput={e => setMarket((e.target as HTMLInputElement).value)} />
+          <input id="fill-market" type="text" list="fill-markets" autocomplete="off" value={f.market} onInput={e => model.field('market', val(e))} />
           <datalist id="fill-markets">{lists.markets.map(m => <option value={m} />)}</datalist>
         </div>
         <div class="field">
           <label for="fill-note">Note</label>
-          <input id="fill-note" type="text" autocomplete="off" value={note} onInput={e => setNote((e.target as HTMLInputElement).value)} />
+          <input id="fill-note" type="text" autocomplete="off" value={f.note} onInput={e => model.field('note', val(e))} />
         </div>
       </div>
       <p class="hint">Saved in this browser only. It is a record of what you did, kept apart from the setups: logging a buy never moves one.</p>
-      {error ? <p class="formerror" role="alert">{error}</p> : null}
+      {f.error ? <p class="formerror" role="alert">{f.error}</p> : null}
       <div class="row">
         <button type="button" class="btn" onClick={closeDialog}>Cancel</button>
         <button type="submit" class="btn primary">{editing ? 'Save fill' : 'Log it'}</button>

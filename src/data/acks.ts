@@ -86,11 +86,25 @@ export const ackStore = new Store<AckState>({
   saveFailed: false,
 });
 
+/** A change is applied to what this browser has stored now, not to what was stored when the page loaded: another tab may have
+    acknowledged something since, and writing the old set back would erase it. Where the last write failed, or there is no
+    storage, what is in memory is all there is. */
 function update(set: SetId, fn: (a: Acks) => Acks): void {
   const s = ackStore.get();
-  const next = fn(s.acks[set]);
-  const saved = writeAcks(localKV(), ACK_KEYS[set], next);
+  const kv = localKV();
+  const base = kv && !s.saveFailed ? readAcks(kv, ACK_KEYS[set]) : s.acks[set];
+  const next = fn(base);
+  const saved = writeAcks(kv, ACK_KEYS[set], next);
   ackStore.set({ acks: { ...s.acks, [set]: next }, saveFailed: !saved });
+}
+
+/** Take in what another tab acknowledged since this page last looked. Identical sets leave the store alone. */
+export function reloadAcks(): void {
+  const kv = localKV();
+  const s = ackStore.get();
+  if (!kv || s.saveFailed) return;
+  const next = { watchlist: readAcks(kv, ACK_KEYS.watchlist), benchmarks: readAcks(kv, ACK_KEYS.benchmarks) };
+  if (JSON.stringify(next) !== JSON.stringify(s.acks)) ackStore.set({ acks: next });
 }
 
 export const acknowledge = (set: SetId, ids: readonly string[], now: number = Date.now()): void =>
