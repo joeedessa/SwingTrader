@@ -17,7 +17,12 @@ import type { Bars, History, Lfd, ReplayState, Setup } from './types';
    report (`lfd`) wins over both; `lfd: 0` means the sheet gives none.
 
    A derived stop beyond the negation is no stop at all (`looser`).
-   Breach is a touch, on settled bars after the confirming close. */
+   Breach is a touch, on settled bars after the confirming close.
+
+   The newest session can be settled by its close alone: the tip (the data job's latest print, or a live quote) settles
+   a day before its bar is on file. Such a day joins the series as a close-only day, so a breakout on it has a
+   confirming close to anchor to. It is never read as a full day: no stop is taken from it, and no touch is looked
+   for in it. */
 export const LFD_LOOKBACK = 40;
 
 export function lfdOf(p: Setup, st: ReplayState, hist: History | null | undefined,
@@ -25,8 +30,13 @@ export function lfdOf(p: Setup, st: ReplayState, hist: History | null | undefine
   const long = p.dir === 'long';
   const confirmed = st.state !== 'watch' || p.manualState === 'breakout';
   if (!confirmed && p.boundary == null) return null;
-  const b: Bars = bars || {};
+  const b: Bars = bars ? { ...bars } : {};
   const dates = bars ? Object.keys(bars).sort() : [];
+  const closeOnly = new Set<string>();
+  if (hist && dates.length) {
+    const newest = dates[dates.length - 1];
+    for (const [d, c] of hist.settled) if (d > newest) { dates.push(d); b[d] = [c, c, c]; closeOnly.add(d); }
+  }
   const lastSettled = hist && hist.settled.length ? hist.settled[hist.settled.length - 1][0] : null;
   let last = dates.length - 1;
   while (last >= 0 && lastSettled && dates[last] > lastSettled) last--;
@@ -75,9 +85,9 @@ export function lfdOf(p: Setup, st: ReplayState, hist: History | null | undefine
   const out: Lfd = { at: null, src: null, kind, pending: !confirmed,
     conf: ci >= 0 ? dates[ci] : null, anchor: ai >= 0 ? dates[ai] : null,
     bar: null, alt: null, hit: null };
-  if (ai > 0) { out.bar = dates[ai - 1]; out.at = b[out.bar][long ? 0 : 1]; out.src = 'derived'; }
+  if (ai > 0 && !closeOnly.has(dates[ai - 1])) { out.bar = dates[ai - 1]; out.at = b[out.bar][long ? 0 : 1]; out.src = 'derived'; }
   // The confirmation-anchored reading, where it differs.
-  if (kind === 'boundary' && ci > 0 && ci !== ai)
+  if (kind === 'boundary' && ci > 0 && ci !== ai && !closeOnly.has(dates[ci - 1]))
     out.alt = { bar: dates[ci - 1], at: b[dates[ci - 1]][long ? 0 : 1] };
   if (p.lfd === 0) { out.at = null; out.src = 'none'; out.bar = null; out.alt = null; return out; }
   if (p.lfd != null) { out.at = p.lfd; out.src = 'report'; }
@@ -90,7 +100,7 @@ export function lfdOf(p: Setup, st: ReplayState, hist: History | null | undefine
   const from = out.conf || p.confirmed || p.created || '';
   for (let i = 0; i <= last; i++) {
     const d = dates[i];
-    if (d <= from) continue;
+    if (d <= from || closeOnly.has(d)) continue;
     const lvl = b[d][long ? 0 : 1];
     if (against(long, lvl, out.at)) { out.hit = { when: d, at: lvl }; break; }
   }

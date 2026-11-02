@@ -138,3 +138,91 @@ describe('last full day: imported confirmations', () => {
     expect(lfd?.pending).toBe(false);
   });
 });
+
+/* The newest session is settled by the tip before its bar is on file (the data job runs hourly). A breakout on that
+   session still has a confirming close to anchor to; before this was handled the stop fell back to the latest cross
+   found before the row was listed, months earlier (REH.AX, 2 Nov 2026: an August bar, and a "hit" before the breakout). */
+describe('last full day: the newest session has a close but no bar yet', () => {
+  /** Bars for every day but the last, whose close alone is on the tip. */
+  const tipped = (p: Setup, days: Day[]) => {
+    const { bars, hist } = series(days.slice(0, -1));
+    const [d, , , c] = days[days.length - 1];
+    hist.settled.push([d, c]);
+    const st = replay(p, hist, bars);
+    return { st, lfd: lfdOf(p, st, hist, bars), bars, hist };
+  };
+
+  // Closed past the 97 boundary long ago (a rectangle that has since fallen back), then through it and the trigger today.
+  const REH: Day[] = [
+    ['2025-12-29', 90, 94, 93],
+    ['2025-12-30', 92, 99, 98],           // an old close past the boundary: the stale anchor
+    ['2025-12-31', 93, 98, 97.5],
+    ['2026-01-02', 90, 96, 94],           // back inside
+    ['2026-01-05', 91, 96, 95],
+    ['2026-01-06', 92, 97, 96],
+    ['2026-01-07', 99, 105, 104],         // through the boundary and the trigger, on the tip alone
+  ];
+
+  it('anchors to the newest session and reads the full day before it', () => {
+    const { st, lfd } = tipped({ ...LONG, created: '2026-01-03' }, REH);
+    expect(st.breakout).toEqual({ when: '2026-01-07', close: 104 });
+    expect(lfd).toMatchObject({ at: 92, src: 'derived', kind: 'boundary', pending: false, conf: '2026-01-07', anchor: '2026-01-07', bar: '2026-01-06', alt: null, hit: null });
+  });
+
+  it('says the same once the bar arrives', () => {
+    const tip = tipped({ ...LONG, created: '2026-01-03' }, REH).lfd;
+    const full = run({ ...LONG, created: '2026-01-03' }, REH).lfd;
+    expect(full).toEqual(tip);
+  });
+
+  it('carries the run back through real bars when the closes before it were past the boundary too', () => {
+    const days: Day[] = [
+      ['2026-01-05', 94, 96, 95],
+      ['2026-01-06', 95, 98, 97.5],
+      ['2026-01-07', 96, 99, 98],
+      ['2026-01-08', 97.5, 101, 100.5],     // on the tip alone
+    ];
+    const { lfd } = tipped(LONG, days);
+    expect(lfd).toMatchObject({ at: 94, anchor: '2026-01-06', bar: '2026-01-05', conf: '2026-01-08', alt: { bar: '2026-01-07', at: 96 } });
+  });
+
+  it('for a short reads the high', () => {
+    const { lfd } = tipped(SHORT, [
+      ['2026-01-05', 103, 107, 104],
+      ['2026-01-06', 101, 105, 102.5],
+      ['2026-01-07', 98, 103, 99.5],        // on the tip alone
+    ]);
+    expect(lfd).toMatchObject({ at: 107, anchor: '2026-01-06', bar: '2026-01-05', conf: '2026-01-07' });
+  });
+
+  it('takes no stop from a close-only day: if the day before the anchor has no bar either, there is no stop yet', () => {
+    const { bars, hist } = series([['2026-01-05', 94, 96, 95]]);
+    hist.settled.push(['2026-01-06', 97.5], ['2026-01-07', 100.5]);       // two sessions on the tip
+    const st = replay(LONG, hist, bars);
+    expect(st.breakout).toEqual({ when: '2026-01-07', close: 100.5 });
+    const lfd = lfdOf(LONG, st, hist, bars)!;
+    expect(lfd).toMatchObject({ anchor: '2026-01-06', conf: '2026-01-07', at: 94, bar: '2026-01-05', src: 'derived' });   // the first close-only day still has a real bar before it
+    hist.settled.splice(1, 1, ['2026-01-06', 95.5]);                         // the first one back inside: the run starts on the second
+    const st2 = replay(LONG, hist, bars);
+    const lfd2 = lfdOf(LONG, st2, hist, bars)!;
+    expect(lfd2).toMatchObject({ anchor: '2026-01-07', conf: '2026-01-07', at: null, bar: null, src: null });
+  });
+
+  it('does not look for a touch of the stop in a day it has only the close of', () => {
+    const { bars, hist } = series([
+      ['2026-01-05', 94, 96, 95],
+      ['2026-01-06', 95, 98, 97.5],
+      ['2026-01-07', 96, 99, 98],
+      ['2026-01-08', 97.5, 101, 100.5],
+    ]);
+    hist.settled.push(['2026-01-09', 93]);                                    // a close beyond the 94 stop, bar not yet on file
+    const st = replay(LONG, hist, bars);
+    expect(lfdOf(LONG, st, hist, bars)!.hit).toBeNull();
+  });
+
+  it('leaves a row whose newest bar is on file exactly as it was', () => {
+    const { st, lfd } = run(LONG, CLEAN);
+    const { bars, hist } = series(CLEAN);
+    expect(lfdOf(LONG, st, hist, bars)).toEqual(lfd);
+  });
+});
