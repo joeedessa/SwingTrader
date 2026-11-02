@@ -1,5 +1,5 @@
 import { against, atOrAgainst, past } from './precision';
-import type { Bars, BreakoutType, History, Lfd, Reentry, ReplayState, Setup, Touch } from './types';
+import type { Bars, BreakoutType, Hit, History, Lfd, Reentry, ReplayState, Setup, Touch } from './types';
 
 /* Breakout type, Tech Charts' four, followed day by day while the trade is
    open. A breakout starts as B1, can fall to B2, then to B3; B4 is the
@@ -54,4 +54,22 @@ export function typeOf(p: Setup, st: ReplayState, L: Lfd | null, hist: History |
            stopHit: breaches[0] || null, retest: pullbacks[0] || null,
            reentry: reentries[reentries.length - 1] || null,
            noStop: stop == null };
+}
+
+/* The target a breakout reached before the negation was touched, with the type it had at that moment; null when the negation
+   came first or neither has happened yet.
+
+   The replay stops at the first touch of the negation, so a target it recorded came first, and the touch does not take it
+   back: the type is read as of the target day (the counting stops there), where `typeOf` says B4 for a setup the negation
+   ended. A `reached` date the replay could not use, because the negation was touched after it, has the same standing; one on
+   the day of the touch or later has not, as the replay tests the touch first on a day. */
+export function hitOf(p: Setup, st: ReplayState, L: Lfd | null, hist: History | null | undefined,
+                      bars: Bars | null | undefined, btype: BreakoutType | null): Hit | null {
+  let when: string, bySource: boolean;
+  if (st.targetHit) { when = st.targetHit.when; bySource = !!st.targetHit.bySource; }
+  else if (st.failed && p.reached && p.reached < st.failed.when) { when = p.reached; bySource = true; }
+  else return null;
+  if (st.state !== 'failed') return { when, btype, bySource };
+  const atTarget: ReplayState = { ...st, state: 'target', targetHit: { when, close: null, bySource }, failed: null };
+  return { when, btype: typeOf(p, atTarget, L, hist, bars), bySource };
 }

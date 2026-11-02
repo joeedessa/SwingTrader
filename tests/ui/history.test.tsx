@@ -38,18 +38,27 @@ const outcomes = (): Outcomes => outcomesOf(boardView(app.get(), 'watchlist').bd
 
 describe('the outcome tiles', () => {
   const o: Outcomes = {
-    reached: 15, failed: 30, resolved: 45, hitRate: 33, open: 36, untyped: 0, byHand: 0, failedAfterTarget: 0, removedAfterTarget: 0, medianToTarget: 55, medianToFailure: 55,
+    hits: 17, misses: 29, resolved: 46, hitRate: 37, open: 36, untyped: 0, byHand: 0, removedBeforeOutcome: 0, moved: [], medianToTarget: 55, medianToFailure: 55,
     byType: [
-      { tag: 'B1', count: 2, medianDays: 46 }, { tag: 'B2', count: 8, medianDays: 55.5 },
-      { tag: 'B3', count: 5, medianDays: 82 }, { tag: 'B4', count: 30, medianDays: 55 },
+      { tag: 'B1', count: 4, medianDays: 46 }, { tag: 'B2', count: 8, medianDays: 55.5 },
+      { tag: 'B3', count: 5, medianDays: 82 }, { tag: 'B4', count: 29, medianDays: 55 },
     ],
   };
+  const hit = (sym: string, section: 'failed' | 'removed', negated: boolean, when = '2026-08-25') => ({ sym, dir: 'long' as const, section, negated, when });
 
   it('lead with the hit rate and what it is out of, then one tile for each type', () => {
     const t = outcomeTiles(o);
     expect(t.map(x => x.label)).toEqual(['Hit rate', 'B1 · no pullback', 'B2 · pulled back', 'B3 · took the stop', 'B4 · failed']);
-    expect(t[0]).toMatchObject({ value: '33%', sub: '15 of 45 resolved reached the target · 36 still open' });
-    expect(t.slice(1).map(x => x.value)).toEqual(['2', '8', '5', '30']);
+    expect(t[0]).toMatchObject({ value: '37%', sub: '17 of 46 reached the target first · 36 still open' });
+    expect(t.slice(1).map(x => x.value)).toEqual(['4', '8', '5', '29']);
+  });
+
+  it('say on the hit rate itself that it counts what happened first', () => {
+    const t = outcomeTiles(o)[0];
+    expect(t.title).toContain('reached their target before the negation was touched');
+    expect(t.title).toContain('One that was negated or dropped afterwards is still a hit');
+    expect(t.title).toContain('the sections show where a setup stands now');
+    expect(outcomeTiles(o)[4].title).toContain('before any target');
   });
 
   it('say the median days in whole days, to the target for B1 to B3 and to the failure for B4', () => {
@@ -61,38 +70,45 @@ describe('the outcome tiles', () => {
   });
 
   it('say there is nothing yet, rather than a rate, when nothing has resolved', () => {
-    const none: Outcomes = { ...o, reached: 0, failed: 0, resolved: 0, hitRate: null, byType: o.byType.map(t => ({ ...t, count: 0, medianDays: null })), medianToTarget: null, medianToFailure: null };
+    const none: Outcomes = { ...o, hits: 0, misses: 0, resolved: 0, hitRate: null, byType: o.byType.map(t => ({ ...t, count: 0, medianDays: null })), medianToTarget: null, medianToFailure: null };
     const t = outcomeTiles(none);
     expect(t[0]).toMatchObject({ value: '–', sub: 'nothing has resolved yet · 36 still open' });
     expect(t.slice(1).every(x => x.value === '0' && x.sub === 'none yet')).toBe(true);
   });
 
-  it('are explained in the day\'s own numbers: what is left out, and why to read it as a record', () => {
-    expect(tileNote(o)).toContain('The 36 still in play are not in these numbers.');
-    expect(tileNote({ ...o, byHand: 2 })).toContain('nor are the 2 you moved to Failed by hand');
-    expect(tileNote({ ...o, open: 0, byHand: 2 })).toContain('The 2 you moved to Failed by hand are not in these numbers.');
+  it('are explained in the day\'s own numbers: how a setup is counted, what is left out, and why to read it as a record', () => {
+    expect(tileNote(o)).toContain('Each setup counts once, by what happened first');
+    expect(tileNote(o)).toContain('the target reached before the negation was touched is a hit, the negation touched first is a miss');
+    expect(tileNote(o)).toContain('Not in these numbers: the 36 still in play.');
+    expect(tileNote({ ...o, byHand: 2 })).toContain('Not in these numbers: the 36 still in play and the 2 you moved to Failed by hand.');
+    expect(tileNote({ ...o, open: 0, byHand: 2 })).toContain('Not in these numbers: the 2 you moved to Failed by hand.');
+    expect(tileNote({ ...o, byHand: 2, removedBeforeOutcome: 1 })).toContain('Not in these numbers: the 36 still in play, the 2 you moved to Failed by hand and the 1 the source removed before either happened.');
     expect(tileNote({ ...o, untyped: 3 })).toContain('3 that reached the target without daily bars have no type');
     expect(tileNote({ ...o, open: 0 })).not.toContain('still in play');
+    expect(tileNote({ ...o, open: 0 })).not.toContain('Not in these numbers');
     expect(tileNote(o)).toContain('a record, not a forecast');
-    expect(tileNote(o)).toContain('A setup is resolved when it ended At target or Failed');
   });
 
-  it('say how many of the failed reached their target first, and what the hit rate would be if they counted as reached', () => {
-    const t = tileNote({ ...o, failedAfterTarget: 3 });
-    expect(t).toContain('3 of the failed reached their target first and were negated afterwards: they count as failed (B4), where they ended');
-    expect(t).toContain('the hit rate would be 40%.');           // (15 + 3) of 45
-    expect(tileNote(o)).not.toContain('reached their target first');
+  it('say nothing about the sections when every hit is still At target', () => {
+    expect(tileNote(o)).not.toContain('sit elsewhere');
+    expect(tileNote(o)).not.toContain('sits elsewhere');
   });
 
-  it('say it in the singular for one', () => {
-    const t = tileNote({ ...o, failedAfterTarget: 1, removedAfterTarget: 1 });
-    expect(t).toContain('1 of the failed reached its target first and was negated afterwards: it counts as failed (B4), where it ended; counted as having reached it, the hit rate would be 36%.');
-    expect(t).toContain('1 reached its target and was then removed by the source: it is in neither.');
+  it('name the hits that sit in Failed or Removed now, and why', () => {
+    const t = tileNote({ ...o, moved: [hit('NCX.V', 'failed', true), hit('ICLR', 'removed', false, '2026-10-29')] });
+    expect(t).toContain('The sections show where a setup stands now, so 2 of the hits sit elsewhere: NCX.V (Failed, negated afterwards) and ICLR (Removed).');
   });
 
-  it('say how many reached their target and were then removed by the source, which are in neither count', () => {
-    expect(tileNote({ ...o, removedAfterTarget: 2 })).toContain('2 reached their target and were then removed by the source: they are in neither.');
-    expect(tileNote(o)).not.toContain('removed by the source');
+  it('say it in the singular for one, and say when it was you who moved it', () => {
+    expect(tileNote({ ...o, moved: [hit('ICLR', 'removed', false)] })).toContain('so 1 of the hits sits elsewhere: ICLR (Removed).');
+    expect(tileNote({ ...o, moved: [hit('GDX', 'failed', false)] })).toContain('GDX (Failed, moved by hand)');
+  });
+
+  it('name the first few and count the rest, so a long list does not fill the page', () => {
+    const many = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(s => hit(s, 'removed', false));
+    const t = tileNote({ ...o, moved: many });
+    expect(t).toContain('so 7 of the hits sit elsewhere: A (Removed), B (Removed), C (Removed), D (Removed), E (Removed) and 2 more.');
+    expect(t).not.toContain('F (Removed)');
   });
 });
 
@@ -104,7 +120,19 @@ describe('the page', () => {
     const t = text(html());
     expect(t).toContain('History');
     expect(t).toContain(`${o.resolved} resolved · ${o.open} still open`);
-    expect(t).toContain(`${o.reached} of ${o.resolved} resolved reached the target`);
+    expect(t).toContain(`${o.hits} of ${o.resolved} reached the target first`);
+  });
+
+  it('says in its note how a setup is counted, and names the hits that sit in Failed or Removed now', () => {
+    const o = outcomes();
+    const t = text(html());
+    expect(t).toContain('Each setup counts once, by what happened first');
+    if (o.moved.length) {
+      expect(t).toMatch(new RegExp(`so ${o.moved.length} of the hits sits? elsewhere`));
+      for (const m of o.moved.slice(0, 5)) expect(t).toContain(m.sym + ' (');
+    } else {
+      expect(t).not.toMatch(/of the hits sits? elsewhere/);
+    }
   });
 
   it('has the four tabs, each with its count', () => {

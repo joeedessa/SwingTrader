@@ -22,8 +22,9 @@ import { JournalPanel, openFillForm } from './journal';
 import { Tiles } from './tiles';
 import type { Tile } from './tiles';
 
-/* History: what happened, and what the record looks like. Outcome tiles by the type a setup ended as, then the setups
-   that reached their target, failed, or were removed (the same tables as Setups), then the trade journal. */
+/* History: what happened, and what the record looks like. Outcome tiles by the type a setup had at its first outcome, then
+   the setups that reached their target, failed, or were removed (the same tables as Setups, which keep the latest state),
+   then the trade journal. */
 
 type Tab = 'target' | 'failed' | 'removed' | 'journal';
 const TABS: readonly Tab[] = ['target', 'failed', 'removed', 'journal'];
@@ -41,7 +42,7 @@ const TYPE_TITLE: Record<OutcomeTag, string> = {
   B1: 'Reached the target without a pullback through the trigger.',
   B2: 'Reached the target after pulling back through the trigger, the last full day holding.',
   B3: 'Reached the target after taking out its last full day and coming back in.',
-  B4: 'The negation was touched.',
+  B4: 'The negation was touched before any target.',
 };
 
 const days = (n: number | null) => {
@@ -50,36 +51,41 @@ const days = (n: number | null) => {
   return 'median ' + d + (d === 1 ? ' day' : ' days');
 };
 
+/** "a", "a and b", "a, b and c". */
+const joinList = (items: readonly string[]) => items.length < 2 ? items.join('') : items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+
+const SHOWN = 5;
+
+/** The hits that no longer sit At target, each with where it stands now. */
+function movedNote(moved: Outcomes['moved']): string {
+  const where = (m: Outcomes['moved'][number]) => m.section === 'removed' ? 'Removed' : m.negated ? 'Failed, negated afterwards' : 'Failed, moved by hand';
+  const list = moved.slice(0, SHOWN).map(m => `${m.sym} (${where(m)})`);
+  if (moved.length > SHOWN) list.push(`${moved.length - SHOWN} more`);
+  const n = moved.length;
+  return `The sections show where a setup stands now, so ${n} of the hits ${n === 1 ? 'sits' : 'sit'} elsewhere: ${joinList(list)}.`;
+}
+
 /** What the tiles do and do not count, in the numbers of the day. */
 export function tileNote(o: Outcomes): string {
-  const parts = ['Settled closes. A setup is resolved when it ended At target or Failed, and the hit rate is the first as a share of both.'];
-  if (o.open) {
-    parts.push(`The ${o.open} still in play are not in these numbers${o.byHand ? `, nor are the ${o.byHand} you moved to Failed by hand` : ''}.`);
-  } else if (o.byHand) {
-    parts.push(`The ${o.byHand} you moved to Failed by hand are not in these numbers.`);
-  }
-  if (o.failedAfterTarget) {
-    const n = o.failedAfterTarget;
-    const alt = o.resolved ? Math.round((o.reached + n) / o.resolved * 100) : null;
-    parts.push(`${n} of the failed reached ${n === 1 ? 'its' : 'their'} target first and ${n === 1 ? 'was' : 'were'} negated afterwards: ${n === 1 ? 'it counts' : 'they count'} as failed (B4), where ${n === 1 ? 'it' : 'they'} ended` +
-      (alt != null ? `; counted as having reached it, the hit rate would be ${alt}%.` : '.'));
-  }
-  if (o.removedAfterTarget) {
-    const n = o.removedAfterTarget;
-    parts.push(`${n} reached ${n === 1 ? 'its' : 'their'} target and ${n === 1 ? 'was' : 'were'} then removed by the source: ${n === 1 ? 'it is' : 'they are'} in neither.`);
-  }
+  const parts = ['Settled closes. Each setup counts once, by what happened first: the target reached before the negation was touched is a hit, the negation touched first is a miss, and the hit rate is hits as a share of both.'];
+  if (o.moved.length) parts.push(movedNote(o.moved));
+  const left: string[] = [];
+  if (o.open) left.push(`the ${o.open} still in play`);
+  if (o.byHand) left.push(`the ${o.byHand} you moved to Failed by hand`);
+  if (o.removedBeforeOutcome) left.push(`the ${o.removedBeforeOutcome} the source removed before either happened`);
+  if (left.length) parts.push(`Not in these numbers: ${joinList(left)}.`);
   if (o.untyped) parts.push(`${o.untyped} that reached the target without daily bars have no type.`);
   parts.push('The list began with setups already confirmed, so read it as a record, not a forecast.');
   return parts.join(' ');
 }
 
-/** The outcome tiles, in the words of the day's data: a hit rate, then one tile for each type a setup can end as. */
+/** The outcome tiles, in the words of the day's data: a hit rate, then one tile for each type a setup can have at its first outcome. */
 export function outcomeTiles(o: Outcomes): Tile[] {
   const tiles: Tile[] = [{
     label: 'Hit rate',
     value: o.hitRate == null ? '–' : o.hitRate + '%',
-    sub: o.resolved ? `${o.reached} of ${o.resolved} resolved reached the target · ${o.open} still open` : o.open ? `nothing has resolved yet · ${o.open} still open` : 'nothing has resolved yet',
-    title: 'Setups that reached their target, out of those that reached it or had the negation touched, on settled closes. Setups still in play are not counted.',
+    sub: o.resolved ? `${o.hits} of ${o.resolved} reached the target first · ${o.open} still open` : o.open ? `nothing has resolved yet · ${o.open} still open` : 'nothing has resolved yet',
+    title: 'Setups that reached their target before the negation was touched, out of all that reached it or had the negation touched, on settled closes. One that was negated or dropped afterwards is still a hit: the sections show where a setup stands now, this what it did first. Setups still in play are not counted.',
   }];
   for (const t of o.byType) {
     tiles.push({
@@ -140,7 +146,7 @@ export function HistoryPage() {
 
         {ready ? (
           <>
-            <Tiles tiles={outcomeTiles(outcomes)} label="Outcomes by the type a setup ended as" />
+            <Tiles tiles={outcomeTiles(outcomes)} label="First outcomes by the type a setup had then" />
             <p class="tilenote">{tileNote(outcomes)}</p>
           </>
         ) : null}

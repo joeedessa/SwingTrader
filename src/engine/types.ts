@@ -170,6 +170,16 @@ export interface BreakoutType {
   noStop?: boolean;
 }
 
+/** A breakout that reached its target before the negation was touched. */
+export interface Hit {
+  /** The day the target was reached. */
+  when: string;
+  /** The type it had then, and final. It stays B1 to B3 where the negation ended the setup afterwards (`Row.btype` says B4 then). */
+  btype: BreakoutType | null;
+  /** The source counted the target (`reached`) where the closes did not. */
+  bySource: boolean;
+}
+
 export type Section = 'watch' | 'breakout' | 'reentered' | 'stopped' | 'target' | 'failed' | 'removed';
 
 export const SECTIONS: readonly Section[] = ['watch', 'breakout', 'reentered', 'stopped', 'target', 'failed', 'removed'];

@@ -1,10 +1,10 @@
-import { typeOf } from './btype';
+import { hitOf, typeOf } from './btype';
 import { dayPctOf, gapTo, riskOf, upsideOf } from './derived';
 import { lfdOf } from './lfd';
 import { replay } from './replay';
 import { sectionOf } from './sections';
 import { SECTIONS } from './types';
-import type { Bars, BreakoutType, History, Lfd, ReplayState, Section, Setup, SymbolEvents } from './types';
+import type { Bars, BreakoutType, Hit, History, Lfd, ReplayState, Section, Setup, SymbolEvents } from './types';
 
 /** Everything the board knows about one setup on one load. */
 export interface Row {
@@ -29,6 +29,8 @@ export interface Row {
   risk: number | null;
   lfd: Lfd | null;
   btype: BreakoutType | null;
+  /** Set when the breakout reached its target before the negation was touched, whatever became of it afterwards. */
+  hit: Hit | null;
   ev: SymbolEvents;
   earnings: string | null;
   exdiv: string | null;
@@ -47,6 +49,7 @@ export function evaluate(p: Setup, hist: History | null | undefined, bars: Bars 
   const st = replay(p, hist, bars);
   const lfd = lfdOf(p, st, hist, bars);
   const btype = typeOf(p, st, lfd, hist, bars);
+  const hit = hitOf(p, st, lfd, hist, bars, btype);
   const section = sectionOf(p, st, btype);
   const s = hist ? hist.settled : [];
   const prev = s.length ? s[s.length - 1] : null;
@@ -71,7 +74,7 @@ export function evaluate(p: Setup, hist: History | null | undefined, bars: Bars 
     gapAbs: gap.abs,
     upside: upsideOf(p, live, waiting),
     risk: riskOf(p, live, waiting),
-    lfd, btype, ev: e,
+    lfd, btype, hit, ev: e,
     earnings: e.earnings || null,
     // A manually set ex-div outranks the feed and is shown as-is.
     exdiv: p.ex_div ? p.ex_div : ((e.ex_div && e.ex_div >= today) ? e.ex_div : null),
