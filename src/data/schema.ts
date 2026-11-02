@@ -119,6 +119,8 @@ export function parseSeries(json: unknown): ParsedSeries {
   if (!json || typeof json !== 'object' || Array.isArray(json)) return { file: null, problems: ['series.json: not an object'] };
   const j = json as { generated_at?: unknown; weekly?: unknown; monthly?: unknown };
   if (j.weekly === undefined && j.monthly === undefined) return { file: null, problems: ['series.json: no weekly or monthly series'] };
+  if (j.weekly === undefined) problems.push('series.json: weekly is missing');
+  if (j.monthly === undefined) problems.push('series.json: monthly is missing');
   return {
     file: {
       generated_at: typeof j.generated_at === 'string' ? j.generated_at : '',

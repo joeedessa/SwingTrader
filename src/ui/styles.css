@@ -621,7 +621,7 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 .sectag.st-target { color: var(--up); background: var(--on-bg); }
 
 .sigblock { margin-top: 16px; padding: 16px 16px 14px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); }
-.sigblock h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.sigblock h2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
 .sigarrow { font-size: 13px; }
 .sigblock.bull .sigarrow { color: var(--up); }
 .sigblock.bear .sigarrow { color: var(--down); }
@@ -639,6 +639,8 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 /* Ten columns have to fit a 1,100 px window: a little less padding, and a long company name is cut short (the drawer has it all). */
 .page.signals .board th, .page.signals .board td { padding-left: 10px; padding-right: 10px; }
 .page.signals .board td.left .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The averages as cards, on a phone and in a window too narrow for the table: as many figures to a row as fit. */
+.page.signals .cards .metrics { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); }
 
 /* ------------------------------------------------------------------ odds and ends */
 

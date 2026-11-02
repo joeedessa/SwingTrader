@@ -50,9 +50,12 @@ export interface AppState {
   /** Symbols whose bars could not be fetched at all. */
   noBars: string[];
   hist: Record<string, History>;
-  /** The weekly and monthly closes, once the Signals page has asked for them. */
+  /** The weekly and monthly closes, once the Signals page has asked for them, when this browser fetched them, and the symbols
+      the file had that could not be read. */
   series: SeriesFile | null;
   seriesStatus: SeriesStatus;
+  seriesAt: number | null;
+  seriesProblems: string[];
   loadedAt: number | null;
   now: number;
 }
@@ -85,6 +88,8 @@ export const app = new Store<AppState>({
   hist: {},
   series: null,
   seriesStatus: 'idle',
+  seriesAt: null,
+  seriesProblems: [],
   loadedAt: null,
   now: Date.now(),
 });
@@ -161,13 +166,15 @@ export function load(): Promise<void> {
     });
     recompute();
     if (!noLists) void upgrade();
-    // Once Signals has asked for the slower timeframes, a refresh brings them up to date with the rest.
-    if (prev.series) void loadSeries(true);
+    // Once Signals has asked for the slower timeframes, a refresh brings them up to date with the rest: when the copy is half an
+    // hour old (the job rewrites the file about once a day, and it is 1.7 MB), or when the last try failed.
+    if (prev.series ? Date.now() - (prev.seriesAt ?? 0) > SERIES_STALE_MS : prev.seriesStatus === 'failed') void loadSeries(true);
   })().finally(() => { loading = null; });
   return loading;
 }
 
 let seriesLoading: Promise<void> | null = null;
+const SERIES_STALE_MS = 30 * 60 * 1000;
 
 /** The weekly and monthly closes for Signals: once, when the page first opens, and again with each refresh after that. It is
     1.7 MB, so no other page pays for it. A failure leaves what was there, and the page says the slower timeframes are missing. */
@@ -177,8 +184,10 @@ export function loadSeries(force = false): Promise<void> {
   app.set({ seriesStatus: 'loading' });
   seriesLoading = (async () => {
     try {
-      const { file } = parseSeries(await loadJson<unknown>('series.json'));
-      app.set({ series: file ?? app.get().series, seriesStatus: file || app.get().series ? 'ok' : 'failed' });
+      const { file, problems } = parseSeries(await loadJson<unknown>('series.json'));
+      app.set(file
+        ? { series: file, seriesStatus: 'ok', seriesAt: Date.now(), seriesProblems: problems }
+        : { seriesStatus: app.get().series ? 'ok' : 'failed', seriesProblems: app.get().series ? app.get().seriesProblems : problems });
     } catch {
       app.set({ seriesStatus: app.get().series ? 'ok' : 'failed' });
     }

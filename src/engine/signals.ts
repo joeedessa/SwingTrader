@@ -50,10 +50,10 @@ const DAY = 86400;
     bars sit on their period's start in the exchange's own time: a Monday for weekly, the 1st for monthly. That is a
     different UTC instant for every exchange, and often a different UTC day (Monday midnight in Tokyo or Frankfurt is
     still Sunday in UTC), so the length of the period is measured from the stamp of the bar before it, not from a calendar. */
-function periodEnd(openedAt: number, tf: 'weekly' | 'monthly'): number {
+export function periodEnd(openedAt: number, tf: 'weekly' | 'monthly'): number {
   if (tf === 'weekly') return openedAt + 7 * DAY;
-  // Local midnight on the 1st, read as a UTC date half a day on, names the month it opened (for zones within twelve hours of UTC).
-  const m = new Date((openedAt + 12 * HOUR) * 1000);
+  // Local midnight on the 1st, read as a UTC date fourteen hours on, names the month it opened in every zone from UTC-12 to UTC+14.
+  const m = new Date((openedAt + 14 * HOUR) * 1000);
   return openedAt + new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 0)).getUTCDate() * DAY;
 }
 
@@ -128,7 +128,8 @@ export interface StructureEvent {
   tf: Timeframe;
   period: 150 | 200;
   state: 'reclaimed' | 'lost';
-  /** Bars since the close changed sides: 0 is the latest bar. */
+  /** Bars since the close changed sides, counted from the bar it did so on: 0 is the latest bar. (The old site's `crossedAgo`
+      counted from the last bar on the other side, so it said 1 for the latest bar and never said 0.) */
   ago: number;
   /** The average now, and how far the last close on this timeframe sits from it, in %. */
   ma: number;
@@ -137,31 +138,34 @@ export interface StructureEvent {
   helps: boolean;
 }
 
-/** Each timeframe's freshness window, in bars, in the order it ranks: a monthly 200 changes hands a handful of times in a
-    decade, a daily 150 several times a year, and they should not queue equally. */
-export const FRESH_WITHIN: readonly { tf: Timeframe; maxAgo: number }[] = [
-  { tf: 'monthly', maxAgo: 1 }, { tf: 'weekly', maxAgo: 1 }, { tf: 'daily', maxAgo: 2 },
+/** How many of the latest bars a change of sides may have happened on to count as fresh, for each timeframe, in the order they
+    rank: the latest bar of a monthly or weekly chart, the latest two sessions of a daily one. A monthly 200 changes hands a
+    handful of times in a decade, a daily 150 several times a year, and they should not queue equally. */
+export const FRESH_WITHIN: readonly { tf: Timeframe; bars: number }[] = [
+  { tf: 'monthly', bars: 1 }, { tf: 'weekly', bars: 1 }, { tf: 'daily', bars: 2 },
 ];
 
 /** Among equals, the setups with money already in them first: one that has confirmed its breakout is a live position, so
     its structure turning matters more than the same turn on something still waiting. */
 const STATE_RANK: Record<ReplayStatus, number> = { breakout: 0, target: 1, watch: 2, failed: 9 };
 
-/** A close that has just changed sides on the 150 or 200, on any timeframe, for every live setup. Monthly first, then
-    weekly, then daily; the 200 before the 150; then the setups already in trade. */
+/** A close that has just changed sides on the 150 or 200, on any timeframe, for every live setup, and is still near the line:
+    the read has to call it reclaimed or lost, which is a close within the level test's tolerance of the average in the last
+    fifteen bars. A decisive cross, from far under to far over, is a cross (the scan lists it) but not a level change here,
+    as on the old page. Monthly first, then weekly, then daily; the 200 before the 150; then the setups already in trade. */
 export function structureEvents(rows: readonly Row[], vals: CloseSource): StructureEvent[] {
   const out: StructureEvent[] = [];
   for (const r of rows) {
     if (!isLive(r)) continue;
-    for (const { tf, maxAgo } of FRESH_WITHIN) {
+    for (const { tf, bars } of FRESH_WITHIN) {
       const closes = vals(r.p.sym, tf);
       if (!closes) continue;
       for (const period of [200, 150] as const) {
         const m = maRead(closes, period);
-        if (!m || !m.state || m.crossedAgo == null || m.crossedAgo > maxAgo) continue;
+        if (!m || !m.state || m.crossedAgo == null || m.crossedAgo > bars) continue;
         if (m.state !== 'reclaimed' && m.state !== 'lost') continue;
         const state: 'reclaimed' | 'lost' = m.state;
-        out.push({ row: r, tf, period, state, ago: m.crossedAgo, ma: m.ma, dist: m.dist, helps: r.p.dir === 'long' ? state === 'reclaimed' : state === 'lost' });
+        out.push({ row: r, tf, period, state, ago: m.crossedAgo - 1, ma: m.ma, dist: m.dist, helps: r.p.dir === 'long' ? state === 'reclaimed' : state === 'lost' });
       }
     }
   }
@@ -236,7 +240,7 @@ export interface Relative {
   indexDay: number | null;
   /** Percentage points ahead of (positive) or behind the index; null without both moves. */
   vsIndex: number | null;
-  /** How many names in the list share its sector (itself included), and the median of their day moves. */
+  /** How many setups in the list share its sector (itself included) and have a day move, and the median of their day moves. */
   peers: number;
   sectorDay: number | null;
   /** Percentage points against the sector's median day; null with fewer than three names in the sector. */
@@ -246,13 +250,15 @@ export interface Relative {
 /** Sectors this small have no median worth comparing with. */
 export const MIN_SECTOR_PEERS = 3;
 
-/** Each name's day against its local index and against the median of the same sector's names across the whole list (failed
-    and removed ones included, as the old page counted them: a day move is a day move). `rows` is the whole board. */
+/** Each setup's day against its local index and against the median of the same sector's setups across the whole list (failed
+    and removed ones included: a day move is a day move). `rows` is the whole board. Counted by setups, as the old page did: a
+    name listed both long and short counts twice. (Counting names would change a quarter of the figures by a tenth of a point
+    or more; docs/PLAN.md offers it.) */
 export function relatives(rows: readonly Row[], hist: Record<string, History | undefined>): Map<Row, Relative> {
   const bySector: Record<string, number[]> = {};
   for (const r of rows) {
     const sector = r.ev.sector;
-    if (sector && r.dayPct != null) (bySector[sector] = bySector[sector] || []).push(r.dayPct);
+    if (sector && r.dayPct != null) (bySector[sector] || (bySector[sector] = [])).push(r.dayPct);
   }
   const out = new Map<Row, Relative>();
   for (const r of rows) {

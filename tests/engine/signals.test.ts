@@ -5,11 +5,12 @@ import { maRead, MIN_BARS, TAGGED, TIMEFRAMES } from '../../src/engine/ma';
 import type { Timeframe } from '../../src/engine/ma';
 import type { Row } from '../../src/engine/row';
 import {
-  closeSource, INDEX_MAP, indexOf, isLive, ladderOf, MIN_SECTOR_PEERS, relatives, scanOf, scanRows, seriesCloses, structureEvents,
+  closeSource, FRESH_WITHIN, INDEX_MAP, indexOf, isLive, ladderOf, MIN_SECTOR_PEERS, periodEnd, relatives, scanOf, scanRows, seriesCloses, structureEvents,
 } from '../../src/engine/signals';
 import type { SeriesEntry, SeriesFile } from '../../src/engine/signals';
 import type { History, ReplayStatus, Section } from '../../src/engine/types';
 import signals from '../fixtures/signals-old-page.json';
+import stamps from '../fixtures/series-stamps.json';
 
 /* The Signals page's engine against the old site's own code: the structure alerts and the day-against-index block of
    watch.html, run out of their source on the same closes (tests/fixtures/signals-old-page.json, docs/PARITY.md), and the
@@ -44,8 +45,9 @@ describe('fresh level changes, against the old page\'s structure alerts', () => 
     const full = sample[sym] ? sample[sym][tf].closes : extra[sym][tf];
     return full.slice(0, full.length - cases[i].cutBars[tf]);
   };
+  // The old site counted the bars since the change from 1 (its `crossedAgo` never said 0); the page counts from 0, so add one back to compare.
   const got = structureEvents(rows, vals).map(e => ({
-    sym: e.row.p.sym.split('#')[0], dir: e.row.p.dir, state: e.state, tf: e.tf, period: e.period, ago: e.ago, helps: e.helps, stateTag: e.row.st.state,
+    sym: e.row.p.sym.split('#')[0], dir: e.row.p.dir, state: e.state, tf: e.tf, period: e.period, ago: e.ago + 1, helps: e.helps, stateTag: e.row.st.state,
   }));
 
   it('finds the same changes of sides, in the same order, with the same reading of whether it helps', () => {
@@ -72,16 +74,26 @@ describe('fresh level changes, against the old page\'s structure alerts', () => 
   it('leaves out a change a bar too old to be fresh: two bars ago on a weekly or monthly average, three sessions ago on a daily one', () => {
     const old = cases.map((c, i) => [c, i] as const).filter(([c]) => c.stale);
     expect(old.map(([c]) => c.stale!.tf).sort()).toEqual(['daily', 'monthly', 'weekly']);
-    const maxAgo = { monthly: 1, weekly: 1, daily: 2 };
+    const bars = Object.fromEntries(FRESH_WITHIN.map(f => [f.tf, f.bars]));
     for (const [c, i] of old) {
       const { tf, period } = c.stale!;
       // It is a change of sides, one bar past the window...
       const m = maRead(vals(idOf(i), tf), period)!;
       expect(['reclaimed', 'lost']).toContain(m.state);
-      expect(m.crossedAgo).toBe(maxAgo[tf] + 1);
+      expect(m.crossedAgo).toBe(bars[tf] + 1);
       // ...and the page does not report it.
       expect(structureEvents([rows[i]], vals).filter(e => e.tf === tf && e.period === period), `${c.sym} ${tf} ${period}`).toEqual([]);
     }
+  });
+
+  it('counts the bars since the change from the bar it happened on, so 0 is the latest: a weekly or monthly change is always 0, a daily one 0 or 1', () => {
+    expect(got.length).toBeGreaterThan(0);
+    const mine = structureEvents(rows, vals);
+    for (const e of mine) expect(e.ago, `${e.row.p.sym} ${e.tf} ${e.period}`).toBeGreaterThanOrEqual(0);
+    for (const e of mine.filter(x => x.tf !== 'daily')) expect(e.ago, `${e.row.p.sym} ${e.tf}`).toBe(0);
+    expect(new Set(mine.filter(x => x.tf === 'daily').map(x => x.ago))).toEqual(new Set([0, 1]));
+    // The windows are the old site's, in bars: the latest bar on a monthly or weekly chart, the latest two sessions on a daily one.
+    expect(FRESH_WITHIN.map(f => [f.tf, f.bars])).toEqual([['monthly', 1], ['weekly', 1], ['daily', 2]]);
   });
 
   it('puts monthly before weekly before daily, the 200 before the 150, then what is already in trade', () => {
@@ -128,6 +140,17 @@ describe('the day against the index and the sector, against the old page', () =>
     const r3 = relatives(three, {});
     expect(r3.get(three[0])).toMatchObject({ peers: 3, sectorDay: 2, vsSector: -1 });
     expect(r3.get(three[1])!.vsSector).toBe(1);
+  });
+
+  it('counts setups, as the old page did: a name listed both long and short is in its sector\'s median twice', () => {
+    const rows3 = [stub({ sym: 'A', sector: 'S', dayPct: 1 }), stub({ sym: 'A', dir: 'short', sector: 'S', dayPct: 1 }), stub({ sym: 'B', sector: 'S', dayPct: 3 }), stub({ sym: 'C', sector: 'S', dayPct: 2 })];
+    const r = relatives(rows3, {});
+    // The median of 1, 1, 3, 2 is 1.5.
+    expect(r.get(rows3[2])).toMatchObject({ peers: 4, sectorDay: 1.5, vsSector: 1.5 });
+    expect(r.get(rows3[0])).toMatchObject({ peers: 4, sectorDay: 1.5, vsSector: -0.5 });
+    // Two names in three rows is enough for a median, by the rows.
+    const two = relatives([stub({ sym: 'A', sector: 'S', dayPct: 1 }), stub({ sym: 'A', dir: 'short', sector: 'S', dayPct: 1 }), stub({ sym: 'B', sector: 'S', dayPct: 3 })], {});
+    expect([...two.values()].every(x => x.peers === 3 && x.vsSector != null)).toBe(true);
   });
 
   it('counts a name with no day move out of its sector\'s median, and gives it no comparison', () => {
@@ -253,6 +276,19 @@ describe('the phantom bar on a weekly or monthly series', () => {
     expect(seriesCloses(tail(['2026-01-31T15:00:00', '2026-02-28T15:00:00'], [1, 2]), 'monthly')).toEqual([1, 2]);
   });
 
+  it('reads the month a bar opened in every zone, New Zealand in summer time (UTC+13) included', () => {
+    // Auckland's October opened at 11:00 UTC on 30 September: a UTC date of the 30th, but a month of 31 days.
+    expect(seriesCloses(tail(['2026-09-30T11:00:00', '2026-10-31T09:00:00'], [1, 1]), 'monthly')).toEqual([1]);
+    expect(seriesCloses(tail(['2026-09-30T11:00:00', '2026-10-31T11:00:00'], [1, 2]), 'monthly')).toEqual([1, 2]);
+    // The first of a month in every whole-hour zone from UTC-12 to UTC+14, and of the half-hour ones, names its own month.
+    for (let offset = -12; offset <= 14; offset += 0.5) {
+      const opened = Date.UTC(2026, 9, 1) / 1000 - offset * 3600;                       // 1 October, 00:00 local
+      expect(periodEnd(opened, 'monthly') - opened, `UTC${offset >= 0 ? '+' : ''}${offset}`).toBe(31 * 86400);
+      const feb = Date.UTC(2026, 1, 1) / 1000 - offset * 3600;                          // 1 February, 00:00 local
+      expect(periodEnd(feb, 'monthly') - feb, `UTC${offset >= 0 ? '+' : ''}${offset} February`).toBe(28 * 86400);
+    }
+  });
+
   it('keeps the series as it is when Yahoo wrote no phantom: the last bar is the genuine one for the week in progress', () => {
     const noPhantom = tail(['2026-10-04T21:00:00', '2026-10-11T21:00:00', '2026-10-18T21:00:00', '2026-10-25T21:00:00'], [122.7, 124.97, 122.03, 120.47]);
     expect(seriesCloses(noPhantom, 'weekly')).toEqual([122.7, 124.97, 122.03, 120.47]);
@@ -278,9 +314,44 @@ describe('the phantom bar on a weekly or monthly series', () => {
   });
 });
 
-describe('the phantom bar on the live series file', () => {
+describe('the phantom bar on real histories', () => {
+  const HOUR = 3600;
+  const frozen = stamps.series as Record<string, { weekly?: number[]; monthly?: number[] }>;
+  const each = (f: (sym: string, tf: 'weekly' | 'monthly', t: number[]) => void) => {
+    for (const [sym, v] of Object.entries(frozen)) for (const tf of ['weekly', 'monthly'] as const) if (v[tf]) f(sym, tf, v[tf]!);
+  };
+  const entry = (t: number[]): SeriesEntry => ({ ccy: null, t, c: t.map((_, i) => 100 + i) });
+
+  it('never takes a genuine bar for a padded one: every earlier pair of bars is a period apart, whatever the clocks did', () => {
+    let pairs = 0;
+    each((sym, tf, t) => {
+      for (let i = 1; i < t.length - 1; i++) {
+        expect(t[i] >= periodEnd(t[i - 1], tf) - HOUR, `${sym} ${tf} bar ${i}: ${new Date(t[i - 1] * 1000).toISOString()} then ${new Date(t[i] * 1000).toISOString()}`).toBe(true);
+        pairs++;
+      }
+      // And so a rule that drops only the last bar keeps every one of them.
+      const kept = seriesCloses(entry(t), tf)!;
+      expect(kept.slice(0, t.length - 2), `${sym} ${tf}`).toEqual(entry(t).c.slice(0, t.length - 2));
+    });
+    expect(pairs).toBeGreaterThan(5000);
+  });
+
+  it('drops the last bar of a padded series and keeps it where there is none, on each of these exchanges', () => {
+    const dropped: Record<string, boolean[]> = {};
+    each((sym, tf, t) => { (dropped[sym] ||= []).push(seriesCloses(entry(t), tf)!.length === t.length - 1); });
+    // New York, Toronto, Venture, Tokyo, Hong Kong, Frankfurt, Milan, Sydney, Nikkei, gold: padded, both timeframes.
+    for (const sym of ['AME', 'GEI.TO', 'NCX.V', '7956.T', '0002.HK', 'CBK.DE', 'BC.MI', 'COL.AX', '^N225', 'GC=F']) expect(dropped[sym], sym).toEqual([true, true]);
+    // Egypt's weekly and monthly, Dubai's monthly and the dollar index's monthly carry no padded bar: the last bar is the period's own.
+    expect(dropped['COMI.CA']).toEqual([false, false]);
+    expect(dropped['DX-Y.NYB']).toEqual([true, false]);
+    expect(dropped['EMIRATESNBD.AE']).toEqual([true, false]);
+    // Denmark's index across the clock change of 25 October keeps its genuine last week.
+    expect(dropped['^OMXC25'][0]).toBe(false);
+  });
+});
+
+describe('the live series file', () => {
   const file = raw('series.json') as SeriesFile;
-  const DAY = 86400;
 
   it('is a file the page accepts whole: matching stamps and closes for every symbol', () => {
     const parsed = parseSeries(file);
@@ -289,17 +360,14 @@ describe('the phantom bar on the live series file', () => {
     expect(Object.keys(parsed.file!.monthly).length).toBeGreaterThan(0);
   });
 
-  it('has stamps in order, and for every series at most one bar dropped, which then lies inside the period before it', () => {
+  it('has its stamps in order, and the page leaves out at most the last bar of any series', () => {
     for (const tf of ['weekly', 'monthly'] as const) {
-      const period = tf === 'weekly' ? 7 : 31;
       for (const [sym, e] of Object.entries(file[tf])) {
-        for (let i = 1; i < e.t.length; i++) expect(e.t[i] > e.t[i - 1], `${tf} ${sym} stamp ${i}`).toBe(true);
+        for (let i = 1; i < e.t.length; i++) expect(e.t[i] >= e.t[i - 1], `${tf} ${sym} stamp ${i}`).toBe(true);
         const closes = seriesCloses(e, tf);
         if (!closes) { expect(e.c.length, `${tf} ${sym}`).toBe(0); continue; }
         expect([e.c.length, e.c.length - 1], `${tf} ${sym}`).toContain(closes.length);
-        const n = e.t.length;
-        if (closes.length === n - 1) expect((e.t[n - 1] - e.t[n - 2]) / DAY, `${tf} ${sym} dropped`).toBeLessThan(period);
-        else if (n >= 2) expect((e.t[n - 1] - e.t[n - 2]) / DAY, `${tf} ${sym} kept`).toBeGreaterThanOrEqual(tf === 'weekly' ? 7 - 1 / 24 : 28 - 1 / 24);
+        expect(closes, `${tf} ${sym}`).toEqual(e.c.slice(0, closes.length));
       }
     }
   });

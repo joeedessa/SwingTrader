@@ -42,6 +42,13 @@ export function FlagTable() {
   );
 }
 
+/** "the latest bar on a monthly or weekly chart, or the latest 2 bars on a daily chart": the freshness windows, grouped by their length. */
+function freshWords(): string {
+  const groups = new Map<number, string[]>();
+  for (const f of FRESH_WITHIN) groups.set(f.bars, [...(groups.get(f.bars) ?? []), f.tf]);
+  return [...groups].map(([n, tfs]) => `${n === 1 ? 'the latest bar' : `the latest ${n} bars`} on a ${tfs.join(' or ')} chart`).join(', or ');
+}
+
 export function MethodPage() {
   const s = useStore(app);
   const ready = s.phase === 'ready';
@@ -72,7 +79,7 @@ export function MethodPage() {
             <ul class="gaplist">{gaps.map(f => <li>{f.text}.</li>)}</ul>
           </>
         ) : <p class="note">No gaps: every symbol has history, daily bars and a calendar entry, and the latest prices are fresh.</p>) : null}
-        {ready && s.problems.length ? <><h3>Problems loading</h3><ul class="gaplist">{s.problems.map(p => <li>{p}</li>)}</ul></> : null}
+        {ready && (s.problems.length || s.seriesProblems.length) ? <><h3>Problems loading</h3><ul class="gaplist">{[...s.problems, ...s.seriesProblems].map(p => <li>{p}</li>)}</ul></> : null}
         <p>Where it comes from: the levels are Tech Charts' (from their weekly report, which is licensed and never published here). Daily bars, the latest prices and live quotes come from Yahoo Finance's public endpoints, with no key; the browser reaches them through a small Cloudflare Worker, because Yahoo sends no cross-origin header. Earnings and dividend dates, the last result and the consensus come from TradingView's public scanner, and the headlines from Google News's public feed. Nothing needs a key or a paid account.</p>
         <p>How it stays current: a job on GitHub rewrites the latest prices about every fifteen minutes, and the daily bars and the earnings file about hourly. A day's bar is written once that exchange's session has ended, keyed by the exchange's own date, kept as Yahoo sent it, and never rewritten. The page is rebuilt from those files on every load, and opens a newer copy of itself when you come back to it.</p>
         <p>Prices stay in each instrument's listing currency. Nothing is converted, and the currency is printed next to a price wherever it is not obvious.</p>
@@ -104,8 +111,8 @@ export function MethodPage() {
         <h2 id="m-signals">Signals</h2>
         <p>Signals reads every setup still in play (not Failed, not Removed) on three timeframes: the settled daily closes, and weekly and monthly closes that the data job fetches about once a day. Every average is simple and read on closes only, because the feed carries no intraday high or low here, so a wick through a line that closed back on the other side reads as held.</p>
         <p>The level test says what the close did the last time it came near an average: a close within {MA_RULES.tolShare * 100}% of the instrument's typical bar-to-bar move (never under {MA_RULES.tolFloor * 100}% or over {MA_RULES.tolCap * 100}%) in the last {MA_RULES.testBars} bars, counted only while the latest close is still within {MA_RULES.stillNear} times that distance of the line. Near it from above and still above is <i>held</i>, from below and still below <i>rejected</i>, from below and now above <i>reclaimed</i>, from above and now below <i>lost</i>. The arrow says which way the average itself is heading: its move over a window of a {MA_RULES.slopeDivisor}th of its period (between {MA_RULES.slopeFloor} and {MA_RULES.slopeCap} bars) against the window before, with "flat" scaled to how much the instrument normally moves.</p>
-        <p>A level change is a close that has changed sides on a 150 or 200 within {FRESH_WITHIN.map(f => `${f.maxAgo === 1 ? 'the last bar' : `the last ${f.maxAgo} bars`} on a ${f.tf} chart`).join(', ')}; the monthly ones are listed first. The cross scan looks back {TF_WORDS.daily.lookback} sessions, {TF_WORDS.weekly.lookback} weeks or {TF_WORDS.monthly.lookback} months for crosses on five tiers, quickest to slowest: {TIERS.map(t => t.label).join(', ')}, the 5 and 21 exponential and the rest simple. A cross that the following bars gave back is marked whipsawed. A name needs {MIN_BARS} bars on a timeframe to be scanned on it.</p>
-        <p>The day against the market is a setup's day move less its local index's, and less the median of the day moves of its sector across the whole list, in percentage points; a sector needs {MIN_SECTOR_PEERS} names. Yahoo pads every weekly and monthly series with a bar stamped at the last trade, which would count the week or month in progress twice: Signals leaves it out when it falls inside the period the bar before it opened.</p>
+        <p>A level change is a close that has changed sides on a 150 or 200 within {freshWords()}, and that the level test calls reclaimed or lost, so it is still near the line; the monthly ones are listed first. A decisive cross, from far under to far over, is not a level change, but the scan below has it. The cross scan looks back {TF_WORDS.daily.lookback} sessions, {TF_WORDS.weekly.lookback} weeks or {TF_WORDS.monthly.lookback} months for crosses on five tiers, quickest to slowest: {TIERS.map(t => t.label).join(', ')}, the 5 and 21 exponential and the rest simple. A cross that the following bars gave back is marked whipsawed. A name needs {MIN_BARS} bars on a timeframe to be scanned on it.</p>
+        <p>The day against the market is a setup's day move less its local index's, and less the median of the day moves of its sector across the whole list, in percentage points; a sector needs {MIN_SECTOR_PEERS} setups (a name listed both long and short counts twice). Yahoo pads every weekly and monthly series with a bar stamped at the last trade, which would count the week or month in progress twice: Signals leaves it out when it falls inside the period the bar before it opened.</p>
       </section>
 
       <section class="prose" aria-labelledby="m-flags">

@@ -79,7 +79,7 @@ describe('the page', () => {
     const events = structureEvents(bd.rows, vals);
     const html = render(<SignalsPage />);
     if (events.length) expect((html.match(/<tr>/g) || []).length - 1).toBe(events.length);
-    else expect(text(html)).toContain('Nothing has changed sides on a 150 or 200 lately.');
+    else expect(text(html)).toContain('Nothing has just changed sides on a 150 or 200 and stayed near it.');
   });
 
   it('says where the weekly and monthly bars are from, and that they are refreshed about daily', () => {
@@ -92,7 +92,7 @@ describe('the page', () => {
     const html = render(<SignalsPage />);
     for (const tf of TIMEFRAMES) {
       const n = scanOf(all, tf, vals).hits.length;
-      expect(html, tf).toContain(`<dt>Crosses, ${tf}</dt><dd><button type="button" class="tv" aria-label="Crosses, ${tf}: open the scan">${n}</button>`);
+      expect(html, tf).toContain(`<dt>Crosses, ${tf}</dt><dd><button type="button" class="tv" aria-label="Crosses, ${tf}, ${n}: open the scan">${n}</button>`);
     }
   });
 
@@ -105,10 +105,16 @@ describe('the page', () => {
     expect(t).toMatch(/All in play \(\d+\)/);
   });
 
-  it('falls back to the first view and the daily timeframe when what was remembered is not one', () => {
+  it('falls back to the first view, the daily timeframe and the waiting setups when what was remembered is not one', () => {
     remember({ 'mc-seg-signals': 'nonsense', 'mc-seg-signals-tf': 'hourly', 'mc-seg-signals-scope': 'x' });
+    expect(render(<SignalsPage />)).toMatch(/data-id="changes"[^>]*aria-selected="true"/);
+    // A valid view with a timeframe and a scope that are not valid: the scan opens on the daily timeframe, for the waiting ones.
+    remember({ 'mc-seg-signals': 'scan', 'mc-seg-signals-tf': 'hourly', 'mc-seg-signals-scope': 'x' });
     const html = render(<SignalsPage />);
-    expect(html).toMatch(/data-id="changes"[^>]*aria-selected="true"/);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Daily</);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Watching \(\d+\)</);
+    expect(html).toContain('with enough history');
+    expect(text(html)).toContain('in the last 10 sessions');
   });
 
   it('says the weekly and monthly bars are still loading, and keeps the daily timeframe going', () => {
@@ -121,6 +127,45 @@ describe('the page', () => {
       expect(t).not.toContain('Loading the weekly and monthly bars…');
       expect(t).toContain('A simple average of closes.');
     } finally { app.set({ series: syntheticSeries(Object.keys(frozenInputs().hist)), seriesStatus: 'ok' }); }
+  });
+
+  it('does not count crosses on bars it does not have: the weekly and monthly tiles say they are loading, or did not load', () => {
+    app.set({ series: null, seriesStatus: 'loading' });
+    try {
+      let t = text(render(<SignalsPage />));
+      expect(t).toContain('weekly and monthly loading');
+      expect(t).toContain('loading the bars…');
+      expect(t).not.toContain('no name has the history yet');
+      app.set({ seriesStatus: 'failed' });
+      t = text(render(<SignalsPage />));
+      expect(t).toContain('weekly and monthly not loaded');
+      expect(t).toContain('the bars did not load');
+      expect(t).not.toContain('no name has the history yet');
+    } finally { app.set({ series: syntheticSeries(Object.keys(frozenInputs().hist)), seriesStatus: 'ok' }); }
+  });
+
+  it('puts the note in place of the averages, not a table of dashes, on a timeframe whose bars are not here', () => {
+    app.set({ series: null, seriesStatus: 'failed' });
+    try {
+      remember({ 'mc-seg-signals': 'averages', 'mc-seg-signals-tf': 'weekly' });
+      const html = render(<SignalsPage />);
+      expect(text(html)).toContain('The weekly and monthly bars did not load, so only the daily timeframe is shown.');
+      expect(html).not.toContain('<table');
+      expect(html).not.toContain('Not enough closes yet');
+      // The daily timeframe still draws its table.
+      remember({ 'mc-seg-signals': 'averages', 'mc-seg-signals-tf': 'daily' });
+      expect(render(<SignalsPage />)).toContain('<table');
+    } finally { app.set({ series: syntheticSeries(Object.keys(frozenInputs().hist)), seriesStatus: 'ok' }); }
+  });
+
+  it('says how many problems the weekly and monthly file had, and that what could not be read is left out', () => {
+    app.set({ seriesProblems: ['series.json weekly X: expected matching lists of stamps and closes; left out'] });
+    try {
+      expect(text(render(<SignalsPage />))).toContain('1 problem in the weekly and monthly file: what could not be read is left out (see Method).');
+      app.set({ seriesProblems: ['a', 'b'] });
+      expect(text(render(<SignalsPage />))).toContain('2 problems in the weekly and monthly file');
+    } finally { app.set({ seriesProblems: [] }); }
+    expect(text(render(<SignalsPage />))).not.toContain('problem in the weekly and monthly file');
   });
 
   it('says the weekly and monthly bars did not load, offers another try, and shows the daily timeframe anyway', () => {
@@ -150,6 +195,7 @@ describe('the fresh changes of sides', () => {
     const html = render(<ChangesPanel events={[event(a, {}), event(b, { tf: 'daily', period: 150, state: 'lost', ago: 2, dist: -1.5, helps: false })]} onOpen={() => {}} narrow={false} waiting={null} />);
     const t = text(html);
     expect(t).toContain('Level changes 2');
+    expect(t).toContain('A close that has just changed sides on a 150 or 200 and is still near it.');
     expect(t).toContain('reclaimed its weekly 200');
     expect(t).toContain('on the latest week');
     expect(t).toContain('lost its daily 150');
@@ -176,7 +222,7 @@ describe('the fresh changes of sides', () => {
   });
 
   it('says nothing has changed sides when nothing has', () => {
-    expect(text(render(<ChangesPanel events={[]} onOpen={() => {}} narrow={false} waiting={null} />))).toContain('Nothing has changed sides on a 150 or 200 lately.');
+    expect(text(render(<ChangesPanel events={[]} onOpen={() => {}} narrow={false} waiting={null} />))).toContain('Nothing has just changed sides on a 150 or 200 and stayed near it.');
   });
 
   it('says the slower timeframes are still to come, above what it has', () => {
@@ -254,6 +300,19 @@ describe('the cross scan', () => {
     expect(t).toContain('None of these carry the 220 months a 200-period average needs.');
     const quiet: Scan = { tf: 'weekly', lookback: 13, covered: 5, total: 5, hits: [] };
     expect(text(render(<ScanPanel scan={quiet} tf="weekly" setTf={noop} scope="all" setScope={noop} counts={{ watch: 1, trade: 1, all: 5 }} onOpen={noop} waiting={null} />))).toContain('No crosses in the last 13 weeks.');
+  });
+
+  it('says an empty group is empty once, not twice', () => {
+    const none: Scan = { tf: 'daily', lookback: 10, covered: 0, total: 0, hits: [] };
+    const t = text(render(<ScanPanel scan={none} tf="daily" setTf={noop} scope="trade" setScope={noop} counts={{ watch: 0, trade: 0, all: 0 }} onOpen={noop} waiting={null} />));
+    expect(t.split('Nothing in this group to scan.')).toHaveLength(2);
+  });
+
+  it('heads each block with a second-level heading, under the page\'s first-level one', () => {
+    const { html } = view('daily', 'all');
+    expect((html.match(/<h2>/g) || []).length).toBe(2);
+    expect(html).not.toContain('<h3>');
+    expect(text(html)).toContain('quickest and noisiest first → slowest and most reliable last');
   });
 
   it('waits for the slower timeframes, in words, instead of saying nothing was found', () => {

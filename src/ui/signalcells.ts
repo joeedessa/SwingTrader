@@ -21,9 +21,11 @@ const STATE_TONE: Record<MaState, Tone> = { held: 'good', reclaimed: 'good', rej
 /** Where the close sits against one average: the side and how far, then on the lines that carry them the level test and
     which way the average is heading. Green above and red below, whichever way the setup trades: the arrow says which side. */
 export function maCell(c: MaColumn, tf: Timeframe): Cell {
-  const line = averageLineOn({ period: c.period, read: c.read, slope: c.slope }, tf);
+  // A line that does not carry the level test does not say it in its tooltip either.
+  const read = c.read && !c.tagged ? { ...c.read, state: null } : c.read;
+  const line = averageLineOn({ period: c.period, read, slope: c.slope }, tf);
   if (!c.read) return { value: '–', title: line.text };
-  const state = c.tagged ? c.read.state : null;
+  const state = read ? read.state : null;
   const sub = [state, line.slope ? line.slope.glyph : null].filter(Boolean).join(' ');
   return {
     value: line.value,
@@ -52,11 +54,11 @@ export function vsIndexCell(rel: Relative, country: string | undefined): Cell {
 export function vsSectorCell(rel: Relative, sector: string | null | undefined): Cell {
   if (rel.vsSector == null) {
     return { value: '–', title: !sector ? 'No sector on file for this setup.' : rel.day == null ? 'No day move for this name yet.'
-      : `Only ${rel.peers} ${rel.peers === 1 ? 'name has' : 'names have'} a day move in ${sector}; a median needs ${MIN_SECTOR_PEERS}.` };
+      : `Only ${rel.peers} ${rel.peers === 1 ? 'setup has' : 'setups have'} a day move in ${sector}; a median needs ${MIN_SECTOR_PEERS}.` };
   }
   return {
     value: points(rel.vsSector), ...relTone(rel.vsSector), ...(sector ? { sub: sector } : {}),
-    title: `${signedPct(rel.day)} on the day, against a median of ${signedPct(rel.sectorDay)} across the ${rel.peers} names in ${sector} on the list, in percentage points.`,
+    title: `${signedPct(rel.day)} on the day, against a median of ${signedPct(rel.sectorDay)} across the ${rel.peers} setups in ${sector} on the list, in percentage points.`,
   };
 }
 
@@ -109,11 +111,11 @@ export const SCOPE_LABEL: Record<ScanScope, string> = { watch: 'Watching', trade
 /** "3d ago", "latest close": how long ago a cross happened, in the timeframe's own unit. */
 export const crossAgo = (h: ScanHit, tf: Timeframe): string => (h.ago === 0 ? 'latest close' : h.ago + TF_WORDS[tf].unit + ' ago');
 
-/** The line over the scan: how far back it looked and how many names had the history for it. */
-export function scanNote(scan: Scan): string {
-  const w = TF_WORDS[scan.tf];
-  if (!scan.total) return 'Nothing in this group to scan.';
-  return `Crosses in the last ${scan.lookback} ${w.word} · ${scan.covered} of ${scan.total} with enough history`;
+/** The line over the scan: how far back it looked and how many names had the history for it; none for an empty group, which says
+    so itself (see scanEmpty). */
+export function scanNote(scan: Scan): string | null {
+  if (!scan.total) return null;
+  return `Crosses in the last ${scan.lookback} ${TF_WORDS[scan.tf].word} · ${scan.covered} of ${scan.total} with enough history`;
 }
 
 /** What the scan says when it has nothing to list. */
@@ -134,24 +136,31 @@ export interface TileActions {
   scan: (tf: Timeframe) => void;
 }
 
+/** Whether the weekly and monthly bars are here: the tiles for them say so, rather than count nothing. */
+export type SlowBars = 'ready' | 'loading' | 'failed';
+
 /** The page's four figures: the fresh changes of sides, then the crosses on each timeframe across everything in play. Each
     opens what it counts. */
-export function signalTiles(events: readonly StructureEvent[], scans: Record<Timeframe, Scan>, go: TileActions): Tile[] {
+export function signalTiles(events: readonly StructureEvent[], scans: Record<Timeframe, Scan>, go: TileActions, slow: SlowBars = 'ready'): Tile[] {
   const byTf = (['monthly', 'weekly', 'daily'] as const).map(tf => [tf, events.filter(e => e.tf === tf).length] as const).filter(([, n]) => n > 0);
+  const missing = slow === 'loading' ? 'weekly and monthly loading' : 'weekly and monthly not loaded';
+  const base = byTf.length ? byTf.map(([tf, n]) => `${n} ${tf}`).join(' · ') : 'nothing fresh on a 150 or 200';
   const tiles: Tile[] = [{
     label: 'Level changes', value: String(events.length),
-    sub: byTf.length ? byTf.map(([tf, n]) => `${n} ${tf}`).join(' · ') : 'nothing fresh on a 150 or 200',
-    title: 'Setups whose close has just changed sides on a 150 or 200 average: the latest bar or the one before on a weekly or monthly chart, within two sessions on a daily one.',
-    onClick: go.changes, action: 'Level changes: open the list',
+    sub: slow === 'ready' ? base : `${base} · ${missing}`,
+    title: 'Setups whose close has just changed sides on a 150 or 200 and is still near it (reclaimed or lost): on the latest bar of a weekly or monthly chart, within the latest two sessions of a daily one.',
+    onClick: go.changes, action: `Level changes, ${events.length}: open the list`,
   }];
   for (const tf of ['daily', 'weekly', 'monthly'] as const) {
     const s = scans[tf];
     const bull = s.hits.filter(h => h.bullish).length;
+    const waiting = tf !== 'daily' && slow !== 'ready';
     tiles.push({
-      label: `Crosses, ${tf}`, value: String(s.hits.length),
-      sub: s.covered ? `${bull} bullish · ${s.hits.length - bull} bearish · ${plural(s.covered, 'name', 'names')} scanned` : 'no name has the history yet',
+      label: `Crosses, ${tf}`, value: waiting ? '–' : String(s.hits.length),
+      sub: waiting ? (slow === 'loading' ? 'loading the bars…' : 'the bars did not load')
+        : s.covered ? `${bull} bullish · ${s.hits.length - bull} bearish · ${plural(s.covered, 'name', 'names')} scanned` : 'no name has the history yet',
       title: `Crosses of the averages and the price in the last ${s.lookback} ${TF_WORDS[tf].word}, across everything still in play.`,
-      onClick: () => go.scan(tf), action: `Crosses, ${tf}: open the scan`,
+      onClick: () => go.scan(tf), action: `Crosses, ${tf}, ${waiting ? 'not loaded' : s.hits.length}: open the scan`,
     });
   }
   return tiles;

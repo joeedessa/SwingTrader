@@ -93,11 +93,13 @@ describe('the Method page', () => {
     expect(t).toContain(`in the last ${MA_RULES.testBars} bars`);
     expect(t).toContain(`within ${MA_RULES.stillNear} times that distance`);
     expect(t).toContain(`between ${MA_RULES.slopeFloor} and ${MA_RULES.slopeCap} bars`);
-    for (const f of FRESH_WITHIN) expect(t).toContain(f.maxAgo === 1 ? `the last bar on a ${f.tf} chart` : `the last ${f.maxAgo} bars on a ${f.tf} chart`);
+    expect(FRESH_WITHIN.map(f => [f.tf, f.bars])).toEqual([['monthly', 1], ['weekly', 1], ['daily', 2]]);
+    expect(t).toContain('within the latest bar on a monthly or weekly chart, or the latest 2 bars on a daily chart, and that the level test calls reclaimed or lost');
+    expect(t).toContain('A decisive cross, from far under to far over, is not a level change, but the scan below has it.');
     expect(t).toContain(`${TF_WORDS.daily.lookback} sessions, ${TF_WORDS.weekly.lookback} weeks or ${TF_WORDS.monthly.lookback} months`);
     for (const tier of TIERS) expect(t).toContain(tier.label);
     expect(t).toContain(`needs ${MIN_BARS} bars on a timeframe`);
-    expect(t).toContain(`a sector needs ${MIN_SECTOR_PEERS} names`);
+    expect(t).toContain(`a sector needs ${MIN_SECTOR_PEERS} setups (a name listed both long and short counts twice)`);
     for (const word of ['held', 'rejected', 'reclaimed', 'lost', 'whipsawed']) expect(t).toContain(word);
     expect(t).toContain('Yahoo pads every weekly and monthly series');
   });

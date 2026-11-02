@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { app, load, loadSeries } from '../data/app';
 import { boardView } from '../data/selectors';
 import { publishSignals } from '../debug';
@@ -20,8 +20,9 @@ import { DataTable } from './datatable';
 import type { DCol } from './datatable';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
-import { useNarrow, usePersisted } from './hooks';
+import { useMedia, useNarrow, usePersisted } from './hooks';
 import { agoWords, averageColumns, averageSort, changeText, crossAgo, forSetup, scanEmpty, scanNote, SCOPE_LABEL, signalTiles } from './signalcells';
+import type { SlowBars } from './signalcells';
 import { Tiles } from './tiles';
 
 /* Signals: which setups are changing structure on their moving averages? Three views of the same closes. The fresh changes of
@@ -81,12 +82,12 @@ export function ChangesPanel({ events, onOpen, narrow, waiting }: { events: read
       <div class="sechead">
         <h2>Level changes</h2>
         <span class="gcount">{events.length}</span>
-        <span class="secnote">A close that has just changed sides on a 150 or 200. Monthly first, then weekly, then daily; the 200 before the 150.</span>
+        <span class="secnote">A close that has just changed sides on a 150 or 200 and is still near it. Monthly first, then weekly, then daily; the 200 before the 150.</span>
       </div>
       {waiting ? <p class="signote">{waiting}</p> : null}
       {events.length
         ? <DataTable rows={events} cols={cols} label="Fresh changes of sides on a 150 or 200" id={PANEL} narrow={narrow} rowKey={e => `${e.row.p.sym}|${e.row.p.dir}|${e.tf}|${e.period}`} />
-        : <div class="empty" id={PANEL}><p>Nothing has changed sides on a 150 or 200 lately.</p></div>}
+        : <div class="empty" id={PANEL}><p>Nothing has just changed sides on a 150 or 200 and stayed near it.</p></div>}
     </>
   );
 }
@@ -98,6 +99,7 @@ export function ScanPanel({ scan, tf, setTf, scope, setScope, counts, onOpen, wa
   counts: Record<ScanScope, number>; onOpen: (r: Row) => void; waiting: string | null;
 }) {
   const empty = waiting ? null : scanEmpty(scan);
+  const note = waiting ?? scanNote(scan);
   return (
     <>
       <div class="sigcontrols">
@@ -107,15 +109,15 @@ export function ScanPanel({ scan, tf, setTf, scope, setScope, counts, onOpen, wa
           <Choice label="Which setups" value={scope} onChange={setScope} items={SCAN_SCOPES.map(sc => ({ id: sc, label: `${SCOPE_LABEL[sc]} (${counts[sc]})` }))} />
         </div>
       </div>
-      <p class="signote">{waiting ?? scanNote(scan)}</p>
+      {note ? <p class="signote">{note}</p> : null}
       <div id={PANEL}>
         {empty ? <div class="empty"><p>{empty}</p></div> : waiting ? null : [true, false].map(bullish => (
           <section class={'sigblock ' + (bullish ? 'bull' : 'bear')} aria-label={bullish ? 'Bullish crosses' : 'Bearish crosses'}>
-            <h3>
+            <h2>
               <span class="sigarrow" aria-hidden="true">{bullish ? '▲' : '▼'}</span>
               {bullish ? 'Bullish crosses' : 'Bearish crosses'}
-              <span class="sigladder">quickest and noisiest on the left → slowest and most reliable on the right</span>
-            </h3>
+              <span class="sigladder">quickest and noisiest first → slowest and most reliable last</span>
+            </h2>
             <div class="sigcols">
               {TIERS.map(t => {
                 const mine = scan.hits.filter(h => h.bullish === bullish && h.key === t.key).sort((a, b) => a.ago - b.ago);
@@ -149,27 +151,32 @@ export function ScanPanel({ scan, tf, setTf, scope, setScope, counts, onOpen, wa
 
 /* ------------------------------------------------------------------ the averages */
 
+/** Below this width the ten columns do not fit and the page would scroll sideways, so the averages are cards, as on a phone. */
+const TABLE_MIN = '(max-width: 1100px)';
+
 export function AveragesPanel({ rows, tf, setTf, ladder, rel, narrow, onOpen, today, waiting }: {
   rows: Row[]; tf: Timeframe; setTf: (t: Timeframe) => void; ladder: (r: Row) => MaColumn[]; rel: (r: Row) => Relative;
   narrow: boolean; onOpen: (r: Row) => void; today: string; waiting: string | null;
 }) {
-  const [sort, setSort] = useState<Sort>(['sym', true]);
+  const cards = useMedia(TABLE_MIN) || narrow;
+  const [chosen, setSort] = useState<Sort>(['sym', true]);
   const cols = useMemo(() => averageColumns(tf, ladder, rel), [tf, ladder, rel]);
   const ctx = useMemo(() => ({ extra: averageSort(tf, ladder, rel) }), [tf, ladder, rel]);
-  const sorted = useMemo(() => sortRows(rows, cols, sort, ctx), [rows, cols, sort, ctx]);
-  // A column of a timeframe the last sort was on may not exist on this one: fall back to the symbol.
-  useEffect(() => { if (sort[0] !== 'sym' && sort[0] !== 'live' && !cols.some(c => c.key === sort[0])) setSort(['sym', true]); }, [cols, sort]);
+  // A column the last sort was on may not exist on this timeframe: read it as the symbol (and the choice comes back with the column).
+  const sort: Sort = chosen[0] === 'sym' || chosen[0] === 'live' || cols.some(c => c.key === chosen[0]) ? chosen : ['sym', true];
+  const sorted = useMemo(() => sortRows(rows, cols, sort, ctx), [rows, cols, sort[0], sort[1], ctx]);
   return (
     <>
       <div class="sigcontrols"><TimeframeChoice tf={tf} setTf={setTf} /></div>
       <p class="signote">
         {waiting ?? 'A simple average of closes. ▲ means the close is above it and ▼ below, and the number is how far. On the lines a chartist trades off, the cell also says whether the average was tested lately (held, rejected, reclaimed, lost) and which way it is heading.'}
       </p>
-      {sorted.length
-        ? (narrow
-          ? <BoardCards rows={sorted} section="breakout" cols={cols} label="Moving averages" onOpen={onOpen} today={today} panelId={PANEL} />
-          : <BoardTable rows={sorted} section="breakout" cols={cols} label="Moving averages" sort={sort} onSort={k => setSort(o => nextSort(cols, o, k))} onOpen={onOpen} today={today} panelId={PANEL} />)
-        : <div class="empty" id={PANEL}><p>No setup is in play.</p></div>}
+      {waiting ? <div class="empty" id={PANEL}><p>{waiting}</p></div>
+        : sorted.length
+          ? (cards
+            ? <BoardCards rows={sorted} section="breakout" cols={cols} label="Moving averages" onOpen={onOpen} today={today} panelId={PANEL} />
+            : <BoardTable rows={sorted} section="breakout" cols={cols} label="Moving averages" sort={sort} onSort={k => setSort(nextSort(cols, sort, k))} onOpen={onOpen} today={today} panelId={PANEL} />)
+          : <div class="empty" id={PANEL}><p>No setup is in play.</p></div>}
     </>
   );
 }
@@ -197,17 +204,17 @@ export function SignalsPage() {
   const live = useMemo(() => bd.rows.filter(isLive), [bd]);
   const events = useMemo(() => structureEvents(bd.rows, vals), [bd, vals]);
   const rels = useMemo(() => relatives(bd.rows, s.hist), [bd, s.hist]);
-  const rel = (r: Row): Relative => rels.get(r) as Relative;
+  const rel = useCallback((r: Row): Relative => rels.get(r) as Relative, [rels]);
   const scopeRows = useMemo(() => Object.fromEntries(SCAN_SCOPES.map(x => [x, scanRows(bd.rows, x, s.hist)])) as Record<ScanScope, Row[]>, [bd, s.hist]);
   const all = useMemo(() => Object.fromEntries(TIMEFRAMES.map(x => [x, scanOf(scopeRows.all, x, vals)])) as Record<Timeframe, Scan>, [scopeRows, vals]);
   const scan = useMemo(() => (sc === 'all' ? all[timeframe] : scanOf(scopeRows[sc], timeframe, vals)), [sc, timeframe, all, scopeRows, vals]);
   const counts = useMemo(() => Object.fromEntries(SCAN_SCOPES.map(x => [x, scopeRows[x].length])) as Record<ScanScope, number>, [scopeRows]);
   const ladders = useMemo(() => new Map(live.map(r => [r, ladderOf(vals(r.p.sym, timeframe), timeframe)] as const)), [live, vals, timeframe]);
-  const ladder = (r: Row): MaColumn[] => ladders.get(r) ?? ladderOf(null, timeframe);
+  const ladder = useCallback((r: Row): MaColumn[] => ladders.get(r) ?? ladderOf(null, timeframe), [ladders, timeframe]);
 
-  const seriesWait = s.seriesStatus === 'failed' && !s.series
-    ? 'The weekly and monthly bars did not load, so only the daily timeframe is shown.'
-    : !s.series ? 'Loading the weekly and monthly bars…' : null;
+  const slow: SlowBars = s.series ? 'ready' : s.seriesStatus === 'failed' ? 'failed' : 'loading';
+  const seriesWait = slow === 'failed' ? 'The weekly and monthly bars did not load, so only the daily timeframe is shown.'
+    : slow === 'loading' ? 'Loading the weekly and monthly bars…' : null;
   // What a view says while the slower timeframes are not here: the daily one does not wait for them.
   const waitingFor = (tfs: readonly Timeframe[]): string | null => (seriesWait && tfs.some(x => x !== 'daily') ? seriesWait : null);
 
@@ -225,7 +232,7 @@ export function SignalsPage() {
   const tiles = signalTiles(events, all, {
     changes: () => setTab('changes'),
     scan: x => { setTab('scan'); setTf(x); setScope('all'); },
-  });
+  }, slow);
 
   let body;
   if (s.phase === 'error') {
@@ -252,6 +259,7 @@ export function SignalsPage() {
           <DataLine set="watchlist" />
           {s.series && s.series.generated_at ? <p class="dataline"><span class="dot good" aria-hidden="true" />Weekly and monthly bars from {stampOf(s.series.generated_at)}, refreshed about daily</p> : null}
           {s.seriesStatus === 'failed' ? <p class="dataline warn">The weekly and monthly bars did not load. <button type="button" class="linkbtn" onClick={() => void loadSeries(true)}>Try again</button></p> : null}
+          {s.seriesProblems.length ? <p class="dataline warn">{s.seriesProblems.length === 1 ? '1 problem' : `${s.seriesProblems.length} problems`} in the weekly and monthly file: what could not be read is left out (see Method).</p> : null}
         </Hero>
 
         {ready ? <Tiles tiles={tiles} label="Signals at a glance" /> : null}

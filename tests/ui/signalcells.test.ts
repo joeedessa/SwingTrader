@@ -49,6 +49,16 @@ describe('an average\'s cell', () => {
     expect(maCell({ ...c, tagged: true }, 'daily').sub).toBe('reclaimed');
   });
 
+  it('does not say in the tooltip a level test the cell does not show: only the lines that carry it', () => {
+    const c = column(reclaimed, 'daily', 50);
+    expect(c.read && c.read.state).toBe('reclaimed');
+    expect(maCell(c, 'daily').title).not.toContain('Tested lately');
+    expect(maCell({ ...c, tagged: true }, 'daily').title).toContain('Tested lately: reclaimed.');
+    // Which side the close is on, and when it last changed sides, are still there.
+    expect(maCell(c, 'daily').title).toMatch(/^Above the 50-day average/);
+    expect(maCell(c, 'daily').title).toContain('Last changed sides');
+  });
+
   it('colours the level test: held and reclaimed green, rejected and lost red', () => {
     const mk = (state: 'held' | 'rejected' | 'reclaimed' | 'lost'): MaColumn => ({
       period: 200, tagged: true, slope: null,
@@ -93,7 +103,7 @@ describe('the day against the index and the sector', () => {
 
   it('explains the figure in the moves it comes from, in the tooltip', () => {
     expect(vsIndexCell(rel({}), 'US').title).toBe('+1.2% on the day, against +0.2% for ^GSPC, in percentage points.');
-    expect(vsSectorCell(rel({}), 'Tech').title).toBe('+1.2% on the day, against a median of +0.3% across the 5 names in Tech on the list, in percentage points.');
+    expect(vsSectorCell(rel({}), 'Tech').title).toBe('+1.2% on the day, against a median of +0.3% across the 5 setups in Tech on the list, in percentage points.');
   });
 
   it('is a dash that says why: no index for the country, no day move, too few names in the sector', () => {
@@ -101,8 +111,8 @@ describe('the day against the index and the sector', () => {
     expect(vsIndexCell(rel({ vsIndex: null, index: null }), undefined).title).toBe('No country on file for this setup.');
     expect(vsIndexCell(rel({ vsIndex: null, day: null }), 'US').title).toBe('No day move for this name yet.');
     expect(vsIndexCell(rel({ vsIndex: null, indexDay: null }), 'US').title).toBe('No day move for ^GSPC yet.');
-    expect(vsSectorCell(rel({ vsSector: null, peers: 2 }), 'Tech').title).toBe(`Only 2 names have a day move in Tech; a median needs ${MIN_SECTOR_PEERS}.`);
-    expect(vsSectorCell(rel({ vsSector: null, peers: 1 }), 'Tech').title).toContain('Only 1 name has a day move');
+    expect(vsSectorCell(rel({ vsSector: null, peers: 2 }), 'Tech').title).toBe(`Only 2 setups have a day move in Tech; a median needs ${MIN_SECTOR_PEERS}.`);
+    expect(vsSectorCell(rel({ vsSector: null, peers: 1 }), 'Tech').title).toContain('Only 1 setup has a day move');
     expect(vsSectorCell(rel({ vsSector: null }), null).title).toBe('No sector on file for this setup.');
     expect(vsSectorCell(rel({ vsSector: null, day: null }), 'Tech').title).toBe('No day move for this name yet.');
     for (const c of [vsIndexCell(rel({ vsIndex: null }), 'US'), vsSectorCell(rel({ vsSector: null }), 'Tech')]) expect(c.value).toBe('–');
@@ -180,10 +190,10 @@ describe('the cross scan, in words', () => {
     expect(crossAgo(hit({ ago: 5 }), 'monthly')).toBe('5mo ago');
   });
 
-  it('says how far back it looked and how many names had the history for it', () => {
+  it('says how far back it looked and how many names had the history for it, and nothing for an empty group, which says so itself', () => {
     expect(scanNote(scan({}))).toBe('Crosses in the last 10 sessions · 8 of 10 with enough history');
     expect(scanNote(scan({ tf: 'weekly', lookback: 13, covered: 0 }))).toBe('Crosses in the last 13 weeks · 0 of 10 with enough history');
-    expect(scanNote(scan({ total: 0, covered: 0 }))).toBe('Nothing in this group to scan.');
+    expect(scanNote(scan({ total: 0, covered: 0 }))).toBeNull();
   });
 
   it('says what it is not showing, and why: nothing to scan, none with the 220 bars, no crosses', () => {
@@ -211,6 +221,36 @@ describe('the tiles', () => {
     expect(t[0]).toMatchObject({ value: '4', sub: '1 monthly · 1 weekly · 2 daily' });
     expect(t[1]).toMatchObject({ value: '5', sub: '3 bullish · 2 bearish · 7 names scanned' });
     expect(t[3]).toMatchObject({ value: '0', sub: 'no name has the history yet' });
+  });
+
+  it('say, while the weekly and monthly bars are loading or did not load, that they are not counted, and count nothing for them', () => {
+    const all = scans({ daily: [3, 2], weekly: [0, 0], monthly: [0, 0] });
+    const loading = signalTiles(events(['daily', 'daily']), all, nothing, 'loading');
+    expect(loading[0].sub).toBe('2 daily · weekly and monthly loading');
+    expect(loading[1]).toMatchObject({ value: '5', sub: '3 bullish · 2 bearish · 7 names scanned' });
+    expect(loading[2]).toMatchObject({ value: '–', sub: 'loading the bars…' });
+    expect(loading[3]).toMatchObject({ value: '–', sub: 'loading the bars…' });
+    const failed = signalTiles([], all, nothing, 'failed');
+    expect(failed[0].sub).toBe('nothing fresh on a 150 or 200 · weekly and monthly not loaded');
+    expect(failed[2]).toMatchObject({ value: '–', sub: 'the bars did not load' });
+    expect(failed[1].value).toBe('5');
+    // Once they are here the same tiles count.
+    expect(signalTiles([], all, nothing, 'ready')[2]).toMatchObject({ value: '0', sub: 'no name has the history yet' });
+  });
+
+  it('name their figure in the button, so a screen reader hears the count and not only what the tile opens', () => {
+    const t = signalTiles(events(['daily', 'monthly']), scans({ daily: [3, 2], weekly: [1, 0], monthly: [0, 0] }), nothing);
+    expect(t.map(x => x.action)).toEqual([
+      'Level changes, 2: open the list', 'Crosses, daily, 5: open the scan', 'Crosses, weekly, 1: open the scan', 'Crosses, monthly, 0: open the scan',
+    ]);
+    expect(signalTiles([], scans({ daily: [0, 0], weekly: [0, 0], monthly: [0, 0] }), nothing, 'failed')[2].action).toBe('Crosses, weekly, not loaded: open the scan');
+  });
+
+  it('say what a level change is: a change of sides that is still near the line, on the latest bar or the latest two sessions', () => {
+    const title = signalTiles([], scans({ daily: [0, 0], weekly: [0, 0], monthly: [0, 0] }), nothing)[0].title as string;
+    expect(title).toContain('still near it (reclaimed or lost)');
+    expect(title).toContain('on the latest bar of a weekly or monthly chart');
+    expect(title).toContain('within the latest two sessions of a daily one');
   });
 
   it('say so when nothing has changed sides', () => {
