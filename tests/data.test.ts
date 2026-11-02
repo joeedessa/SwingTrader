@@ -9,8 +9,8 @@ type Row = { sym: string; dir: string; breakthrough: number; negation: number | 
 const rows = watchlist as Row[];
 
 describe('watchlist.json', () => {
-  it('carries the 148 setups from the report-sync data', () => {
-    expect(rows).toHaveLength(148);
+  it('carries at least the 148 setups from the report-sync data (rows are never deleted)', () => {
+    expect(rows.length).toBeGreaterThanOrEqual(148);
   });
 
   it('has the fields the engine reads on every row', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { allHistories, derivedPeriod, historyOf, localDate, tipSettled } from '../../src/engine/bars';
 import type { BarsFile, LatestFile, SessionHours } from '../../src/engine/bars';
 import barsFile from '../../public/data/bars.json';
-import latestFile from '../../public/data/prices-latest.json';
+import latestFile from '../fixtures/prices-latest-2026-11-01.json';
 
 const T = (iso: string) => Date.parse(iso);
 const S = (iso: string) => Date.parse(iso) / 1000;
@@ -106,7 +106,12 @@ describe('history from the two files', () => {
 
 describe('the real files on the Sunday the parity dump was taken', () => {
   const now = T('2026-11-01T17:49:00Z');
-  const hist = allHistories(barsFile as unknown as BarsFile, latestFile as unknown as LatestFile, now);
+  // The data job keeps committing to public/data, so these use that Sunday's files: the last tick
+  // as it stood (a fixture), and bars.json cut at the Friday, which is the same file because it is append-only.
+  const live = barsFile as unknown as BarsFile;
+  const sunday: BarsFile = { ...live, bars: Object.fromEntries(Object.entries(live.bars).map(([sym, days]) =>
+    [sym, Object.fromEntries(Object.entries(days).filter(([d]) => d <= '2026-10-31'))])) };
+  const hist = allHistories(sunday, latestFile as unknown as LatestFile, now);
 
   it('every market is shut, so no symbol is live', () => {
     const live = Object.entries(hist).filter(([, h]) => h.liveDate !== h.settled[h.settled.length - 1][0]);
