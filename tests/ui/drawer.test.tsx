@@ -49,23 +49,38 @@ describe('flags and events', () => {
   });
 
   it('offers to acknowledge what is open, one flag at a time, with a name for each, and all at once when there are several', () => {
-    const items = timeline('AME');
-    const open = items.filter(t => t.state === 'open');
-    const h = html('AME');
-    if (open.length) expect((h.match(/>Acknowledge</g) || []).length).toBe(open.length);
-    for (const t of open) expect(h).toContain('aria-label="Acknowledge ');
-    if (open.length > 1) expect(text(h)).toContain(`Acknowledge all ${open.length}`);
-    else expect(text(h)).not.toContain('Acknowledge all');
+    const { sym, dir } = withOpen(2);
+    const items = timeline(sym, {}, dir);
+    const open = items.filter(t => t.state === 'open' && t.flag.when !== 'live');
+    const h = render(<FlagsSection timeline={items} onAck={noop} onUndo={noop} />);
+    expect((h.match(/>Acknowledge</g) || []).length).toBe(open.length);
+    expect((h.match(/aria-label="Acknowledge /g) || []).length).toBe(open.length);
+    expect(text(h)).toContain(`Acknowledge all ${open.length}`);
+  });
+
+  it('does not offer "all" when only one flag is open', () => {
+    const { sym, dir } = withOpen(1);
+    const items = timeline(sym, {}, dir);
+    const first = items.find(t => t.state === 'open' && t.flag.when !== 'live')!;
+    const justOne = items.filter(t => t === first || t.state !== 'open');
+    const h = render(<FlagsSection timeline={justOne} onAck={noop} onUndo={noop} />);
+    expect((h.match(/>Acknowledge</g) || []).length).toBe(1);
+    expect(text(h)).not.toContain('Acknowledge all');
   });
 
   it('shows an acknowledged one as such, with Undo, and takes it out of "all"', () => {
-    const open = timeline('AME').filter(t => t.state === 'open' && t.flag.when !== 'live');
-    if (!open.length) return;
+    const { sym, dir } = withOpen(2);
+    const open = timeline(sym, {}, dir).filter(t => t.state === 'open' && t.flag.when !== 'live');
     const acks: Acks = { [open[0].flag.id]: 1 };
-    const h = html('AME', acks);
+    const items = timeline(sym, acks, dir);
+    const h = render(<FlagsSection timeline={items} onAck={noop} onUndo={noop} />);
     expect(h).toContain('acknowledged');
     expect(h).toContain('>Undo<');
-    expect(timeline('AME', acks).find(t => t.flag.id === open[0].flag.id)!.state).toBe('acked');
+    expect(items.find(t => t.flag.id === open[0].flag.id)!.state).toBe('acked');
+    const stillOpen = items.filter(t => t.state === 'open' && t.flag.when !== 'live').length;
+    expect((h.match(/>Acknowledge</g) || []).length).toBe(stillOpen);
+    if (stillOpen > 1) expect(text(h)).toContain(`Acknowledge all ${stillOpen}`);
+    else expect(text(h)).not.toContain('Acknowledge all');
   });
 
   it('keeps a flag that has aged out, as a plain line with nothing to press: the record stays', () => {
@@ -260,7 +275,7 @@ describe('what the host hands the drawer', () => {
   it('keeps a long and a short of one symbol apart', () => {
     const flags: Flag[] = allFlags();
     const sym = [...new Set(flags.filter(f => f.sym).map(f => f.sym))].find(s => frozenBoard().rows.filter(r => r.p.sym === s).length > 1);
-    if (!sym) return;
+    expect(sym, 'the frozen board has a symbol listed both ways').toBeTruthy();
     const r = frozenBoard().rows.find(x => x.p.sym === sym)!;
     const data = drawerDataOf(r, frozenHist(), flags, {});
     expect(data.timeline.every(t => t.flag.dir === r.p.dir)).toBe(true);

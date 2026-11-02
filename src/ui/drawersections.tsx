@@ -37,7 +37,7 @@ export function FlagsSection({ timeline, onAck, onUndo }: {
       {timeline.length ? (
         <ol class="events tl">
           {timeline.map(({ flag: f, state }) => (
-            <li class={'ev ' + EV_CLASS[TONE[f.kind] === 'info' ? 'info' : TONE[f.kind]] + (state === 'past' ? ' past' : '')}>
+            <li class={'ev ' + EV_CLASS[TONE[f.kind]] + (state === 'past' ? ' past' : '')}>
               <span class="evdate">{f.when === 'live' ? 'Live' : fmtD(f.when)}</span>
               <span class="evtext">{detailOf(f)}</span>
               {state === 'open' && ackable(f)

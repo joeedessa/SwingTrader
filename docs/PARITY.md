@@ -116,6 +116,8 @@ Checked on 2026-11-01 (Sunday, every market shut) by loading the old page and th
 | Summary sentence | same, but for the minus sign |
 | `read`, `slope`, `smaSeries` at 5, 21, 50, 150 and 200 | same, to the last digit, for all seven symbols |
 
+A one-off fuzz run went further than the fixture: two thousand seeded random journals of up to thirty fills (eight symbols, both sides, random days and logged times, some deleted or edited, some added locally) went through the old `logRows` and `pairFills` and through the new code, and the fill order, the open positions and every closed trade (entry, exit, P&L, days, pattern, duration, market) were identical in all of them. The same was done for the moving averages: fifteen hundred seeded random walks of 20 to 400 closes, four volatilities, a drift each way and the odd zero print, read at 5, 21, 50, 150 and 200, gave identical `read`, `slope` and `smaSeries` in all 7,500 comparisons, with every level-test state reached. Neither run is a test in the repo, since each needs the old site's source to exist.
+
 **Differences, by design.**
 
 1. The summary writes a real minus ("avg loss −2.0%", the old page "-2.0%"), like every other number here.

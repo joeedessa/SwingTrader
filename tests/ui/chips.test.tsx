@@ -93,8 +93,8 @@ describe('the Flags column on the board', () => {
 
   it('draws a row with no flags as an empty cell, not a dash', () => {
     const quiet = bd.bySection.breakout.find(r => chipsFor(r).length === 0);
-    if (!quiet) return;
-    const html = render(<BoardTable rows={[quiet]} section="breakout" sort={['sym', true]} onSort={noop} onOpen={noop} today={TODAY} panelId="p" chipsFor={chipsFor} />);
+    expect(quiet, 'the frozen board has a confirmed row with nothing to flag').toBeTruthy();
+    const html = render(<BoardTable rows={[quiet!]} section="breakout" sort={['sym', true]} onSort={noop} onOpen={noop} today={TODAY} panelId="p" chipsFor={chipsFor} />);
     expect(html).not.toContain('fchip');
   });
 
