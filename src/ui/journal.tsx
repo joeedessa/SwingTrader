@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { app, updateLog } from '../data/app';
 import { closeFor } from '../data/journal';
 import { addFill, isSharedFill, logRows, newFillId, removeFill, saveFill } from '../data/tradelog';
-import { fmt, fmtD, MINUS } from '../engine/format';
+import { fmt, fmtD, localISODate, MINUS } from '../engine/format';
 import { journalStats, pairFills, statsLine, unrealised } from '../engine/journal';
 import type { ClosedTrade, Fill } from '../engine/journal';
 import { Store, useStore } from '../store';
@@ -69,7 +69,7 @@ export function JournalPanel({ narrow }: { narrow: boolean }) {
     { key: 'pnl', label: 'Unrealised', cell: e => { const u = unrealised(e, live(e.sym)); return u == null ? <Two v="–" /> : <Two v={pctText(u)} tone={u >= 0 ? 'good' : 'bad'} />; } },
     { key: 'pattern', label: 'Breakout', text: true, cell: e => <Two v={breakout(e.pattern, e.duration_m)} /> },
     { key: 'market', label: 'Market', text: true, cell: e => <Two v={e.market || '–'} /> },
-    { key: 'note', label: 'Note', text: true, cell: e => <Two v={e.note || ''} /> },
+    { key: 'note', label: 'Note', text: true, cell: e => (e.note ? <Two v={e.note} /> : null) },
   ];
 
   const closedCols: DCol<ClosedTrade>[] = [
@@ -92,7 +92,7 @@ export function JournalPanel({ narrow }: { narrow: boolean }) {
     ) },
     { key: 'pattern', label: 'Breakout', text: true, cell: f => <Two v={breakout(f.pattern, f.duration_m)} /> },
     { key: 'market', label: 'Market', text: true, cell: f => <Two v={f.market || '–'} /> },
-    { key: 'note', label: 'Note', text: true, cell: f => <Two v={f.note || ''} /> },
+    { key: 'note', label: 'Note', text: true, cell: f => (f.note ? <Two v={f.note} /> : null) },
     { key: 'act', label: '', cell: f => (
       <div class="wact">
         <button type="button" class="btn small" onClick={() => openFillForm({ editing: f })}>Edit<span class="sr"> the {f.side} of {f.sym} on {fmtD(f.date)}</span></button>
@@ -142,7 +142,7 @@ function JournalBlock({ title, count, children }: { title: string; count: number
 
 /* ------------------------------------------------------------------ the dialog: log, edit, delete */
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localISODate();
 
 /** The form, a port of the old page's: the price follows the date until a price is typed by hand. */
 function FillForm({ draft }: { draft: FillDraft }) {

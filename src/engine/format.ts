@@ -73,3 +73,8 @@ export function ageText(ms: number): string {
   const d = Math.floor(h / 24);
   return d + ' days ago';
 }
+
+/** The calendar date on the person's own clock, as ISO: what a date box should start as. (The engine's "today" is the UTC
+    date, which for someone ahead of Greenwich is yesterday until the afternoon.) */
+export const localISODate = (d: Date = new Date()): string =>
+  d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');

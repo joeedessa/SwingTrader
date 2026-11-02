@@ -110,7 +110,8 @@ export function load(): Promise<void> {
       tryLoad<unknown>('watch-events.json', problems),
       tryLoad<BarsFile>('bars.json', problems),
       tryLoad<LatestFile>('prices-latest.json', problems),
-      tryLoad<unknown>('tradelog.json', problems),
+      // The journal is optional: a missing file is an empty journal, not a problem to put on every page.
+      loadJson<unknown>('tradelog.json').catch(() => null),
     ]);
     const lists: Partial<Record<SetId, Setup[]>> = {};
     if (watch) { const p = parseSetups(watch, 'watchlist.json'); lists.watchlist = p.rows; problems.push(...p.problems); }
@@ -124,7 +125,7 @@ export function load(): Promise<void> {
       shared: { watchlist: lists.watchlist ?? prev.shared.watchlist, benchmarks: lists.benchmarks ?? prev.shared.benchmarks },
       events: events ? parseEvents(events).symbols : prev.events,
       eventsAt: events ? (parseEvents(events).generated_at ?? null) : prev.eventsAt,
-      // The journal is optional: a file that is missing or not a list leaves what was there.
+      // A file that is missing or not a list leaves what was there.
       tradelog: Array.isArray(trades) ? (trades as Fill[]) : prev.tradelog,
       barsFile: bars ?? prev.barsFile,
       snapshot: latest ?? prev.snapshot,

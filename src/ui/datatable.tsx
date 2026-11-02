@@ -8,6 +8,7 @@ export interface DCol<T> {
   label: string;
   /** Words, not numbers: left-aligned. */
   text?: boolean;
+  /** Nothing (null) leaves an empty table cell, and no line at all on a card. */
   cell: (row: T) => ComponentChildren;
 }
 
@@ -27,7 +28,11 @@ export function DataTable<T>({ rows, cols, label, id, narrow, rowKey }: {
           <li key={rowKey(t)} class="card">
             <div class="cardhead"><div class="cardsym">{lead.cell(t)}</div></div>
             <dl class="metrics jmetrics">
-              {rest.map(c => <div class="metric"><dt>{c.label}</dt><dd>{c.cell(t)}</dd></div>)}
+              {rest.map(c => {
+                // A figure with nothing to say is left off the card rather than shown with a label and no value.
+                const v = c.cell(t);
+                return v == null || v === false || v === '' ? null : <div class="metric"><dt>{c.label}</dt><dd>{v}</dd></div>;
+              })}
             </dl>
           </li>
         ))}

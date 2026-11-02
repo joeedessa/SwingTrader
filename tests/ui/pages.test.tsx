@@ -213,6 +213,14 @@ describe('the plain list', () => {
     expect((h.match(/<tr>/g) || []).length).toBe(1 + rows.length);
   });
 
+  it('leaves a figure with nothing to say off a card, and out of its table cell', () => {
+    const blank = [{ id: 'a', sym: 'AME', n: 0 }];
+    const withNull = [cols[0], { key: 'n', label: 'Count', cell: () => null }];
+    const card = render(<DataTable rows={blank} cols={withNull} label="Things" id="t" narrow rowKey={r => r.id} />);
+    expect(card).not.toContain('<dt>Count</dt>');
+    expect(render(<DataTable rows={blank} cols={withNull} label="Things" id="t" narrow={false} rowKey={r => r.id} />)).toContain('<td></td>');
+  });
+
   it('is cards on a phone, led by the first column, the rest as labelled figures', () => {
     const h = render(<DataTable rows={rows} cols={cols} label="Things" id="t" narrow rowKey={r => r.id} />);
     expect(h).not.toContain('<table');

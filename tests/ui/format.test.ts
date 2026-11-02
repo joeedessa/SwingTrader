@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ageText, agoText, count, daysTag, daysUntil, direction, fmt, fmtD, fmtRatio, humanDates, MINUS, signedFmt, signedPct } from '../../src/engine/format';
+import { ageText, agoText, count, daysTag, localISODate, daysUntil, direction, fmt, fmtD, fmtRatio, humanDates, MINUS, signedFmt, signedPct } from '../../src/engine/format';
 
 describe('numbers', () => {
   it('print one decimal from 100 up and two below, with thousands separators, and a dash for nothing', () => {
@@ -92,5 +92,13 @@ describe('how long ago a file was written', () => {
   it('reads a clock that is a little behind the file, or no number at all, as just now', () => {
     expect(ageText(-5000)).toBe('just now');
     expect(ageText(NaN)).toBe('just now');
+  });
+});
+
+describe('the date on the person\'s own clock', () => {
+  it('is the local calendar date, not the UTC one, and pads month and day', () => {
+    expect(localISODate(new Date(2026, 0, 5, 23, 30))).toBe('2026-01-05');
+    expect(localISODate(new Date(2026, 10, 2, 0, 5))).toBe('2026-11-02');
+    expect(localISODate(new Date(2026, 11, 31, 12))).toBe('2026-12-31');
   });
 });

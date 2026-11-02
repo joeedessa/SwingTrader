@@ -101,3 +101,27 @@ Checked on 2026-11-01 (Sunday, every market shut) by loading the old page and th
 **The fix** (`src/engine/lfd.ts`). Settled closes newer than the newest bar join the series as close-only days. The confirming close then has a place, the run past the boundary is walked back through the real bars as usual, and the stop is read from the bar before the anchor. A close-only day is never taken as a full day: if the day before the anchor is itself close-only there is no stop yet, and no touch of a stop is looked for in a close-only day. Five new tests in `tests/engine/lfd.test.ts` fail on the old code and pass on the new.
 
 **What it changed.** One row on the 2 Nov data: REH.AX (stop 16.87 → 16.58, anchor 12 Aug → 2 Nov, no "hit"; section and type unchanged). The 148 rows of the frozen 1 Nov capture are unchanged: `tests/parity/parity.test.ts` still passes with no new adjudication.
+
+## After Phase 6: the journal and the moving averages against the old site's (2 Nov 2026)
+
+**Conclusion.** The journal's order, pairing and summary, and the daily 150/200 read, agree with the old site's own code to the last digit on fixtures. Four small differences are by design.
+
+**How it was checked.** The old functions were run, not re-read: `logRows`, `pairFills` and the summary expression were cut out of macro-compass's `watch.html` by line range (a check that each is where it should be, and a sha256 of the cut text, are in the fixture), and the whole of `ma.js` was loaded with a stub `window`. They were run over twelve synthetic shared fills plus an overlay (one deleted, one edited, two added; a short opened by a sell; two fills on one day; a duration of 0 months) and over the closes of the frozen 1 Nov capture for seven symbols, five periods each. What they answered is frozen in `tests/fixtures/journal-old-page.json` and `tests/fixtures/ma-old-page.json`; `tests/engine/journal.test.ts` and `tests/engine/ma.test.ts` hold the new code to it. Nothing reads the old site at test time, and macro-compass was not touched.
+
+| Checked | Result |
+|---|---|
+| Fill order (day traded, then the moment logged; edits and deletes applied) | same |
+| FIFO pairing, long and short, open fills | same |
+| P&L, days held, pattern, duration, market carried onto a trade | same, to the last digit |
+| Summary sentence | same, but for the minus sign |
+| `read`, `slope`, `smaSeries` at 5, 21, 50, 150 and 200 | same, to the last digit, for all seven symbols |
+
+**Differences, by design.**
+
+1. The summary writes a real minus ("avg loss −2.0%", the old page "-2.0%"), like every other number here.
+2. A fill with no `logged_at` sorts first among its day's fills here, and last on the old page, because the old sort key concatenated the missing value in as the text "undefined". It cannot happen to a fill either page wrote: both always record `logged_at`.
+3. Open positions are listed by symbol in the order each was first traded. The old page kept them in an object, which lists an integer-like key first; no symbol on the lists is one.
+4. A new fill's date starts as the date on the person's own clock; the old page started it at the UTC date. The price for a symbol that is not on a list is read from Yahoo's chart endpoint (two years of daily bars) rather than the old page's spark call; both give the settled close on or before the date.
+
+**The stop ladder against the Confirmed section.** The plan's check, "stop ladder order matches today's Confirmed sort", holds for every Confirmed row that has a tight stop, on the frozen capture and on the live files, whatever the count (`tests/engine/positions.test.ts`): the ladder is sorted by the same give-back to the stop, with the same tie order. It does not hold for a row that has only a negation: the Confirmed section puts such rows last (it has no tight-stop distance to sort by), and the ladder places them by their distance to the negation, since that is the stop they actually have. The same goes for Re-entered rows against their section.
+
