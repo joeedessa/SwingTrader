@@ -6,6 +6,8 @@ import { emptyLog } from '../../src/data/tradelog';
 import { RULES, THRESHOLDS } from '../../src/engine/flags';
 import type { FlagKind } from '../../src/engine/flags';
 import { LFD_LOOKBACK } from '../../src/engine/lfd';
+import { MA_RULES, MIN_BARS, TF_WORDS, TIERS } from '../../src/engine/ma';
+import { FRESH_WITHIN, MIN_SECTOR_PEERS } from '../../src/engine/signals';
 import { DataTable } from '../../src/ui/datatable';
 import { GROUP_TITLE } from '../../src/ui/flagview';
 import { Hero } from '../../src/ui/hero';
@@ -83,6 +85,23 @@ describe('the Method page', () => {
     for (const s of ['strictly past the trigger', 'Failed is final', 'last full day', 'B1:', 'B2:', 'B3:', 'B4:', 'Watching; Confirmed', '7 significant digits']) expect(t).toContain(s);
   });
 
+  it('explains Signals in the engine\'s own numbers: the level test, the freshness windows, the scan, the sector', () => {
+    const t = page();
+    expect(t).toContain('Signals reads every setup still in play');
+    expect(t).toContain(`within ${MA_RULES.tolShare * 100}% of the instrument's typical bar-to-bar move`);
+    expect(t).toContain(`never under ${MA_RULES.tolFloor * 100}% or over ${MA_RULES.tolCap * 100}%`);
+    expect(t).toContain(`in the last ${MA_RULES.testBars} bars`);
+    expect(t).toContain(`within ${MA_RULES.stillNear} times that distance`);
+    expect(t).toContain(`between ${MA_RULES.slopeFloor} and ${MA_RULES.slopeCap} bars`);
+    for (const f of FRESH_WITHIN) expect(t).toContain(f.maxAgo === 1 ? `the last bar on a ${f.tf} chart` : `the last ${f.maxAgo} bars on a ${f.tf} chart`);
+    expect(t).toContain(`${TF_WORDS.daily.lookback} sessions, ${TF_WORDS.weekly.lookback} weeks or ${TF_WORDS.monthly.lookback} months`);
+    for (const tier of TIERS) expect(t).toContain(tier.label);
+    expect(t).toContain(`needs ${MIN_BARS} bars on a timeframe`);
+    expect(t).toContain(`a sector needs ${MIN_SECTOR_PEERS} names`);
+    for (const word of ['held', 'rejected', 'reclaimed', 'lost', 'whipsawed']) expect(t).toContain(word);
+    expect(t).toContain('Yahoo pads every weekly and monthly series');
+  });
+
   it('has a freshness table counted from what is loaded, with the lists\' counts and when each file was written', () => {
     const s = app.get();
     const t = page();
@@ -134,6 +153,18 @@ describe('the freshness rows', () => {
     expect(by.Journal.detail).toBe('0 fills.');
   });
 
+  it('say whether the weekly and monthly bars are here: when they were written and how many symbols, or why not', () => {
+    const series = { generated_at: '2026-11-01T17:03:51Z', weekly: { A: { ccy: null, t: [], c: [] }, B: { ccy: null, t: [], c: [] } }, monthly: { A: { ccy: null, t: [], c: [] } } };
+    const row = (o: Partial<AppState>, now = NOW) => dataRows({ ...base(), ...o }, now).find(r => r.name === 'Weekly and monthly bars')!;
+    expect(row({ series, seriesStatus: 'ok' })).toMatchObject({ age: '56 minutes ago', detail: '2 symbols weekly, 1 symbol monthly.', tone: 'good' });
+    expect(row({ series: null, seriesStatus: 'idle' })).toMatchObject({ detail: 'Fetched when Signals opens.', tone: 'good', at: null });
+    expect(row({ series: null, seriesStatus: 'loading' }).detail).toBe('Loading.');
+    expect(row({ series: null, seriesStatus: 'failed' })).toMatchObject({ detail: 'Did not load.', tone: 'bad' });
+    const old = Date.parse('2026-11-01T17:03:51Z') + 49 * 3_600_000;
+    expect(row({ series, seriesStatus: 'ok' }, old)).toMatchObject({ tone: 'warn' });
+    expect(row({ series, seriesStatus: 'ok' }, old).detail).toContain('older than 48 hours');
+  });
+
   it('warn that the latest prices are stale once they are older than the engine\'s threshold, and say so in the detail', () => {
     const stale = Date.parse('2026-11-01T17:30:00Z') + (THRESHOLDS.staleTipHours + 1) * 3_600_000;
     const row = dataRows(base(), stale).find(r => r.name === 'Latest prices')!;
@@ -167,8 +198,10 @@ describe('the freshness rows', () => {
 describe('the More page', () => {
   it('lists the pages that live under it, each a link with a line on what it is', () => {
     const html = render(<MorePage />);
+    expect(html).toContain('href="#/signals"');
     expect(html).toContain('href="#/benchmarks"');
     expect(html).toContain('href="#/method"');
+    expect(text(html)).toContain('Moving averages, crosses of them, and the day against the index and sector.');
     expect(text(html)).toContain('The same board for the benchmark list.');
     expect(text(html)).toContain('The rules, where the data comes from, and how fresh it is.');
   });

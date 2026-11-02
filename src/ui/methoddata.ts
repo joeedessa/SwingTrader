@@ -26,6 +26,9 @@ const ageOf = (iso: string | null | undefined, now: number): { age: string; ms: 
 
 const plural = (n: number, one: string, many: string) => n + ' ' + (n === 1 ? one : many);
 
+/** The job rewrites the long series about once a day, so a file two days old has been missed. */
+const SERIES_STALE_HOURS = 48;
+
 /** The newest day any symbol has a bar for. */
 function newestBar(bars: NonNullable<AppState['barsFile']>['bars']): string {
   let max = '';
@@ -64,6 +67,18 @@ export function dataRows(s: AppState, now: number): DataRow[] {
       : s.liveStatus === 'failed' ? 'Did not answer: the page shows the latest prices above, and says so.'
       : 'Not asked yet.',
     tone: s.liveStatus === 'ok' ? 'good' : s.liveStatus === 'failed' ? 'warn' : 'good',
+  });
+
+  const ser = s.series;
+  const serAge = ageOf(ser && ser.generated_at, now);
+  const serStale = serAge.ms != null && serAge.ms > SERIES_STALE_HOURS * 36e5;
+  rows.push({
+    name: 'Weekly and monthly bars', what: 'Signals: the averages, the crosses and the level changes on the slower timeframes.',
+    at: ser && ser.generated_at ? ser.generated_at : null, age: serAge.age,
+    detail: ser
+      ? plural(Object.keys(ser.weekly).length, 'symbol', 'symbols') + ' weekly, ' + plural(Object.keys(ser.monthly).length, 'symbol', 'symbols') + ' monthly' + (serStale ? ', older than ' + SERIES_STALE_HOURS + ' hours' : '') + '.'
+      : s.seriesStatus === 'failed' ? 'Did not load.' : s.seriesStatus === 'loading' ? 'Loading.' : 'Fetched when Signals opens.',
+    tone: ser ? (serStale ? 'warn' : 'good') : s.seriesStatus === 'failed' ? 'bad' : 'good',
   });
 
   const ev = ageOf(s.eventsAt, now);

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { maRead, maSlope, smaSeries } from '../../src/engine/ma';
+import { crosses, emaSeries, maRead, maSlope, MIN_BARS, PERIODS_BY_TF, smaSeries, TAGGED, TF_WORDS, TIERS, TIMEFRAMES } from '../../src/engine/ma';
+import type { Timeframe } from '../../src/engine/ma';
 import golden from '../fixtures/ma-old-page.json';
+import signals from '../fixtures/signals-old-page.json';
 
 /* The moving-average read against the old site's ma.js, on the closes of the frozen capture: the golden file holds what
    that code answered, so the two agree to the last digit. Then the small cases that say what each function means. */
@@ -128,5 +130,150 @@ describe('which way the average is heading', () => {
   it('says nothing when the series is too short for two windows', () => {
     expect(maSlope(ramp(160, 1), 150)).toBeNull();
     expect(maSlope(null, 150)).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ weekly, monthly and the cross ladder */
+
+/* The same code run on three timeframes: the golden file holds what the old site's ma.js answered on the daily closes of the
+   frozen 2026-11-01 capture and on the weekly and monthly closes of series.json of that day, for symbols chosen to
+   exercise every outcome the code has (docs/PARITY.md says how it was made). */
+
+type Gold = {
+  closes: number[];
+  reads: Record<string, unknown>;
+  slopes: Record<string, unknown>;
+  crosses: unknown[];
+  ema5: number[];
+  ema21: number[];
+  emaLen: number;
+};
+const sample = signals.symbols as unknown as Record<string, Record<Timeframe, Gold>>;
+const periodsOf = signals.periods as Record<Timeframe, number[]>;
+const lookbackOf = signals.lookback as Record<Timeframe, number>;
+const eachSample = (f: (sym: string, tf: Timeframe, g: Gold) => void) => {
+  for (const sym of Object.keys(sample)) for (const tf of TIMEFRAMES) f(sym, tf, sample[sym][tf]);
+};
+
+describe('on all three timeframes, against the old site\'s ma.js', () => {
+  it('compares at least five symbols, each with the 220 bars the cross scan needs on every timeframe', () => {
+    expect(Object.keys(sample).length).toBeGreaterThanOrEqual(5);
+    eachSample((sym, tf, g) => expect(g.closes.length, `${sym} ${tf}`).toBeGreaterThanOrEqual(MIN_BARS));
+  });
+
+  it('uses the periods the old columns used', () => {
+    for (const tf of TIMEFRAMES) expect([...PERIODS_BY_TF[tf]], tf).toEqual(periodsOf[tf]);
+    expect(PERIODS_BY_TF.weekly).toEqual([10, 30, 40, 200]);
+    expect(PERIODS_BY_TF.monthly).toEqual([10, 12, 20]);
+  });
+
+  it('reads every average the same: where the last close sits, the level test, the last change of sides', () => {
+    eachSample((sym, tf, g) => { for (const p of periodsOf[tf]) expect(maRead(g.closes, p), `${sym} ${tf} ${p}`).toEqual(g.reads[String(p)]); });
+  });
+
+  it('says the same about which way each average is heading', () => {
+    eachSample((sym, tf, g) => { for (const p of periodsOf[tf]) expect(maSlope(g.closes, p), `${sym} ${tf} ${p}`).toEqual(g.slopes[String(p)]); });
+  });
+
+  it('takes the same exponential averages, seeded from the first close', () => {
+    eachSample((sym, tf, g) => {
+      expect(emaSeries(g.closes, 5).slice(-3), `${sym} ${tf} 5`).toEqual(g.ema5);
+      expect(emaSeries(g.closes, 21).slice(-3), `${sym} ${tf} 21`).toEqual(g.ema21);
+      expect(emaSeries(g.closes, 21).length, `${sym} ${tf}`).toBe(g.emaLen);
+    });
+  });
+
+  it('finds the same crosses, in the same order, with the same whipsaw marks', () => {
+    eachSample((sym, tf, g) => expect(crosses(g.closes, lookbackOf[tf]), `${sym} ${tf}`).toEqual(g.crosses));
+  });
+
+  it('looks back as far as the scan did: ten sessions, thirteen weeks, twelve months', () => {
+    expect(TIMEFRAMES.map(tf => TF_WORDS[tf].lookback)).toEqual([lookbackOf.daily, lookbackOf.weekly, lookbackOf.monthly]);
+    expect(TIMEFRAMES.map(tf => TF_WORDS[tf].lookback)).toEqual([10, 13, 12]);
+  });
+
+  it('is a sample that reaches every outcome: all four level tests, the slopes, bullish and bearish crosses, held and whipsawed', () => {
+    const tags = new Set<string>(), slopes = new Set<string>(), kinds = new Set<string>(), tiers = new Set<string>();
+    eachSample((_sym, tf, g) => {
+      for (const p of periodsOf[tf]) {
+        const r = g.reads[String(p)] as { state: string | null } | null;
+        if (r && r.state) tags.add(tf + ':' + r.state);
+        const sl = g.slopes[String(p)] as { state: string } | null;
+        if (sl) slopes.add(tf + ':' + sl.state);
+      }
+      for (const c of g.crosses as { key: string; bullish: boolean; whip: boolean }[]) {
+        kinds.add(`${tf}:${c.bullish ? 'bull' : 'bear'}:${c.whip ? 'whip' : 'held'}`);
+        tiers.add(c.key);
+      }
+    });
+    for (const tf of TIMEFRAMES) for (const st of ['held', 'rejected', 'reclaimed', 'lost']) expect(tags, tf + ' ' + st).toContain(tf + ':' + st);
+    for (const tf of TIMEFRAMES) expect([...slopes].filter(x => x.startsWith(tf + ':')).length, tf).toBeGreaterThanOrEqual(5);
+    for (const tf of TIMEFRAMES) for (const k of ['bull:held', 'bear:held', 'bull:whip', 'bear:whip']) expect(kinds, tf + ' ' + k).toContain(tf + ':' + k);
+    expect([...tiers].sort()).toEqual(TIERS.map(t => t.key).sort());
+  });
+});
+
+describe('the lines that carry a level test', () => {
+  it('are the structural ones on each timeframe: daily 150 and 200, weekly 30, 40 and 200, monthly 10 and 20', () => {
+    expect(TAGGED).toEqual({ daily: [150, 200], weekly: [30, 40, 200], monthly: [10, 20] });
+    for (const tf of TIMEFRAMES) for (const p of TAGGED[tf]) expect(PERIODS_BY_TF[tf], tf).toContain(p);
+  });
+});
+
+describe('the exponential average', () => {
+  it('is seeded from the first value, run over the whole series, and drops the first n', () => {
+    const e = emaSeries([1, 2, 3, 4, 5], 2);
+    expect(e).toHaveLength(3);
+    expect(e[0]).toBeCloseTo(2.5556, 4);
+    expect(e[1]).toBeCloseTo(3.5185, 4);
+    expect(e[2]).toBeCloseTo(4.5062, 4);
+  });
+
+  it('is empty for a series shorter than n, or none', () => {
+    expect(emaSeries([1, 2], 3)).toEqual([]);
+    expect(emaSeries(null, 3)).toEqual([]);
+  });
+});
+
+describe('the cross ladder', () => {
+  const flat = (n: number) => Array<number>(n).fill(100);
+  const tag = (c: { key: string; bullish: boolean; ago: number; whip: boolean }) => `${c.key} ${c.bullish ? 'up' : 'down'} ${c.ago}${c.whip ? ' whip' : ''}`;
+
+  it('is five tiers, from the quickest and noisiest to the slowest, each said in words', () => {
+    expect(TIERS.map(t => t.label)).toEqual(['5 × 21', 'price × 50', '21 × 50', 'price × 200', '50 × 200']);
+    expect(TIERS.map(t => t.sub)).toEqual(['EMA timing trigger', 'swing trend break', 'intermediate turn', 'regime change', 'golden / death']);
+  });
+
+  it('reports a close that goes from under its averages to over them on the latest bar as three bullish crosses, no bars ago', () => {
+    expect(crosses([...flat(225), 95, 95, 95, 95, 106], 10).map(tag)).toEqual(['e5x21 up 0', 'px50 up 0', 'px200 up 0']);
+  });
+
+  it('reports a fall through them as bearish', () => {
+    expect(crosses([...flat(225), 105, 105, 105, 105, 94], 10).map(tag)).toEqual(['e5x21 down 0', 'px50 down 0', 'px200 down 0']);
+  });
+
+  it('marks a cross that was given back a bar later as whipsawed, and reports the way back too', () => {
+    expect(crosses([...flat(225), 95, 95, 95, 95, 106, 96], 10).map(tag)).toEqual([
+      'e5x21 up 1 whip', 'e5x21 down 0', 'px50 up 1 whip', 'px50 down 0', 'px200 up 1 whip', 'px200 down 0',
+    ]);
+  });
+
+  it('needs 220 bars: a 50-by-200 cross cannot be found on fewer', () => {
+    expect(MIN_BARS).toBe(220);
+    expect(crosses([...flat(214), 95, 95, 95, 95, 106], 10)).toEqual([]);
+    expect(crosses([...flat(215), 95, 95, 95, 95, 106], 10)).toHaveLength(3);
+    expect(crosses(null, 10)).toEqual([]);
+  });
+
+  it('finds a golden cross, with the quicker tiers having turned first, when the window reaches back far enough', () => {
+    const decline = Array.from({ length: 150 }, (_, i) => 150 - i * 0.4);
+    const rise = Array.from({ length: 120 }, (_, i) => 90.4 + i * 0.9);
+    expect(crosses([...decline, ...rise], 120).map(tag)).toEqual(['e5x21 up 113', 'px50 up 110', 'e21x50 up 105', 's50x200 up 63']);
+    // Ten bars back sees none of them: the ladder reports only what is fresh.
+    expect(crosses([...decline, ...rise], 10)).toEqual([]);
+  });
+
+  it('does not count a touch as a cross: a difference of exactly zero is skipped', () => {
+    expect(crosses(flat(260), 10)).toEqual([]);
   });
 });

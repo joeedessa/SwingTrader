@@ -5,7 +5,7 @@ import type { Page } from '../router';
 import { hashFor } from '../router';
 import { useStore } from '../store';
 import { Popover } from './components';
-import { IconBenchmarks, IconHistory, IconMethod, IconMore, IconPositions, IconSetups, IconToday } from './icons';
+import { IconBenchmarks, IconHistory, IconMethod, IconMore, IconPositions, IconSetups, IconSignals, IconToday } from './icons';
 
 /* The routes that exist today. Each later phase adds its own here; the order is the order on screen. The first group is
    the tab bar (the plan's five, with Model still to come); the rest are under "More", a menu on a desktop and a page on a phone. */
@@ -27,6 +27,7 @@ export const NAV: NavItem[] = [
 ];
 
 export const MORE: NavItem[] = [
+  { page: 'signals', label: 'Signals', icon: IconSignals, blurb: 'Moving averages, crosses of them, and the day against the index and sector.' },
   { page: 'benchmarks', label: 'Benchmarks', icon: IconBenchmarks, blurb: 'The same board for the benchmark list.' },
   { page: 'method', label: 'Method', icon: IconMethod, blurb: 'The rules, where the data comes from, and how fresh it is.' },
 ];

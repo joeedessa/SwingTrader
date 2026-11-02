@@ -7,15 +7,16 @@ import { Store } from './store';
      #/setups[...]       the board
      #/positions[...]    the stop ladder: what is in trade, and where it gets out
      #/history[...]      outcomes, and the trade journal
+     #/signals[...]      moving averages, crosses, and the day against the index and the sector
      #/benchmarks[...]   the same board on the benchmarks list
      #/method            the rules, where the data comes from, how fresh it is
      #/more              the pages that do not fit the tab bar (a phone's last tab) */
 
-export type Page = 'today' | 'setups' | 'positions' | 'history' | 'benchmarks' | 'method' | 'more';
-export const PAGES: readonly Page[] = ['today', 'setups', 'positions', 'history', 'benchmarks', 'method', 'more'];
+export type Page = 'today' | 'setups' | 'positions' | 'history' | 'signals' | 'benchmarks' | 'method' | 'more';
+export const PAGES: readonly Page[] = ['today', 'setups', 'positions', 'history', 'signals', 'benchmarks', 'method', 'more'];
 
 /** The pages a setup's drawer can open over. */
-export const ROW_PAGES: readonly Page[] = ['today', 'setups', 'positions', 'history', 'benchmarks'];
+export const ROW_PAGES: readonly Page[] = ['today', 'setups', 'positions', 'history', 'signals', 'benchmarks'];
 
 export interface RowRef {
   sym: string;

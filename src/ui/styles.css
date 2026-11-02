@@ -608,6 +608,38 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 .dlinks a { color: var(--accent); text-decoration: none; }
 .dlinks a:hover { text-decoration: underline; }
 
+/* ------------------------------------------------------------------ signals: level changes, the cross scan, the averages */
+
+.sigcontrols { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 22px; margin: 4px 2px 0; }
+.sigctl { display: flex; align-items: center; gap: 8px; }
+.siglabel { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.signote { margin: 12px 2px 14px; max-width: 84ch; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+.setuplink { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.sectag { padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; color: var(--text-secondary); background: var(--fill); }
+.sectag.st-breakout, .sectag.st-reentered { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.sectag.st-stopped { color: var(--open); background: var(--open-bg); }
+.sectag.st-target { color: var(--up); background: var(--on-bg); }
+
+.sigblock { margin-top: 16px; padding: 16px 16px 14px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); }
+.sigblock h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.sigarrow { font-size: 13px; }
+.sigblock.bull .sigarrow { color: var(--up); }
+.sigblock.bear .sigarrow { color: var(--down); }
+.sigladder { font-size: 12px; font-weight: 400; letter-spacing: 0; color: var(--text-muted); }
+.sigcols { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.sigcol { min-width: 0; padding: 10px 12px 8px; background: var(--fill); border-radius: 10px; }
+.tierhead { font-size: 13px; font-weight: 650; }
+.tiersub { margin-bottom: 6px; font-size: 11.5px; color: var(--text-muted); }
+.sigitem { padding: 7px 0 6px; border-top: 1px solid var(--hair); }
+.signame { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.sighint { display: block; margin-top: 1px; font-size: 11.5px; line-height: 1.35; color: var(--text-muted); overflow-wrap: anywhere; }
+.signone { padding: 2px 0 6px; font-size: 12.5px; color: var(--text-muted); }
+.whiptag { padding: 0 6px; border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; line-height: 1.6; text-transform: uppercase; color: var(--open); background: var(--open-bg); }
+.page.signals .board td .cell .v { font-size: 13.5px; }
+/* Ten columns have to fit a 1,100 px window: a little less padding, and a long company name is cut short (the drawer has it all). */
+.page.signals .board th, .page.signals .board td { padding-left: 10px; padding-right: 10px; }
+.page.signals .board td.left .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ------------------------------------------------------------------ odds and ends */
 
 .foot { margin-top: 36px; }
@@ -701,7 +733,7 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 
 /* Positions, History and the tiles on a phone. */
 @media (max-width: 700px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  .page.positions .hero, .page.history .hero, .page.method .hero, .page.more .hero { padding-right: 52px; }
+  .page.positions .hero, .page.history .hero, .page.signals .hero, .page.method .hero, .page.more .hero { padding-right: 52px; }
   .tiles, .page.history .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
   .prose { margin-top: 24px; }
   .drow { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 12px 14px; }
@@ -718,6 +750,8 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
   .tile .tv { font-size: 22px; }
   .page.history .tile:first-child { grid-column: 1 / -1; }     /* the hit rate leads; the four types make two rows of two */
   .sechead { margin-top: 24px; }
+  .sigcols { grid-template-columns: minmax(0, 1fr); }
+  .sigblock { padding: 14px 14px 12px; }
   .tabbar a { padding-left: 0; padding-right: 0; }
 }
 

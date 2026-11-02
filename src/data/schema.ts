@@ -1,3 +1,4 @@
+import type { SeriesEntry, SeriesFile } from '../engine/signals';
 import type { Setup, SymbolEvents } from '../engine/types';
 
 /* The shared files are hand-maintained and written by a report sync, so they are validated at the edge:
@@ -83,4 +84,47 @@ export function parseEvents(json: unknown): EventsFile {
     }
   }
   return { symbols: {} };
+}
+
+export interface ParsedSeries {
+  file: SeriesFile | null;
+  problems: string[];
+}
+
+const finite = (v: unknown): v is number => typeof v === 'number' && isFinite(v);
+
+/** One timeframe of series.json: `{SYM: {ccy, t: [stamps], c: [closes]}}`. A symbol whose arrays are not the same length of
+    numbers is left out and reported, so a bad entry cannot reach the averages as a NaN. */
+function parseTimeframe(raw: unknown, name: string, problems: string[]): Record<string, SeriesEntry> {
+  const out: Record<string, SeriesEntry> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    problems.push(`series.json: ${name} is not a map of symbols`);
+    return out;
+  }
+  for (const [sym, e] of Object.entries(raw as Record<string, unknown>)) {
+    const r = e as { ccy?: unknown; t?: unknown; c?: unknown } | null;
+    if (!r || !Array.isArray(r.t) || !Array.isArray(r.c) || r.t.length !== r.c.length || !r.t.every(finite) || !r.c.every(finite)) {
+      problems.push(`series.json ${name} ${sym}: expected matching lists of stamps and closes; left out`);
+      continue;
+    }
+    out[sym] = { ccy: typeof r.ccy === 'string' ? r.ccy : null, t: r.t as number[], c: r.c as number[] };
+  }
+  return out;
+}
+
+/** series.json: the weekly and monthly closes the Signals page reads. Anything that is not that is no file, not an error:
+    the page says the slower timeframes are missing and shows the daily one. */
+export function parseSeries(json: unknown): ParsedSeries {
+  const problems: string[] = [];
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return { file: null, problems: ['series.json: not an object'] };
+  const j = json as { generated_at?: unknown; weekly?: unknown; monthly?: unknown };
+  if (j.weekly === undefined && j.monthly === undefined) return { file: null, problems: ['series.json: no weekly or monthly series'] };
+  return {
+    file: {
+      generated_at: typeof j.generated_at === 'string' ? j.generated_at : '',
+      weekly: parseTimeframe(j.weekly ?? {}, 'weekly', problems),
+      monthly: parseTimeframe(j.monthly ?? {}, 'monthly', problems),
+    },
+    problems,
+  };
 }

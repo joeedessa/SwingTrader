@@ -1,8 +1,10 @@
 import type { AppState } from './data/app';
 import type { Flag } from './engine/flags';
+import type { Timeframe } from './engine/ma';
 import type { Outcomes } from './engine/outcomes';
 import type { PositionsView } from './engine/positions';
 import type { Board } from './engine/row';
+import type { Scan, ScanScope, StructureEvent } from './engine/signals';
 import type { TodayView } from './engine/today';
 import type { Section } from './engine/types';
 
@@ -15,7 +17,7 @@ export interface BoardDebug {
   counts: Record<Section, number>;
   /** Counts after the search and the filters, which is what the segments show. */
   shown: Record<Section, number>;
-  rows: { sym: string; dir: string; section: Section; tag: string | null; lfd: number | null; lfdSrc: string | null; pullbacks: number; breaches: number; reentries: number; broke: string | null; target: string | null; failed: string | null; stopHit: string | null }[];
+  rows: { sym: string; dir: string; section: Section; tag: string | null; lfd: number | null; lfdSrc: string | null; pullbacks: number; breaches: number; reentries: number; broke: string | null; target: string | null; hit: string | null; hitTag: string | null; failed: string | null; stopHit: string | null }[];
   flags: { id: string; tier: string; kind: string; sym: string | null; dir: string | null; when: string }[];
   errors: string[];
   data: { snapshot: string | null; bars: string | null; live: string; symbols: number; withoutBars: string[] };
@@ -45,12 +47,25 @@ export interface HistoryDebug {
   fills: number;
 }
 
+export interface SignalsDebug {
+  /** The setups in play: not failed, not removed. */
+  rows: number;
+  series: { generatedAt: string; weekly: number; monthly: number } | null;
+  seriesStatus: string;
+  events: { sym: string; dir: string; tf: Timeframe; period: number; state: string; ago: number; helps: boolean }[];
+  scan: { tf: Timeframe; scope: ScanScope; covered: number; total: number; bullish: number; bearish: number };
+  /** The crosses across everything in play, for each timeframe. */
+  crosses: Record<Timeframe, { covered: number; total: number; bullish: number; bearish: number }>;
+  relative: { sym: string; dir: string; vsIndex: number | null; vsSector: number | null; index: string | null; peers: number }[];
+}
+
 declare global {
   interface Window {
     __board?: BoardDebug;
     __today?: TodayDebug;
     __positions?: PositionsDebug;
     __history?: HistoryDebug;
+    __signals?: SignalsDebug;
   }
 }
 
@@ -92,6 +107,20 @@ export function publishPositions(v: PositionsView): void {
 
 export function publishHistory(outcomes: Outcomes, counts: Record<Section, number>, fills: number): void {
   window.__history = { outcomes, counts, fills };
+}
+
+export function publishSignals(d: {
+  rows: number; series: SignalsDebug['series']; seriesStatus: string; events: readonly StructureEvent[]; scan: Scan; scope: ScanScope;
+  all: Record<Timeframe, Scan>; relative: SignalsDebug['relative'];
+}): void {
+  const count = (s: Scan) => ({ covered: s.covered, total: s.total, bullish: s.hits.filter(h => h.bullish).length, bearish: s.hits.filter(h => !h.bullish).length });
+  window.__signals = {
+    rows: d.rows, series: d.series, seriesStatus: d.seriesStatus,
+    events: d.events.map(e => ({ sym: e.row.p.sym, dir: e.row.p.dir, tf: e.tf, period: e.period, state: e.state, ago: e.ago, helps: e.helps })),
+    scan: { tf: d.scan.tf, scope: d.scope, ...count(d.scan) },
+    crosses: { daily: count(d.all.daily), weekly: count(d.all.weekly), monthly: count(d.all.monthly) },
+    relative: d.relative,
+  };
 }
 
 /** What the console check says about the data behind a board, the same on every page. */

@@ -12,18 +12,20 @@ Standing rules for every session are in [CLAUDE.md](CLAUDE.md). The plan is
 
 ```
 public/data/   watchlist.json, benchmarks.json, tradelog.json   (the data, published)
-               bars.json (daily [low, high, close], append-only), series.json (weekly/monthly)
+               bars.json (daily [low, high, close], append-only), series.json (weekly/monthly closes: Signals only)
                prices-latest.json, watch-events.json            (refreshed by jobs)
 scripts/       fetch_bars.py, fetch_latest.py, fetch_events.py, yahoo.py, quality.py
 scripts/report/  weekly Tech Charts report sync (the report itself is never committed)
 src/engine/    the rules: bars (settled/live), replay, last full day, types, sections, events,
                flags (19 rules), chips (a row's Flags column), today (what the Today page shows), tape,
-               positions (the stop ladder), outcomes (History's tiles), journal (fill pairing), ma, earnings
-src/data/      loading, the browser overlay (saved edits), acknowledgements, last visit, the journal's storage,
-               the Worker live upgrade
-src/ui/        the pages (Today, Setups and Benchmarks, Positions, History, Method, More), the board
+               positions (the stop ladder), outcomes (History's tiles), journal (fill pairing), ma (averages, level
+               tests, crosses), signals (what the Signals page reads, and the weekly/monthly phantom-bar rule), earnings
+src/data/      loading (series.json only when Signals opens), the browser overlay (saved edits), acknowledgements,
+               last visit, the journal's storage, the Worker live upgrade, the one-time copy of the old page's keys
+src/ui/        the pages (Today, Setups and Benchmarks, Positions, History, Signals, Method, More), the board
                (columns, cells, table and cards), the drawer and its sections, forms, the journal, styles
-tests/         Vitest: engine, data layer, UI wording, and parity with the old page (tests/parity)
+tests/         Vitest: engine, data layer, UI wording, and parity with the old page (tests/parity, and the fixtures
+               made by running its code: tests/fixtures/make-signals-old-page.mjs)
 .github/workflows/  update-data (hourly), update-prices (15-minute loop), deploy (Pages)
 ```
 

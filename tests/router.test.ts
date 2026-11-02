@@ -8,12 +8,12 @@ describe('routes', () => {
   });
 
   it('know the pages that exist, Today first', () => {
-    expect(PAGES).toEqual(['today', 'setups', 'positions', 'history', 'benchmarks', 'method', 'more']);
+    expect(PAGES).toEqual(['today', 'setups', 'positions', 'history', 'signals', 'benchmarks', 'method', 'more']);
     for (const page of PAGES) expect(parseHash('#/' + page)).toEqual({ page, row: null });
   });
 
   it('open a setup over any page that lists setups, so a trip into a drawer leaves the page it came from', () => {
-    expect(ROW_PAGES).toEqual(['today', 'setups', 'positions', 'history', 'benchmarks']);
+    expect(ROW_PAGES).toEqual(['today', 'setups', 'positions', 'history', 'signals', 'benchmarks']);
     for (const page of ROW_PAGES) {
       expect(parseHash(`#/${page}/AME/long`)).toEqual({ page, row: { sym: 'AME', dir: 'long' } });
       expect(parseHash(`#/${page}/BANKINDIA.NS/short`)).toEqual({ page, row: { sym: 'BANKINDIA.NS', dir: 'short' } });

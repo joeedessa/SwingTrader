@@ -12,6 +12,7 @@ import { MorePage } from './ui/more';
 import { TabBar, TopNav } from './ui/nav';
 import { BoardPage } from './ui/page';
 import { PositionsPage } from './ui/positions';
+import { SignalsPage } from './ui/signals';
 import { TodayPage } from './ui/today';
 import { useNarrow } from './ui/hooks';
 
@@ -70,6 +71,7 @@ export function App() {
       {r.page === 'today' ? <TodayPage key="today" />
         : r.page === 'positions' ? <PositionsPage key="positions" />
         : r.page === 'history' ? <HistoryPage key="history" />
+        : r.page === 'signals' ? <SignalsPage key="signals" />
         : r.page === 'method' ? <MethodPage key="method" />
         : r.page === 'more' ? <MorePage key="more" />
         : <BoardPage key={r.page} set={r.page === 'benchmarks' ? 'benchmarks' : 'watchlist'} />}

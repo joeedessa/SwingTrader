@@ -56,3 +56,6 @@ export const IconHistory = () => (
 export const IconMethod = () => (
   <Svg><path d="M5 5.5A2.5 2.5 0 0 1 7.5 3H19v14H7.5A2.5 2.5 0 0 0 5 19.5V5.5z" /><path d="M5 19.5A2.5 2.5 0 0 0 7.5 22H19v-5" /></Svg>
 );
+export const IconSignals = () => (
+  <Svg><path d="M3 16.5 8 10l3.5 3.5L16 6l5 5" /><path d="M3 20c4.2 0 5.6-5 9-5s4.6 3 9 1.5" /></Svg>
+);

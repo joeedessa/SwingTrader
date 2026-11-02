@@ -1,6 +1,8 @@
 import { allHistories } from '../engine/bars';
 import type { BarsFile, LatestFile } from '../engine/bars';
 import type { Fill } from '../engine/journal';
+import { indexOf } from '../engine/signals';
+import type { SeriesFile } from '../engine/signals';
 import type { History, Setup, SymbolEvents } from '../engine/types';
 import { Store } from '../store';
 import { reloadAcks } from './acks';
@@ -9,7 +11,7 @@ import { migrateLegacyKeys } from './migrate';
 import { loadJson } from './load';
 import { emptyOverlay, readOverlay, SETS, workingList, writeOverlay } from './overlay';
 import type { Overlay, SetId } from './overlay';
-import { parseEvents, parseSetups } from './schema';
+import { parseEvents, parseSeries, parseSetups } from './schema';
 import { fetchBarsFor, fetchLive, mergeLive } from './sources';
 import type { LiveResult } from './sources';
 import { emptyLog, readLogOverlay, writeLogOverlay } from './tradelog';
@@ -20,6 +22,9 @@ import type { LogOverlay } from './tradelog';
    symbols the data job has not reached yet arrive after, and each one re-derives the histories. */
 
 export type LiveStatus = 'idle' | 'loading' | 'ok' | 'failed';
+
+/** series.json, the weekly and monthly closes only the Signals page reads, is fetched when that page opens. */
+export type SeriesStatus = 'idle' | 'loading' | 'ok' | 'failed';
 
 export interface AppState {
   phase: 'loading' | 'ready' | 'error';
@@ -45,6 +50,9 @@ export interface AppState {
   /** Symbols whose bars could not be fetched at all. */
   noBars: string[];
   hist: Record<string, History>;
+  /** The weekly and monthly closes, once the Signals page has asked for them. */
+  series: SeriesFile | null;
+  seriesStatus: SeriesStatus;
   loadedAt: number | null;
   now: number;
 }
@@ -75,6 +83,8 @@ export const app = new Store<AppState>({
   liveStatus: 'idle',
   noBars: [],
   hist: {},
+  series: null,
+  seriesStatus: 'idle',
   loadedAt: null,
   now: Date.now(),
 });
@@ -85,10 +95,19 @@ export function recompute(now: number = Date.now()): void {
   app.set({ hist: allHistories(s.barsFile, mergeLive(s.snapshot, s.live), now), now });
 }
 
-/** Every symbol either list will draw, including rows added in this browser. */
+/** Every symbol either list will draw, including rows added in this browser, and then the local index each listing is read
+    against on Signals (the day move against it needs a live quote for the index too, or the two would be minutes apart). */
 export function wantedSymbols(s: AppState = app.get()): string[] {
   const out = new Set<string>();
-  for (const id of Object.keys(SETS) as SetId[]) for (const p of workingList(s.shared[id], s.overlays[id])) out.add(p.sym);
+  const indexes = new Set<string>();
+  for (const id of Object.keys(SETS) as SetId[]) {
+    for (const p of workingList(s.shared[id], s.overlays[id])) {
+      out.add(p.sym);
+      const index = indexOf(p.country);
+      if (index) indexes.add(index);
+    }
+  }
+  for (const i of indexes) out.add(i);
   return [...out];
 }
 
@@ -142,8 +161,29 @@ export function load(): Promise<void> {
     });
     recompute();
     if (!noLists) void upgrade();
+    // Once Signals has asked for the slower timeframes, a refresh brings them up to date with the rest.
+    if (prev.series) void loadSeries(true);
   })().finally(() => { loading = null; });
   return loading;
+}
+
+let seriesLoading: Promise<void> | null = null;
+
+/** The weekly and monthly closes for Signals: once, when the page first opens, and again with each refresh after that. It is
+    1.7 MB, so no other page pays for it. A failure leaves what was there, and the page says the slower timeframes are missing. */
+export function loadSeries(force = false): Promise<void> {
+  if (seriesLoading) return seriesLoading;
+  if (app.get().series && !force) return Promise.resolve();
+  app.set({ seriesStatus: 'loading' });
+  seriesLoading = (async () => {
+    try {
+      const { file } = parseSeries(await loadJson<unknown>('series.json'));
+      app.set({ series: file ?? app.get().series, seriesStatus: file || app.get().series ? 'ok' : 'failed' });
+    } catch {
+      app.set({ seriesStatus: app.get().series ? 'ok' : 'failed' });
+    }
+  })().finally(() => { seriesLoading = null; });
+  return seriesLoading;
 }
 
 /** The live quotes, and bars for any symbol the snapshot does not have. Neither is allowed to fail loudly. */

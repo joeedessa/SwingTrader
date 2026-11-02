@@ -4,6 +4,8 @@ import { LFD_LOOKBACK } from '../engine/lfd';
 import { RULES, THRESHOLDS } from '../engine/flags';
 import type { FlagKind, Surface, Tier } from '../engine/flags';
 import { fmtD } from '../engine/format';
+import { MA_RULES, MIN_BARS, TF_WORDS, TIERS } from '../engine/ma';
+import { FRESH_WITHIN, MIN_SECTOR_PEERS } from '../engine/signals';
 import { useStore } from '../store';
 import { Hero } from './hero';
 import { GROUP_TITLE } from './flagview';
@@ -96,6 +98,14 @@ export function MethodPage() {
         <p>The stop ladder lists what is in trade (Confirmed and Re-entered), nearest its stop first. The stop is the last full day where one is known and tighter than the pattern, else the negation. The trailing stop is twice the 14-day ATR from the price, widened for a long by a dividend still to go ex. R so far is the move since the entry close (the confirming close, or the re-entry close after an exit) over the distance from that close to the stop: 1R is being stopped out.</p>
         <p>The journal is your own record of fills, by price and date, with no sizes. Each buy pairs with the next sell, first in first out, to make a round trip; a sell with nothing open opens a short. It is kept apart from the setups: logging a buy never moves one, and a "held" mark on a row means only that the journal has the position open. P&amp;L is in each instrument's own currency and price-based.</p>
         <p>On History, each setup counts once, by what happened first. Reaching the target before the negation is touched is a hit, and the negation touched first is a miss. The hit rate is hits as a share of both, so setups still in play are not in it. A hit stays a hit if the negation is touched or the source drops the setup later: the sections show where a setup stands now, the tiles what it did first. The type is the one it had then: B1 to B3 at the target, and B4 for a miss. For a setup the source dropped, only what happened up to that day counts.</p>
+      </section>
+
+      <section class="prose" aria-labelledby="m-signals">
+        <h2 id="m-signals">Signals</h2>
+        <p>Signals reads every setup still in play (not Failed, not Removed) on three timeframes: the settled daily closes, and weekly and monthly closes that the data job fetches about once a day. Every average is simple and read on closes only, because the feed carries no intraday high or low here, so a wick through a line that closed back on the other side reads as held.</p>
+        <p>The level test says what the close did the last time it came near an average: a close within {MA_RULES.tolShare * 100}% of the instrument's typical bar-to-bar move (never under {MA_RULES.tolFloor * 100}% or over {MA_RULES.tolCap * 100}%) in the last {MA_RULES.testBars} bars, counted only while the latest close is still within {MA_RULES.stillNear} times that distance of the line. Near it from above and still above is <i>held</i>, from below and still below <i>rejected</i>, from below and now above <i>reclaimed</i>, from above and now below <i>lost</i>. The arrow says which way the average itself is heading: its move over a window of a {MA_RULES.slopeDivisor}th of its period (between {MA_RULES.slopeFloor} and {MA_RULES.slopeCap} bars) against the window before, with "flat" scaled to how much the instrument normally moves.</p>
+        <p>A level change is a close that has changed sides on a 150 or 200 within {FRESH_WITHIN.map(f => `${f.maxAgo === 1 ? 'the last bar' : `the last ${f.maxAgo} bars`} on a ${f.tf} chart`).join(', ')}; the monthly ones are listed first. The cross scan looks back {TF_WORDS.daily.lookback} sessions, {TF_WORDS.weekly.lookback} weeks or {TF_WORDS.monthly.lookback} months for crosses on five tiers, quickest to slowest: {TIERS.map(t => t.label).join(', ')}, the 5 and 21 exponential and the rest simple. A cross that the following bars gave back is marked whipsawed. A name needs {MIN_BARS} bars on a timeframe to be scanned on it.</p>
+        <p>The day against the market is a setup's day move less its local index's, and less the median of the day moves of its sector across the whole list, in percentage points; a sector needs {MIN_SECTOR_PEERS} names. Yahoo pads every weekly and monthly series with a bar stamped at the last trade, which would count the week or month in progress twice: Signals leaves it out when it falls inside the period the bar before it opened.</p>
       </section>
 
       <section class="prose" aria-labelledby="m-flags">
