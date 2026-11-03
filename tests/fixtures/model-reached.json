@@ -1,0 +1,24 @@
+{
+"name": "reached, per the source",
+"why": "Entered at the confirming close, 101. The closes never reach the 120 target (119 on 01-08 is the nearest; the day's high, 119.5, is not a touch either) but the source counted it on that day, so the leg is closed at the 01-08 close, 119, labelled reached: 17.82% before costs, 2.51 R against the 94 last full day. The 01-07 low, exactly the 100 trigger, is a pullback, so the setup is a B2.",
+"setup": { "sym": "RCH", "dir": "long", "breakthrough": 100, "boundary": 97, "target": 120, "negation": 90, "lfd": 94, "created": "2026-01-01", "reached": "2026-01-08" },
+"bars": {
+  "2026-01-05": [95, 99, 98, 96],
+  "2026-01-06": [98, 102, 101, 99],
+  "2026-01-07": [100, 110, 109, 102],
+  "2026-01-08": [108, 119.5, 119, 110],
+  "2026-01-09": [112, 118, 115, 117],
+  "2026-01-12": [110, 116, 114, 115]
+},
+"today": "2026-01-31",
+"row": { "section": "target", "tag": "B2" },
+"universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
+"cases": [
+  { "settings": { "entry": "close" }, "strategy": "S1", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 119, "basis": "close", "reason": "reached", "level": null },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 17.821782, "netPct": 17.421782, "riskPct": 6.930693, "r": 2.513712, "days": 2, "tag": "B2" } ] },
+  { "settings": { "entry": "close", "targetOn": "touch" }, "strategy": "S3", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 119, "basis": "close", "reason": "reached", "level": null },
+      "stop": null, "stopKind": "negation", "open": false, "grossPct": 17.821782, "netPct": 17.421782, "riskPct": 10.891089, "r": 1.599637, "days": 2, "tag": "B2" } ] }
+]
+}

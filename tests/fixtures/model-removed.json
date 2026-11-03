@@ -1,0 +1,26 @@
+{
+"name": "removed after breaking out",
+"why": "Entered at the confirming close, 101 on 01-06, and dropped by the source on Saturday 01-10. The leg is closed at the last close on or before that date, 108 on 01-09, labelled removed: 6.93% before costs. The bars after it (a touch of the last full day on 01-12) are not the source's setup any more and are not read; the board's own type goes on counting them, which is why the setup reads as a B3. With removed setups left out, the universe still counts the breakout and lists the setup under excluded.",
+"setup": { "sym": "RMV", "dir": "long", "breakthrough": 100, "boundary": 97, "target": 120, "negation": 90, "lfd": 94, "created": "2026-01-01", "removed": "2026-01-10", "removed_reason": "pattern morphing" },
+"bars": {
+  "2026-01-05": [95, 99, 98, 96],
+  "2026-01-06": [98, 102, 101, 99],
+  "2026-01-07": [100, 106, 105, 102],
+  "2026-01-08": [103, 108, 107, 104],
+  "2026-01-09": [104, 109, 108, 105],
+  "2026-01-12": [92, 100, 93, 99],
+  "2026-01-13": [90, 95, 91, 94]
+},
+"today": "2026-01-31",
+"row": { "section": "removed", "tag": "B3" },
+"universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
+"cases": [
+  { "settings": { "entry": "close" }, "strategy": "S1", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-09", "price": 108, "basis": "close", "reason": "removed", "level": null },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 6.930693, "netPct": 6.530693, "riskPct": 6.930693, "r": 0.942285, "days": 3, "tag": "B3" } ] },
+  { "settings": { "entry": "close" }, "strategy": "S2-u", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-09", "price": 108, "basis": "close", "reason": "removed", "level": null },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 6.930693, "netPct": 6.530693, "riskPct": 6.930693, "r": 0.942285, "days": 3, "tag": "B3" } ] }
+],
+"excludedWhen": { "settings": { "removed": "exclude" }, "universe": { "breakouts": 1, "candidates": 0, "excluded": [{ "key": "RMV|long", "sym": "RMV", "dir": "long", "reason": "removed by the source after breaking out" }] } }
+}

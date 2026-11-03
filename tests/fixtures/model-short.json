@@ -1,0 +1,30 @@
+{
+"name": "a short",
+"why": "Every rule mirrored. The short confirms on the 01-06 close (99 under the 100 trigger) and fills at the next open, 100. Its high of 100.5 on 01-07 is a touch of the trigger (a pullback, so the setup is B2) but far from the 106 last full day. On 01-12 it closes at 79, through the 80 target: 21% before costs. On a touch basis the target is the day's low of 78, filled at the level, 80. S4's trail (the lowest close plus twice the ATR) follows the price down to 101.25 and is never touched. S3's risk is to the negation, 10%.",
+"setup": { "sym": "SHT", "dir": "short", "breakthrough": 100, "boundary": 103, "target": 80, "negation": 110, "lfd": 106, "created": "2026-01-01" },
+"bars": {
+  "2026-01-05": [99, 104, 101, 102],
+  "2026-01-06": [97, 101, 99, 100],
+  "2026-01-07": [95, 100.5, 97, 100],
+  "2026-01-08": [94, 99, 95, 96],
+  "2026-01-09": [88, 96, 90, 92],
+  "2026-01-12": [78, 86, 79, 85]
+},
+"today": "2026-01-31",
+"row": { "section": "target", "tag": "B2" },
+"universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
+"cases": [
+  { "settings": {}, "strategy": "S1", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 79, "basis": "close", "reason": "target", "level": 80 },
+      "stop": 106, "stopKind": "last full day", "open": false, "grossPct": 21, "netPct": 20.6, "riskPct": 6, "r": 3.433333, "days": 5, "tag": "B2" } ] },
+  { "settings": { "targetOn": "touch" }, "strategy": "S1", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 80, "basis": "level", "reason": "target", "level": 80 },
+      "stop": 106, "stopKind": "last full day", "open": false, "grossPct": 20, "netPct": 19.6, "riskPct": 6, "r": 3.266667, "days": 5, "tag": "B2" } ] },
+  { "settings": {}, "strategy": "S3", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 79, "basis": "close", "reason": "target", "level": 80 },
+      "stop": null, "stopKind": "negation", "open": false, "grossPct": 21, "netPct": 20.6, "riskPct": 10, "r": 2.06, "days": 5, "tag": "B2" } ] },
+  { "settings": {}, "strategy": "S4", "pending": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 79, "basis": "close", "reason": "target", "level": 80 },
+      "stop": 106, "stopKind": "last full day", "open": false, "grossPct": 21, "netPct": 20.6, "riskPct": 6, "r": 3.433333, "days": 5, "tag": "B2" } ] }
+]
+}

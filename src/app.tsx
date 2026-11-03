@@ -1,7 +1,10 @@
 import { useEffect } from 'preact/hooks';
 import { app, load, recompute, reloadStored } from './data/app';
-import { todayOf } from './data/selectors';
+import { boardView, todayOf } from './data/selectors';
 import { visits } from './data/visit';
+import { installModel } from './debug';
+import { runModel } from './engine/backtest/model';
+import { DEFAULT_SETTINGS } from './engine/backtest/settings';
 import { route } from './router';
 import { useStore } from './store';
 import { dismiss, notice } from './ui/notice';
@@ -36,6 +39,11 @@ export function App() {
 
   useEffect(() => {
     void load();
+    // The Model from the console, until its page exists: window.__runModel({ entry: 'close' }).
+    installModel(overrides => {
+      const s = app.get();
+      return runModel({ rows: boardView(s, 'watchlist').bd.rows, hist: s.hist, bars: s.barsFile?.bars ?? {} }, { ...DEFAULT_SETTINGS, ...overrides });
+    });
     /* Coming back to the tab: after a few minutes fetch everything again; sooner than that only re-read the clock,
        because a session may have opened or closed while the page sat there. */
     const back = () => {

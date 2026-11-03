@@ -1,4 +1,6 @@
 import type { AppState } from './data/app';
+import type { ModelResult } from './engine/backtest/model';
+import type { ModelSettings } from './engine/backtest/settings';
 import type { Flag } from './engine/flags';
 import type { Timeframe } from './engine/ma';
 import type { Outcomes } from './engine/outcomes';
@@ -61,6 +63,19 @@ export interface SignalsDebug {
   relative: { sym: string; dir: string; vsIndex: number | null; vsSector: number | null; index: string | null; peers: number }[];
 }
 
+/** `window.__runModel()` runs the Model on what the page has loaded, with any settings overridden, and sums it up;
+    the whole result is under `result`. It runs only when called, so no page pays for it. */
+export interface ModelDebug {
+  ms: number;
+  /** The universe the page prints: every setup that broke out. */
+  breakouts: number;
+  candidates: number;
+  excluded: { key: string; reason: string }[];
+  runs: Record<string, { legs: number; setups: number; open: number; excluded: number; pending: number; winRate: number | null; expectancyPct: number | null; expectancyR: number | null; maxDrawdownFlat: number; ratio: number | null }>;
+  caveats: ModelResult['caveats'];
+  result: ModelResult;
+}
+
 declare global {
   interface Window {
     __board?: BoardDebug;
@@ -68,7 +83,27 @@ declare global {
     __positions?: PositionsDebug;
     __history?: HistoryDebug;
     __signals?: SignalsDebug;
+    __runModel?: (overrides?: Partial<ModelSettings>) => ModelDebug;
   }
+}
+
+export function installModel(run: (overrides?: Partial<ModelSettings>) => ModelResult): void {
+  window.__runModel = overrides => {
+    const r = run(overrides);
+    return {
+      ms: r.ms,
+      breakouts: r.universe.breakouts,
+      candidates: r.universe.candidates.length,
+      excluded: r.universe.excluded.map(e => ({ key: e.key, reason: e.reason })),
+      runs: Object.fromEntries(Object.values(r.runs).map(x => [x.id, {
+        legs: x.legs.length, setups: x.setups, open: x.stats.all.open, excluded: x.excluded.length, pending: x.pending.length,
+        winRate: x.stats.all.winRate, expectancyPct: x.stats.all.expectancyPct, expectancyR: x.stats.all.expectancyR,
+        maxDrawdownFlat: x.money.flat.maxDrawdown, ratio: r.ratios[x.id] ? r.ratios[x.id]!.equalRisk.ratio : null,
+      }])),
+      caveats: r.caveats,
+      result: r,
+    };
+  };
 }
 
 export function publish(set: string, bd: Board, shown: Record<Section, number>, errors: string[], flags: Flag[], data: BoardDebug['data']): void {
