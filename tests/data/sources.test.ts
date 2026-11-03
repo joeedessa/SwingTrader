@@ -156,6 +156,15 @@ describe('parseChart', () => {
     expect(got.ccy).toBe('AUD');
   });
 
+  it('keeps the open as a fourth value where Yahoo sends one, and writes three values where it does not', () => {
+    const j = chart(S('2026-11-01T23:00:00Z'));
+    j.chart.result[0].indicators.quote[0] = { ...j.chart.result[0].indicators.quote[0], open: [4.22, null, 4.45] } as never;
+    const got = parseChart(j, T('2026-11-02T08:00:00Z'))!;
+    expect(got.bars['2026-10-30']).toEqual([4.2, 4.3, 4.25, 4.22]);
+    expect(got.bars['2026-10-31']).toEqual([4.3, 4.4, 4.35]);
+    expect(got.bars['2026-11-02']).toEqual([4.4, 4.6, 4.5, 4.45]);
+  });
+
   it('drops the last bar while its session is still running, keeps it once the session has ended', () => {
     const reg = { start: S('2026-11-01T23:00:00Z'), end: S('2026-11-02T05:12:00Z') };
     expect(Object.keys(parseChart(chart(reg.start, reg), T('2026-11-02T01:00:00Z'))!.bars)).toEqual(['2026-10-30', '2026-10-31']);

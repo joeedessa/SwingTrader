@@ -183,10 +183,10 @@ export interface ExtraBars {
 interface ChartResult {
   meta?: Record<string, unknown>;
   timestamp?: number[];
-  indicators?: { quote?: { low?: (number | null)[]; high?: (number | null)[]; close?: (number | null)[] }[] };
+  indicators?: { quote?: { low?: (number | null)[]; high?: (number | null)[]; close?: (number | null)[]; open?: (number | null)[] }[] };
 }
 
-/** Daily [low, high, close] from one v8 chart answer, keyed by the exchange's own date. A bar that belongs to
+/** Daily [low, high, close, open] from one v8 chart answer, keyed by the exchange's own date. A bar that belongs to
     the session running right now is dropped: it is still forming, and the live quote carries it instead. */
 export function parseChart(json: unknown, nowMs: number): { bars: Bars; ccy: string } | null {
   const res = ((json as { chart?: { result?: ChartResult[] } })?.chart?.result || [])[0];
@@ -198,11 +198,11 @@ export function parseChart(json: unknown, nowMs: number): { bars: Bars; ccy: str
   const bars: Bars = {};
   const ts = res.timestamp;
   for (let i = 0; i < ts.length; i++) {
-    const lo = q.low?.[i], hi = q.high?.[i], c = q.close?.[i];
+    const lo = q.low?.[i], hi = q.high?.[i], c = q.close?.[i], o = q.open?.[i];
     if (lo == null || hi == null) continue;
     // The last bar is forming when its stamp falls inside the session that has not ended yet.
     if (i === ts.length - 1 && reg && reg.start != null && reg.end != null && ts[i] >= reg.start && nowMs / 1000 < reg.end) continue;
-    bars[localDate(ts[i], tz)] = [lo, hi, c ?? null];
+    bars[localDate(ts[i], tz)] = o == null ? [lo, hi, c ?? null] : [lo, hi, c ?? null, o];
   }
   if (!Object.keys(bars).length) return null;
   return { bars, ccy: typeof meta.currency === 'string' ? meta.currency : '' };

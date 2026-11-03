@@ -1,12 +1,12 @@
 import type { Bars, History, Lfd, ReplayState, Setup } from '../../src/engine/types';
 
-/** A day as the tests write it: [date, low, high, close]. */
-export type Day = [string, number, number, number];
+/** A day as the tests write it: [date, low, high, close] or, with an open, [date, low, high, close, open]. */
+export type Day = [string, number, number, number] | [string, number, number, number, number];
 
 /** Bars and the settled closes from the same days; the live tick defaults to the last close. */
 export function series(days: Day[], live?: { price: number; date: string }): { bars: Bars; hist: History } {
   const bars: Bars = {};
-  for (const [d, lo, hi, c] of days) bars[d] = [lo, hi, c];
+  for (const [d, lo, hi, c, o] of days) bars[d] = o == null ? [lo, hi, c] : [lo, hi, c, o];
   const settled = days.map(([d, , , c]) => [d, c] as [string, number]);
   const last = days[days.length - 1];
   return {

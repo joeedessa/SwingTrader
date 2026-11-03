@@ -4,15 +4,20 @@
 Writes two files under public/data/:
 
   bars.json    append-only daily bars, keyed by exchange-local date:
-               {"bars": {SYM: {"2026-10-30": [low, high, close], ...}}, "ccy": {SYM: "USD"}}
+               {"bars": {SYM: {"2026-10-30": [low, high, close, open], ...}}, "ccy": {SYM: "USD"}}
                Values are kept exactly as Yahoo sends them (see yahoo.chart): the engine compares closes
                with levels exactly, so rounding would move a tie.
                The order [low, high, close] is the one the old page used:
                a long reads index 0 (the low), a short reads index 1 (the high).
-               A day is written once its session has ended and is never removed
-               or rewritten, so a later correction on Yahoo's side is not picked up.
+               The open (index 3) was added in November 2026 for the Model page,
+               which fills at it; a day written before then has three values
+               until a run with --backfill (two years of bars) adds its open. A
+               day's low, high and close are never removed or rewritten, so a
+               later correction on Yahoo's side is not picked up.
                The first run pulls two years; later runs pull a month and add
                only the days not yet on file.
+
+Run: python3 scripts/fetch_bars.py [--backfill]
 
   series.json  weekly (5 years) and monthly (25 years) closes, as Yahoo sends
                them. The phantom trailing bar is left in: the moving-average
@@ -25,6 +30,7 @@ Run: python3 scripts/fetch_bars.py
 import json
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -60,14 +66,16 @@ def load(path):
     return json.loads(path.read_text()) if path.exists() else {}
 
 
-def update_bars(syms):
+def update_bars(syms, backfill=False):
     old = load(BARS)
     bars = old.get("bars") or {}
     ccy = old.get("ccy") or {}
     first_run = not bars
-    rng = "2y" if first_run else "1mo"
+    rng = "2y" if first_run or backfill else "1mo"
     failed = []
-    added_total = 0
+    added_total = opened_total = 0
+    # What came back, against what is on file, so a run that adds nothing says why in the log.
+    newest_seen, newest_kept, forming = Counter(), Counter(), 0
 
     for n, sym in enumerate(syms, 1):
         got = yahoo.chart(sym, rng, "1d")
@@ -84,15 +92,32 @@ def update_bars(syms):
         # what lets the hourly job pick up a close within the hour it lands.
         settled_today = bool(got["session_end"]) and now >= got["session_end"]
         added = 0
-        for epoch, _o, h, l, c in got["bars"]:
+        for epoch, o, h, l, c in got["bars"]:
             d = yahoo.local_date(epoch, got["tz"])
-            if d > today_local or d in day or (d == today_local and not settled_today):
+            if d > today_local or (d == today_local and not settled_today):
+                forming += 1
                 continue
-            day[d] = [l, h, c]
+            newest_seen[d] += 0  # a key for the tally below
+            if d in day:
+                # A day written before opens were kept gains its open; its low, high and close stay as they were.
+                if len(day[d]) < 4:
+                    day[d] = list(day[d][:3]) + [o]
+                    opened_total += 1
+                continue
+            day[d] = [l, h, c, o]
             added += 1
+        seen = [yahoo.local_date(b[0], got["tz"]) for b in got["bars"]]
+        if seen:
+            newest_seen[max(seen)] += 1
+        if day:
+            newest_kept[max(day)] += 1
         added_total += added
         if n % 25 == 0:
             print(f"  bars: {n}/{len(syms)}")
+
+    tally = lambda c: ", ".join(f"{d} x{k}" for d, k in sorted(c.items(), reverse=True)[:4] if k)
+    print(f"  newest bar Yahoo sent (settled or not): {tally(newest_seen)}; newest on file after this run: {tally(newest_kept)}; "
+          f"{forming} bars skipped as still forming; {opened_total} opens added to days already on file")
 
     # Symbols with no bars on file at all are dropped from the map rather than
     # carried as empty objects, so the reader can tell "no history" from "no entry yet".
@@ -110,7 +135,7 @@ def update_bars(syms):
     out = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": "Yahoo Finance, fetched server-side",
-        "fields": "[low, high, close] per exchange-local date",
+        "fields": "[low, high, close, open] per exchange-local date (three values on a day written before opens were kept)",
         "missing": missing,
         "ccy": {s: ccy[s] for s in bars if ccy.get(s)},
         "bars": bars,
@@ -163,5 +188,5 @@ def update_series(syms):
 if __name__ == "__main__":
     syms = universe()
     print(f"universe: {len(syms)} symbols")
-    update_bars(syms)
+    update_bars(syms, backfill="--backfill" in sys.argv[1:])
     update_series(syms)

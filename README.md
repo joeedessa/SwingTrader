@@ -12,7 +12,7 @@ Standing rules for every session are in [CLAUDE.md](CLAUDE.md). The plan is
 
 ```
 public/data/   watchlist.json, benchmarks.json, tradelog.json   (the data, published)
-               bars.json (daily [low, high, close], append-only), series.json (weekly/monthly closes: Signals only)
+               bars.json (daily [low, high, close, open], append-only), series.json (weekly/monthly closes: Signals only)
                prices-latest.json, watch-events.json            (refreshed by jobs)
 scripts/       fetch_bars.py, fetch_latest.py, fetch_events.py, yahoo.py, quality.py
 scripts/report/  weekly Tech Charts report sync (the report itself is never committed)

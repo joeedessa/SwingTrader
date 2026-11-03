@@ -39,8 +39,9 @@ export interface Setup {
   duration_m?: number | null;
 }
 
-/** A settled daily bar: [low, high, close]. A long reads the low, a short the high. */
-export type DayBar = [low: number, high: number, close: number | null];
+/** A settled daily bar: [low, high, close, open]. A long reads the low, a short the high. The open (kept from November
+    2026, for the Model page's fills) is absent on a day written before then, and absent or null where Yahoo had none. */
+export type DayBar = [low: number, high: number, close: number | null, open?: number | null];
 
 /** Daily bars keyed by date (YYYY-MM-DD). */
 export type Bars = Record<string, DayBar>;

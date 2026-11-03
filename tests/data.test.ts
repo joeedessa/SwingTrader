@@ -54,7 +54,7 @@ describe('benchmarks.json', () => {
 describe('bars.json', () => {
   const data = bars as { bars: Record<string, Record<string, number[]>>; missing: string[] };
 
-  it('has daily [low, high, close] bars for every watchlist symbol except the recorded gaps', () => {
+  it('has daily [low, high, close, open] bars for every watchlist symbol except the recorded gaps', () => {
     const gaps = new Set(data.missing);
     const uncovered = [...new Set(rows.map((r) => r.sym))].filter((s) => !data.bars[s] && !gaps.has(s));
     expect(uncovered).toEqual([]);
@@ -80,5 +80,23 @@ describe('bars.json', () => {
     }
     expect(badDates).toEqual([]);
     expect([...outside].filter((s) => !KNOWN_OHLC_QUIRKS.has(s))).toEqual([]);
+  });
+
+  // The open (a fourth value, kept from November 2026 for the Model page's fills) is a price where it is there. It is
+  // not held within low-high: Yahoo's opens sit outside the day's range on a dozen feeds, far more than its closes do.
+  it('has an open on nearly every day, and every open is a price', () => {
+    const badOpens: string[] = [];
+    let withOpen = 0, total = 0;
+    for (const [sym, days] of Object.entries(data.bars)) {
+      for (const [date, bar] of Object.entries(days)) {
+        total++;
+        if (bar.length < 4) continue;
+        withOpen++;
+        const open = bar[3];
+        if (!(typeof open === 'number' && isFinite(open) && open > 0)) badOpens.push(`${sym} ${date}`);
+      }
+    }
+    expect(badOpens).toEqual([]);
+    expect(withOpen / total).toBeGreaterThan(0.95);
   });
 });
