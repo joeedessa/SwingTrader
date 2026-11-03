@@ -1,3 +1,4 @@
+import { evaluate } from '../row';
 import type { Row } from '../row';
 import type { Bars, BreakoutTag, Dir, History } from '../types';
 import type { ModelSettings } from './settings';
@@ -22,7 +23,17 @@ export interface Day {
   closeOnly: boolean;
 }
 
-export type StopSource = 'report' | 'derived' | 'none' | 'looser';
+/** Where the tight stop came from: the report; derived from the bars; none in the report (`lfd: 0`); derived but beyond
+    the negation, so no stop; or not readable from the bars at all (no full bar before the run). */
+export type StopSource = 'report' | 'derived' | 'none' | 'looser' | 'underived';
+
+export const STOP_WORDS: Record<StopSource, string> = {
+  report: 'the last full day in the report',
+  derived: 'the last full day read from the bars',
+  none: 'no tight stop: none in the report',
+  looser: 'no tight stop: the derived last full day is beyond the negation',
+  underived: 'no tight stop: none could be read from the bars',
+};
 
 export interface Candidate {
   key: string;
@@ -67,10 +78,11 @@ export interface Universe {
 
 export const keyOf = (sym: string, dir: Dir): string => sym + '|' + dir;
 
-/** Whether the row broke out as the source's setup: a breakout, on or before the removal date where there is one. */
+/** Whether the row broke out as the source's setup: a breakout, on or before the removal date where there is one. A
+    breakout marked by hand in this browser counts too, so the model can say it has no close to enter at. */
 export function brokeOut(r: Row): boolean {
   const b = r.st.breakout;
-  if (!b) return false;
+  if (!b) return r.p.manualState === 'breakout' && r.st.state === 'watch';
   const cut = r.section === 'removed' ? r.p.removed || null : null;
   return !cut || b.when <= cut;
 }
@@ -91,14 +103,26 @@ export function daysOf(bars: Bars | null | undefined, hist: History | null | und
   return out;
 }
 
+/** The type for the breakdown: the one at the setup's first outcome (History's rule), or its latest before one. A setup the
+    source removed is read as it stood on the removal date, since the board's own type goes on counting the bars after it. */
+function tagOf(r: Row, hist: History | undefined, bars: Bars | undefined, removed: string | null): BreakoutTag | null {
+  let row = r;
+  if (removed && hist) {
+    const cut: History = { ...hist, settled: hist.settled.filter(([d]) => d <= removed) };
+    row = evaluate(r.p, cut, bars, null, removed);
+  }
+  return row.hit ? (row.hit.btype ? row.hit.btype.tag : null) : (row.btype ? row.btype.tag : null);
+}
+
 function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined): Candidate | Excluded {
   const p = r.p;
   const key = keyOf(p.sym, p.dir);
   const no = (reason: string): Excluded => ({ key, sym: p.sym, dir: p.dir, reason });
+  if (!r.st.breakout) return no('marked as a breakout by hand: no confirming close in the bars');
   if (p.breakthrough == null) return no('no trigger level');
   const days = daysOf(bars, hist);
   if (!days.some(d => !d.closeOnly)) return no('no daily bars');
-  const b = r.st.breakout!;
+  const b = r.st.breakout;
   let when: string, price: number | null = null;
   if (b.close != null) { when = b.when; price = b.close; }
   else if (r.lfd && r.lfd.conf) { when = r.lfd.conf; }
@@ -108,18 +132,19 @@ function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined):
   if (price == null) price = days[index].c;
   if (price == null) return no(`the confirming close (${when}) has no price`);
   const L = r.lfd;
-  const stopSource: StopSource = !L || L.src == null ? 'none' : L.looser ? 'looser' : L.src;
+  const stopSource: StopSource = !L || L.src == null ? 'underived' : L.looser ? 'looser' : L.src;
   const stop = L && L.at != null && !L.looser ? L.at : null;
+  const removed = r.section === 'removed' ? p.removed || null : null;
   return {
     key, sym: p.sym, dir: p.dir, currency: hist ? hist.currency : '',
     trigger: p.breakthrough, target: p.target ?? null, negation: p.negation ?? null, boundary: p.boundary ?? null,
     signal: { when, price, index },
     stop, stopSource, days,
-    removed: r.section === 'removed' ? p.removed || null : null,
-    removedReason: r.section === 'removed' ? p.removed_reason || null : null,
+    removed,
+    removedReason: removed ? p.removed_reason || null : null,
     reached: p.reached || null,
     imported: b.close == null,
-    tag: r.hit ? (r.hit.btype ? r.hit.btype.tag : null) : (r.btype ? r.btype.tag : null),
+    tag: tagOf(r, hist, bars, removed),
     row: r,
   };
 }

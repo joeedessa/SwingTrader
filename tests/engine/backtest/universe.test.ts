@@ -28,6 +28,16 @@ describe('who broke out', () => {
     expect(brokeOut(row)).toBe(false);
   });
 
+  it('a breakout marked by hand counts, and is excluded for having no close to enter at', () => {
+    const { row, hist, bars } = rowOf({ ...LONG, breakthrough: 110, manualState: 'breakout' });
+    expect(row.section).toBe('breakout');
+    expect(brokeOut(row)).toBe(true);
+    const u = universeOf([row], hist, bars, DEFAULT_SETTINGS);
+    expect(u.breakouts).toBe(1);
+    expect(u.candidates).toEqual([]);
+    expect(u.excluded[0].reason).toBe('marked as a breakout by hand: no confirming close in the bars');
+  });
+
   it('a removed row counts only if it broke out on or before the removal date; put back in this browser, it counts whenever', () => {
     const before = rowOf({ ...LONG, removed: '2026-01-10', manualState: 'removed' }).row;
     expect(brokeOut(before)).toBe(true);
@@ -112,6 +122,23 @@ describe('the universe', () => {
     expect(u.breakouts).toBe(1);
     expect(u.excluded[0].reason).toBe('removed by the source after breaking out');
     expect(universeOf([gone.row], gone.hist, gone.bars, DEFAULT_SETTINGS).candidates[0]).toMatchObject({ removed: '2026-01-10' });
+  });
+
+  it('a removed setup is typed as it stood on the removal date, not by the bars after it', () => {
+    const path: Day[] = [
+      ['2026-01-02', 93, 97, 96, 94], ['2026-01-05', 95, 99, 98, 96], ['2026-01-06', 98, 102, 101, 99],
+      ['2026-01-07', 100, 104, 103, 100],   // a touch of the trigger: B2
+      ['2026-01-12', 92, 99, 95, 98],       // a breach, after the removal
+    ];
+    const { row, hist, bars } = rowOf({ ...LONG, lfd: 94, removed: '2026-01-10', manualState: 'removed' }, path);
+    expect(row.btype!.tag).toBe('B3');
+    expect(universeOf([row], hist, bars, DEFAULT_SETTINGS).candidates[0].tag).toBe('B2');
+  });
+
+  it('a stop that could not be read from the bars is marked so', () => {
+    // The run past the boundary starts on the first bar on file: nothing before it to read a stop from.
+    const { row, hist, bars } = rowOf(LONG, PATH.slice(1));
+    expect(universeOf([row], hist, bars, DEFAULT_SETTINGS).candidates[0]).toMatchObject({ stop: null, stopSource: 'underived' });
   });
 
   it('the tag is the type at the first outcome: a target reached before a later negation keeps its B2', () => {

@@ -14,16 +14,16 @@
 "row": { "section": "target", "tag": "B2" },
 "universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
 "cases": [
-  { "settings": {}, "strategy": "S1", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 79, "basis": "close", "reason": "target", "level": 80 },
       "stop": 106, "stopKind": "last full day", "open": false, "grossPct": 21, "netPct": 20.6, "riskPct": 6, "r": 3.433333, "days": 5, "tag": "B2" } ] },
-  { "settings": { "targetOn": "touch" }, "strategy": "S1", "pending": null, "legs": [
+  { "settings": { "targetOn": "touch" }, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 80, "basis": "level", "reason": "target", "level": 80 },
       "stop": 106, "stopKind": "last full day", "open": false, "grossPct": 20, "netPct": 19.6, "riskPct": 6, "r": 3.266667, "days": 5, "tag": "B2" } ] },
-  { "settings": {}, "strategy": "S3", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S3", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 79, "basis": "close", "reason": "target", "level": 80 },
       "stop": null, "stopKind": "negation", "open": false, "grossPct": 21, "netPct": 20.6, "riskPct": 10, "r": 2.06, "days": 5, "tag": "B2" } ] },
-  { "settings": {}, "strategy": "S4", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S4", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-12", "price": 79, "basis": "close", "reason": "target", "level": 80 },
       "stop": 106, "stopKind": "last full day", "open": false, "grossPct": 21, "netPct": 20.6, "riskPct": 6, "r": 3.433333, "days": 5, "tag": "B2" } ] }
 ]

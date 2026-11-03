@@ -6,12 +6,12 @@ import { ratiosOf } from './ratio';
 import type { Ratios } from './ratio';
 import { LIST_BEGAN, NEEDS_STOP, S2_IDS, SIZINGS, STRATEGIES, strategyId } from './settings';
 import type { ModelSettings, SizingId, Strategy, StrategyId } from './settings';
-import { simulate } from './simulate';
+import { simulate, WAITING } from './simulate';
 import type { Leg } from './simulate';
 import { sizesOf, sizingContext } from './sizing';
 import { moneyStatsOf, statsOf } from './stats';
 import type { MoneyStats, Stats } from './stats';
-import { universeOf } from './universe';
+import { STOP_WORDS, universeOf } from './universe';
 import type { Excluded, Universe } from './universe';
 
 /* The Model (plan B): the universe, every strategy run over it, each sized four ways, the ratio question answered
@@ -31,10 +31,14 @@ export interface StrategyRun {
   legs: Leg[];
   /** Setups with at least one leg. */
   setups: number;
-  /** Left out of this strategy, with the reason. */
+  /** Left out of this strategy, with the reason: no stop it needs, or an entry the rules would not take. */
   excluded: Excluded[];
   /** In the universe, but with no leg yet: the fill is a session that has not happened. */
   pending: Excluded[];
+  /** Setups with legs whose next re-entry is a session that has not happened yet. */
+  waitingReentries: Excluded[];
+  /** Re-entry signals whose next open was at or beyond the stop, so no leg was taken, by setup. */
+  refused: { key: string; days: string[] }[];
   stats: { closed: Stats; all: Stats };
   bootstrap: { pct: { closed: Interval | null; all: Interval | null }; r: { closed: Interval | null; all: Interval | null } };
   /** The scale under per-strategy sizing: 1, or for S2 the equal-risk ratio against S1. */
@@ -47,7 +51,12 @@ export interface GridCell {
   strategy: StrategyId;
   sizing: SizingId;
   legs: number;
+  /** The mean net return per leg, in %: the same whatever the sizing. */
   expectancyPct: number | null;
+  /** The mean net return weighted by what was put on each leg, in %. */
+  weightedPct: number | null;
+  /** The mean profit or loss per leg, in account units, under this sizing. */
+  meanPnl: number | null;
   maxDrawdown: number;
   /** The equal-risk ratio against S1, for the S2 depths. */
   ratio: number | null;
@@ -84,25 +93,32 @@ export interface ModelResult {
   ms: number;
 }
 
-function runStrategy(u: Universe, strategy: Strategy, settings: ModelSettings): Pick<StrategyRun, 'strategy' | 'id' | 'legs' | 'setups' | 'excluded' | 'pending' | 'stats' | 'bootstrap'> {
+type Partial7 = Pick<StrategyRun, 'strategy' | 'id' | 'legs' | 'setups' | 'excluded' | 'pending' | 'waitingReentries' | 'refused' | 'stats' | 'bootstrap'>;
+
+function runStrategy(u: Universe, strategy: Strategy, settings: ModelSettings): Partial7 {
   const legs: Leg[] = [];
   const excluded: Excluded[] = [];
   const pending: Excluded[] = [];
+  const waitingReentries: Excluded[] = [];
+  const refused: StrategyRun['refused'] = [];
   for (const c of u.candidates) {
-    if (NEEDS_STOP[strategy.code] && c.stop == null) {
-      excluded.push({ key: c.key, sym: c.sym, dir: c.dir, reason: c.stopSource === 'looser'
-        ? 'no tight stop: the derived last full day is beyond the negation' : 'no tight stop: none in the report' });
-      continue;
-    }
+    const no = (reason: string) => excluded.push({ key: c.key, sym: c.sym, dir: c.dir, reason });
+    if (NEEDS_STOP[strategy.code] && c.stop == null) { no(STOP_WORDS[c.stopSource]); continue; }
+    if (strategy.code === 'S3' && c.negation == null) { no('no negation on file'); continue; }
     const sim = simulate(c, strategy, settings);
     legs.push(...sim.legs);
-    if (sim.pending) pending.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.pending });
+    if (!sim.legs.length) {
+      if (sim.note === WAITING) pending.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.note });
+      else no(sim.note ?? 'no leg');
+    }
+    if (sim.waiting) waitingReentries.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.waiting });
+    if (sim.refused.length) refused.push({ key: c.key, days: sim.refused });
   }
   const closed = legs.filter(l => !l.open);
   const boot = (ls: Leg[], pick: (l: Leg) => number | null, seed: number) =>
     bootstrapMean(ls.map(pick).filter((v): v is number => v != null), settings.resamples, seed);
   return {
-    strategy, id: strategyId(strategy), legs, setups: new Set(legs.map(l => l.key)).size, excluded, pending,
+    strategy, id: strategyId(strategy), legs, setups: new Set(legs.map(l => l.key)).size, excluded, pending, waitingReentries, refused,
     stats: { closed: statsOf(closed), all: statsOf(legs) },
     bootstrap: {
       pct: { closed: boot(closed, l => l.netPct, settings.seed), all: boot(legs, l => l.netPct, settings.seed) },
@@ -157,9 +173,14 @@ export function runModel(input: ModelInput, settings: ModelSettings, listBegan: 
   const grid: GridCell[] = [];
   for (const s of STRATEGIES) {
     const id = strategyId(s);
+    const run = runs[id];
     for (const sz of SIZINGS) {
-      grid.push({ strategy: id, sizing: sz, legs: runs[id].legs.length, expectancyPct: runs[id].stats.all.expectancyPct,
-                  maxDrawdown: runs[id].money[sz].maxDrawdown, ratio: ratios[id] ? ratios[id]!.equalRisk.ratio : null });
+      const sizes = run.sizes[sz];
+      const put = sizes.reduce((a, b) => a + b, 0);
+      const pnl = run.legs.reduce((a, l, k) => a + sizes[k] * l.netPct / 100, 0);
+      grid.push({ strategy: id, sizing: sz, legs: run.legs.length, expectancyPct: run.stats.all.expectancyPct,
+                  weightedPct: put > 0 ? pnl / put * 100 : null, meanPnl: run.legs.length ? pnl / run.legs.length : null,
+                  maxDrawdown: run.money[sz].maxDrawdown, ratio: ratios[id] ? ratios[id]!.equalRisk.ratio : null });
     }
   }
   const t1 = typeof performance !== 'undefined' ? performance.now() : Date.now();

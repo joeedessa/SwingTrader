@@ -121,7 +121,8 @@ export function moneyStatsOf(legs: readonly Leg[], sizes: readonly number[]): Mo
       else if (d.c != null) value = size * ((d.c / L.entry.price - 1) * sgn * 100 - cost) / 100;
       ds.push(d.when); vs.push(value); dates.add(d.when);
     }
-    series.push({ dates: ds, values: vs, size, from: L.entry.when, to: L.mark.when });
+    // An open leg is held through the last date, whether or not its name traded on it.
+    series.push({ dates: ds, values: vs, size, from: L.entry.when, to: L.open ? '￿' : L.mark.when });
   });
   const all = [...dates].sort();
   const equity: number[] = [], open: number[] = [], exposure: number[] = [];

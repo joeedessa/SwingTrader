@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { runModel } from '../../../src/engine/backtest/model';
 import type { ModelResult } from '../../../src/engine/backtest/model';
 import { DEFAULT_SETTINGS, S2_IDS, SIZINGS, STRATEGY_IDS } from '../../../src/engine/backtest/settings';
-import { brokeOut, keyOf } from '../../../src/engine/backtest/universe';
+import { brokeOut, keyOf, STOP_WORDS } from '../../../src/engine/backtest/universe';
+import { evaluate } from '../../../src/engine/row';
 import type { Row } from '../../../src/engine/row';
+import type { Setup } from '../../../src/engine/types';
+import { LONG, series } from '../helpers';
+import type { Day } from '../helpers';
 import { frozenBoard, frozenInputs } from '../../ui/frozen';
 
 /* The whole model on the frozen board of 2026-11-01: what must hold on any day's data, with every count read from the
@@ -53,17 +57,23 @@ describe('the universe on the frozen board', () => {
 });
 
 describe('the strategies on the frozen board', () => {
-  it('leave out, by name and reason, exactly the candidates without a tight stop (S3 keeps them)', () => {
+  it('leave out, by name and reason, exactly the candidates without a tight stop (S3 keeps them) and S3 those without a negation', () => {
     const m = model();
     const noStop = m.universe.candidates.filter(c => c.stop == null).map(c => c.key).sort();
+    const noNegation = m.universe.candidates.filter(c => c.negation == null).map(c => c.key).sort();
+    const stopWords = new Set(Object.values(STOP_WORDS).filter(w => w.startsWith('no tight stop')));
     for (const id of STRATEGY_IDS) {
       const run = m.runs[id];
-      if (id === 'S3') expect(run.excluded).toEqual([]);
-      else {
-        expect(run.excluded.map(e => e.key).sort(), id).toEqual(noStop);
-        for (const e of run.excluded) expect(e.reason, e.key).toMatch(/^no tight stop/);
+      const forStop = run.excluded.filter(e => stopWords.has(e.reason)).map(e => e.key).sort();
+      expect(forStop, id).toEqual(id === 'S3' ? [] : noStop);
+      expect(run.excluded.filter(e => e.reason === 'no negation on file').map(e => e.key).sort(), id).toEqual(id === 'S3' ? noNegation : []);
+      // Anything else left out is an entry the rules would not take.
+      for (const e of run.excluded) {
+        if (stopWords.has(e.reason) || e.reason === 'no negation on file') continue;
+        expect(e.reason, `${id} ${e.key}`).toMatch(/^(at the target on the confirming close|the next open was |removed by the source before the fill)/);
       }
       expect(run.setups + run.pending.length + run.excluded.length, id).toBe(m.universe.candidates.length);
+      for (const w of run.waitingReentries) expect(run.legs.some(l => l.key === w.key), `${id} ${w.key}`).toBe(true);
     }
   });
 
@@ -89,12 +99,15 @@ describe('the strategies on the frozen board', () => {
     const m = model();
     const rows = rowByKey();
     let compared = 0;
+    const s2 = m.runs['S2-u'];
     for (const c of m.universe.candidates) {
       const r = rows.get(c.key)!;
       if (c.stop == null || c.removed || r.st.state === 'failed') continue;
+      // An entry the rules would not take has no leg where the board counts a breach: nothing to compare.
+      if (s2.excluded.some(e => e.key === c.key) || s2.refused.some(x => x.key === c.key)) continue;
       const T = r.hit ? r.hit.btype : r.btype;
       if (!T || !T.breaches) continue;
-      const legs = m.runs['S2-u'].legs.filter(l => l.key === c.key);
+      const legs = s2.legs.filter(l => l.key === c.key);
       const exits = legs.filter(l => l.exit && l.exit.reason === 'stop').map(l => l.exit!.when);
       expect(exits, c.key).toEqual(T.breaches.map(b => b.when));
       // The board counts a re-entry close that is also at the target; the model does not buy there.
@@ -147,6 +160,37 @@ describe('the strategies on the frozen board', () => {
       }
     }
     expect(checked).toBeGreaterThan(early);
+  });
+});
+
+describe('one row through the whole model', () => {
+  const WITH_LFD: Setup = { ...LONG, lfd: 94 };
+  const one = (p: Setup, days: Day[]) => {
+    const { bars, hist } = series(days);
+    const row = evaluate(p, hist, bars, null, '2026-02-01');
+    return runModel({ rows: [row], hist: { [p.sym]: hist }, bars: { [p.sym]: bars } }, DEFAULT_SETTINGS);
+  };
+  const BREAK: Day[] = [['2026-01-05', 95, 99, 98, 96], ['2026-01-06', 98, 102, 101, 99]];
+
+  it('S3 leaves out a setup with no negation on file; the stop strategies keep it', () => {
+    const m = one({ ...WITH_LFD, negation: null }, [...BREAK, ['2026-01-07', 99, 104, 103, 100]]);
+    expect(m.runs.S3.excluded).toEqual([{ key: 'X|long', sym: 'X', dir: 'long', reason: 'no negation on file' }]);
+    expect(m.runs.S3.legs).toHaveLength(0);
+    expect(m.runs.S1.legs).toHaveLength(1);
+    expect(m.runs.S1.excluded).toEqual([]);
+  });
+
+  it('a setup with a leg and a re-entry still to fill is a setup, not a pending one', () => {
+    const m = one(WITH_LFD, [...BREAK, ['2026-01-07', 99, 104, 103, 100], ['2026-01-08', 93, 99, 96, 97], ['2026-01-09', 97, 103, 102, 98]]);
+    const run = m.runs['S2-u'];
+    expect(run).toMatchObject({ setups: 1, pending: [], waitingReentries: [{ key: 'X|long', reason: 'waiting for the next open to re-enter (1)' }] });
+    expect(run.setups + run.pending.length + run.excluded.length).toBe(1);
+  });
+
+  it('a setup whose confirming close is at the target is in the universe and excluded from every strategy', () => {
+    const m = one({ ...WITH_LFD, target: 101 }, [...BREAK, ['2026-01-07', 99, 104, 103, 100]]);
+    expect(m.universe.breakouts).toBe(1);
+    for (const id of STRATEGY_IDS) expect(m.runs[id].excluded.map(e => e.reason), id).toEqual(['at the target on the confirming close']);
   });
 });
 

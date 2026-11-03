@@ -96,6 +96,16 @@ describe('the equity line', () => {
   it('is nothing without legs', () => {
     expect(moneyStatsOf([], [])).toMatchObject({ totalPnl: 0, maxDrawdown: 0, peakOpen: 0, avgOpen: null, peakExposure: 0, curve: { dates: [], equity: [] } });
   });
+
+  it('an open leg is held through the last date even when its name has not traded on it', () => {
+    const a = legsOf(WITH_LFD, OPEN, 'S1');                                                   // open, last bar 01-09
+    const b = legsOf({ ...WITH_LFD, sym: 'O' }, OPEN, 'S1', {}, [['2026-01-12', 110]]);      // open, marked 01-12
+    const m = moneyStatsOf([...a, ...b], [10000, 10000]);
+    expect(m.curve.dates[m.curve.dates.length - 1]).toBe('2026-01-12');
+    expect(m.curve.open).toEqual([2, 2, 2, 2]);
+    expect(m.curve.exposure[3]).toBe(20000);
+    expect(m.curve.equity[3]).toBeCloseTo(660 + 960, 6);
+  });
 });
 
 describe('sizing', () => {

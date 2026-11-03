@@ -25,7 +25,8 @@ import trail from '../../fixtures/model-trail.json';
 interface Case {
   settings: Partial<ModelSettings>;
   strategy: StrategyId;
-  pending: string | null;
+  /** Why the first entry gave no leg, or null. */
+  note: string | null;
   legs: Record<string, unknown>[];
 }
 
@@ -114,16 +115,18 @@ for (const f of FIXTURES) {
     for (const c of f.cases) {
       it(`${c.strategy}${Object.keys(c.settings).length ? ' with ' + JSON.stringify(c.settings) : ''}: ${c.legs.length} leg(s)`, () => {
         const sim = runCase(f, c);
-        expect(sim.pending).toBe(c.pending);
+        expect(sim.note).toBe(c.note);
+        expect(sim.waiting).toBeNull();
+        expect(sim.refused).toEqual([]);
         expectLegs(sim.legs, c.legs);
       });
     }
 
     if (f.cut) {
       for (const c of f.cut.cases) {
-        it(`cut at ${f.cut.upTo}, ${c.strategy}${Object.keys(c.settings).length ? ' with ' + JSON.stringify(c.settings) : ''}: ${c.pending ?? c.legs.length + ' leg(s)'}`, () => {
+        it(`cut at ${f.cut.upTo}, ${c.strategy}${Object.keys(c.settings).length ? ' with ' + JSON.stringify(c.settings) : ''}: ${c.note ?? c.legs.length + ' leg(s)'}`, () => {
           const sim = runCase(f, c, f.cut!.upTo);
-          expect(sim.pending).toBe(c.pending);
+          expect(sim.note).toBe(c.note);
           expectLegs(sim.legs, c.legs);
         });
       }
@@ -163,6 +166,20 @@ for (const f of FIXTURES) {
         // Per-strategy sizing puts the scaled amount on each S2 entry.
         for (const s of res.runs['S2-2'].sizes.perStrategy) expect(s).toBeCloseTo(DEFAULT_SETTINGS.size * f.ratios!['S2-2'], 1);
         expect(res.runs.S1.sizes.perStrategy).toEqual([DEFAULT_SETTINGS.size]);
+        // The grid's money figures follow the sizing; the per-leg expectancy does not.
+        const run = res.runs['S2-2'];
+        const cells = res.grid.filter(g => g.strategy === 'S2-2');
+        expect(new Set(cells.map(g => g.expectancyPct)).size).toBe(1);
+        for (const g of cells) {
+          const sizes = run.sizes[g.sizing];
+          const pnl = run.legs.reduce((a, l, k) => a + sizes[k] * l.netPct / 100, 0);
+          expect(g.meanPnl, g.sizing).toBeCloseTo(pnl / run.legs.length, 6);
+          expect(g.weightedPct, g.sizing).toBeCloseTo(pnl / sizes.reduce((a, b) => a + b, 0) * 100, 6);
+        }
+        // Risk sizing puts more on the leg with the nearer stop, so the weighted return is not the plain mean.
+        const risk = cells.find(g => g.sizing === 'risk')!, flat = cells.find(g => g.sizing === 'flat')!;
+        expect(flat.weightedPct).toBeCloseTo(flat.expectancyPct!, 9);
+        expect(Math.abs(risk.weightedPct! - risk.expectancyPct!)).toBeGreaterThan(0.5);
       });
     }
 

@@ -13,19 +13,19 @@
 "row": { "section": "failed", "tag": "B4" },
 "universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
 "cases": [
-  { "settings": {}, "strategy": "S1", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-09", "price": 91, "basis": "open", "reason": "stop", "level": 94, "stopKind": "last full day" },
       "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9, "netPct": -9.4, "riskPct": 6, "r": -1.566667, "days": 2, "tag": "B4" } ] },
-  { "settings": {}, "strategy": "S2-u", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S2-u", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-09", "price": 91, "basis": "open", "reason": "stop", "level": 94, "stopKind": "last full day" },
       "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9, "netPct": -9.4, "riskPct": 6, "r": -1.566667, "days": 2, "tag": "B4" } ] },
-  { "settings": {}, "strategy": "S3", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S3", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-09", "price": 90, "basis": "level", "reason": "negation", "level": 90 },
       "stop": null, "stopKind": "negation", "open": false, "grossPct": -10, "netPct": -10.4, "riskPct": 10, "r": -1.04, "days": 2, "tag": "B4" } ] },
-  { "settings": {}, "strategy": "S4", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S4", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-09", "price": 91, "basis": "open", "reason": "stop", "level": 95.666667, "stopKind": "trailing stop" },
       "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9, "netPct": -9.4, "riskPct": 6, "r": -1.566667, "days": 2, "tag": "B4" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S1", "pending": null, "legs": [
+  { "settings": { "entry": "close" }, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-09", "price": 91, "basis": "open", "reason": "stop", "level": 94, "stopKind": "last full day" },
       "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9.90099, "netPct": -10.30099, "riskPct": 6.930693, "r": -1.486286, "days": 3, "tag": "B4" } ] }
 ]

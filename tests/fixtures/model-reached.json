@@ -14,10 +14,10 @@
 "row": { "section": "target", "tag": "B2" },
 "universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
 "cases": [
-  { "settings": { "entry": "close" }, "strategy": "S1", "pending": null, "legs": [
+  { "settings": { "entry": "close" }, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 119, "basis": "close", "reason": "reached", "level": null },
       "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 17.821782, "netPct": 17.421782, "riskPct": 6.930693, "r": 2.513712, "days": 2, "tag": "B2" } ] },
-  { "settings": { "entry": "close", "targetOn": "touch" }, "strategy": "S3", "pending": null, "legs": [
+  { "settings": { "entry": "close", "targetOn": "touch" }, "strategy": "S3", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 119, "basis": "close", "reason": "reached", "level": null },
       "stop": null, "stopKind": "negation", "open": false, "grossPct": 17.821782, "netPct": 17.421782, "riskPct": 10.891089, "r": 1.599637, "days": 2, "tag": "B2" } ] }
 ]

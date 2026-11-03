@@ -14,24 +14,24 @@
 "row": { "section": "breakout", "tag": "B2" },
 "universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
 "cases": [
-  { "settings": {}, "strategy": "S1", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": null, "mark": { "when": "2026-01-12", "price": 110 },
       "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 10, "netPct": 9.6, "riskPct": 6, "r": 1.6, "days": 5, "tag": "B2" } ] },
-  { "settings": {}, "strategy": "S2-u", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S2-u", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": null, "mark": { "when": "2026-01-12", "price": 110 },
       "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 10, "netPct": 9.6, "riskPct": 6, "r": 1.6, "days": 5, "tag": "B2" } ] },
-  { "settings": {}, "strategy": "S3", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S3", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": null, "mark": { "when": "2026-01-12", "price": 110 },
       "stop": null, "stopKind": "negation", "open": true, "grossPct": 10, "netPct": 9.6, "riskPct": 10, "r": 0.96, "days": 5, "tag": "B2" } ] },
-  { "settings": {}, "strategy": "S4", "pending": null, "legs": [
+  { "settings": {}, "strategy": "S4", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": null, "mark": { "when": "2026-01-12", "price": 110 },
       "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 10, "netPct": 9.6, "riskPct": 6, "r": 1.6, "days": 5, "tag": "B2" } ] }
 ],
 "cut": {
   "upTo": "2026-01-06",
   "cases": [
-    { "settings": {}, "strategy": "S1", "pending": "waiting for the next open", "legs": [] },
-    { "settings": { "entry": "close" }, "strategy": "S1", "pending": null, "legs": [
+    { "settings": {}, "strategy": "S1", "note": "waiting for the next open", "legs": [] },
+    { "settings": { "entry": "close" }, "strategy": "S1", "note": null, "legs": [
       { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": null, "mark": { "when": "2026-01-06", "price": 101 },
         "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 0, "netPct": -0.4, "riskPct": 6.930693, "r": -0.057714, "days": 0, "tag": "B1" } ] }
   ]
