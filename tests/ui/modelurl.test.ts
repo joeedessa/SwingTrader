@@ -24,8 +24,12 @@ describe('the Model\'s address', () => {
     expect(parseModelQuery(q)).toEqual(v);
   });
 
-  it('round-trips every strategy, sizing and order', () => {
+  it('round-trips every strategy, sizing and order, and the entry at the trigger', () => {
     for (const strategy of STRATEGY_IDS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, strategy })).strategy).toBe(strategy);
+    expect(STRATEGY_IDS[0]).toBe('S0');
+    const trigger: ModelView = { ...DEFAULT_VIEW, settings: { ...DEFAULT_SETTINGS, entry: 'trigger' } };
+    expect(modelQuery(trigger)).toBe('entry=trigger');
+    expect(parseModelQuery('entry=trigger')).toEqual(trigger);
     for (const sizing of SIZINGS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, sizing })).sizing).toBe(sizing);
     for (const sort of TRADE_SORTS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, sort })).sort).toBe(sort);
   });

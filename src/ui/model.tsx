@@ -21,7 +21,7 @@ import type { DCol } from './datatable';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
 import { useCards, useNarrow } from './hooks';
-import { caveatText, DIAL_WORDS, exclusionLines, fxWords, gridRows, legsInScope, modelTiles, moneyWords, ratioRows, reasonLine, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
+import { caveatText, DIAL_WORDS, exclusionLines, fxWords, gridRows, legsInScope, modelTiles, moneyWords, ratioRows, reasonLine, SCOPE_NOTE, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
 import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, PCT_MAX, readNumber, TRADE_SORTS, UNITS_MAX } from './modelurl';
 import type { ModelView, Scope, TradeSort } from './modelurl';
 import { say } from './notice';
@@ -77,13 +77,13 @@ function Controls({ view, onView, onSettings }: { view: ModelView; onView: (p: P
           items={STRATEGY_IDS.map(id => ({ id, label: STRATEGY_SHORT[id] }))} />
         <Dial label="Sizing" hint={DIAL_WORDS.sizing} value={view.sizing} onChange={v => onView({ sizing: v })}
           items={SIZINGS.map(id => ({ id, label: SIZING_LABEL[id] }))} />
-        <Dial<Scope> label="Count" hint="Closed trades only, or every leg with the open ones marked at the latest settled close." value={view.scope} onChange={v => onView({ scope: v })}
+        <Dial<Scope> label="Count" hint="What the lines, the trade list and the types count: every leg, the open ones marked at the latest settled close, or the closed trades only. The tiles show both." value={view.scope} onChange={v => onView({ scope: v })}
           items={[{ id: 'all', label: 'All legs' }, { id: 'closed', label: 'Closed only' }]} />
       </div>
       <p class="dialwords">{strategyWords(view.strategy)}</p>
       <div class="dials">
         <Dial label="Entry" hint={DIAL_WORDS.entry} value={s.entry} onChange={v => onSettings({ entry: v })}
-          items={[{ id: 'open', label: 'Next open' }, { id: 'close', label: 'Confirming close' }]} />
+          items={[{ id: 'open', label: 'Next open' }, { id: 'close', label: 'Confirming close' }, { id: 'trigger', label: 'At the trigger' }]} />
         <Dial label="Imported" hint={DIAL_WORDS.importedEntry} value={s.importedEntry} onChange={v => onSettings({ importedEntry: v })}
           items={[{ id: 'report', label: 'From the report' }, { id: 'close', label: 'Confirming close' }]} />
         <Dial label="Target" hint={DIAL_WORDS.targetOn} value={s.targetOn} onChange={v => onSettings({ targetOn: v })}
@@ -169,17 +169,19 @@ export function ModelPage() {
   // The engine runs again only when a dial it reads moves, or the data does: picking a strategy or a sizing to look at is a lookup.
   const result = useMemo(() => (ready ? runModel({ rows: bd.rows, hist: s.hist, bars: bars ?? {} }, settings) : null), [ready, bd, s.hist, bars, key]);
   const run = result ? result.runs[view.strategy] : null;
-  // What the view counts: every leg, or the closed ones alone, and the money over those.
-  const scoped = useMemo(() => (run ? legsInScope(run, view.sizing, view.scope) : { legs: [] as Leg[], sizes: [] as number[] }), [run, view.sizing, view.scope]);
-  const moneyInScope: MoneyStats | null = useMemo(() => (run ? (view.scope === 'all' ? run.money[view.sizing] : moneyStatsOf(scoped.legs, scoped.sizes)) : null), [run, view.sizing, view.scope, scoped]);
+  // The closed legs alone, with their money: one column of every tile, and what the view counts under the closed scope.
+  const closed = useMemo(() => (run ? legsInScope(run, view.sizing, 'closed') : { legs: [] as Leg[], sizes: [] as number[] }), [run, view.sizing]);
+  const closedMoney: MoneyStats | null = useMemo(() => (run ? moneyStatsOf(closed.legs, closed.sizes) : null), [run, closed]);
+  const scoped = run && view.scope === 'all' ? { legs: run.legs, sizes: run.sizes[view.sizing] } : closed;
+  const moneyInScope: MoneyStats | null = run ? (view.scope === 'all' ? run.money[view.sizing] : closedMoney) : null;
 
   const onView = (patch: Partial<ModelView>) => setQuery(modelQuery({ ...view, ...patch }));
   const onSettings = (patch: Partial<ModelSettings>) => setQuery(modelQuery({ ...view, settings: { ...view.settings, ...patch } }));
   const openRow = (l: Leg) => go({ page: 'model', row: { sym: l.sym, dir: l.dir }, ...(r.query ? { query: r.query } : {}) });
-  const tiles = run && moneyInScope ? modelTiles(run, view.sizing, view.scope, view.label, moneyInScope) : [];
+  const tiles = run && closedMoney ? modelTiles(run, view.sizing, view.label, { all: run.money[view.sizing], closed: closedMoney }) : [];
 
   useEffect(() => {
-    if (result && run) publishModelPage({ view, settings, result, run, tiles: Object.fromEntries(tiles.map(t => [t.label, t.value])), query: modelQuery(view) });
+    if (result && run) publishModelPage({ view, settings, result, run, tiles: Object.fromEntries(tiles.map(t => [t.label, t.cols ? t.cols.map(c => `${c.head} ${c.value}`).join(' · ') : t.value])), query: modelQuery(view) });
   }, [result, run, view]);
 
   const copyLink = () => {
@@ -210,7 +212,7 @@ export function ModelPage() {
     body = (
       <>
         <Tiles tiles={tiles} label={`${STRATEGY_LABEL[view.strategy]} under ${SIZING_LABEL[view.sizing].toLowerCase()} sizing`} />
-        <p class="tilenote">{STRATEGY_LABEL[view.strategy]}, {SIZING_LABEL[view.sizing].toLowerCase()} sizing, {view.scope === 'closed' ? 'closed trades only' : 'every leg, the open ones marked at the latest settled close'}. Returns are in % of the position after both sides' costs ({(2 * (settings.commissionPct + settings.slippagePct)).toFixed(2)}% a round trip); R is the return over the risk taken; money is in {view.label}.</p>
+        <p class="tilenote">{STRATEGY_LABEL[view.strategy]}, {SIZING_LABEL[view.sizing].toLowerCase()} sizing, every leg beside the closed trades alone. {SCOPE_NOTE} Returns are in % of the position after both sides' costs ({(2 * (settings.commissionPct + settings.slippagePct)).toFixed(2)}% a round trip); R is the return over the risk taken; money is in {view.label}. The lines, the list and the types below count {view.scope === 'closed' ? 'closed trades only' : 'every leg, the open ones marked at the latest settled close'}.</p>
 
         <div class="charts">
           <LineChart dates={m.curve.dates} values={equity} kind="equity" label="Equity" unit={view.label} />
@@ -228,14 +230,14 @@ export function ModelPage() {
           </table>
         ) : <div class="empty"><p>No trade to break down.</p></div>}
 
-        <div class="sechead"><h2>The ratio question</h2><span class="secnote">how much to put on an S2 entry against an S1 entry, as a ratio of the amounts</span></div>
-        <table class="board small ratios" aria-label="S2 against S1, three ways">
-          <thead><tr><th scope="col" class="text">S2 depth</th><th scope="col">Equal risk per setup</th><th scope="col">Equal max drawdown</th><th scope="col">Equal capital in use</th><th scope="col" class="text">Behind the numbers</th></tr></thead>
+        <div class="sechead"><h2>The ratio question</h2><span class="secnote">how much to put on an S0 or an S2 entry against an S1 entry, as a ratio of the amounts</span></div>
+        <table class="board small ratios" aria-label="S0 and S2 against S1, three ways">
+          <thead><tr><th scope="col" class="text">Strategy</th><th scope="col">Equal risk per setup</th><th scope="col">Equal max drawdown</th><th scope="col">Equal capital in use</th><th scope="col" class="text">Behind the numbers</th></tr></thead>
           <tbody>{ratios.map(x => <tr key={x.id}><td class="text">{x.label}</td><td>{x.equalRisk}</td><td>{x.equalDrawdown}</td><td>{x.equalCapital}</td><td class="text sub">{x.behind}</td></tr>)}</tbody>
         </table>
-        <p class="tilenote">Equal risk is the one that follows from the rules: the median, over setups, of the total risk S1 makes you take (entry to stop, every leg added up) over the same under S2. The other two scale S2's flat amount until its deepest drawdown, or its peak capital in use, equals S1's. Per-strategy sizing applies the equal-risk ratio.</p>
+        <p class="tilenote">Equal risk is the one that follows from the rules: the median, over setups, of the total risk S1 makes you take (entry to stop, every leg added up) over the same under S0 or S2. The other two scale the strategy's flat amount until its deepest drawdown, or its peak capital in use, equals S1's. Per-strategy sizing applies the equal-risk ratio.</p>
 
-        <div class="sechead"><h2>Sensitivity</h2><span class="secnote">every strategy under every sizing, over every leg: the size-weighted return, the deepest drawdown and, for S2, the equal-risk ratio against S1; press a cell to look at it</span></div>
+        <div class="sechead"><h2>Sensitivity</h2><span class="secnote">every strategy under every sizing, over every leg: the size-weighted return, the deepest drawdown and, for S0 and S2, the equal-risk ratio against S1; press a cell to look at it</span></div>
         <table class="board small grid" aria-label="Strategy by sizing">
           <thead><tr><th scope="col" class="text">Strategy</th>{SIZINGS.map(sz => <th scope="col" key={sz}>{SIZING_LABEL[sz]}</th>)}</tr></thead>
           <tbody>

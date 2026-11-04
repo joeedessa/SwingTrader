@@ -4,9 +4,9 @@ import { bootstrapMean } from './bootstrap';
 import type { Interval } from './bootstrap';
 import { ratiosOf } from './ratio';
 import type { Ratios } from './ratio';
-import { LIST_BEGAN, NEEDS_STOP, S2_IDS, SIZINGS, STRATEGIES, strategyId } from './settings';
+import { LIST_BEGAN, NEEDS_STOP, RATIO_IDS, SIZINGS, STRATEGIES, strategyId } from './settings';
 import type { ModelSettings, SizingId, Strategy, StrategyId } from './settings';
-import { simulate, WAITING } from './simulate';
+import { isWaiting, simulate } from './simulate';
 import type { Leg } from './simulate';
 import { sizesOf, sizingContext } from './sizing';
 import { moneyStatsOf, statsOf } from './stats';
@@ -15,8 +15,8 @@ import { STOP_WORDS, universeOf } from './universe';
 import type { Excluded, Universe } from './universe';
 
 /* The Model (plan B): the universe, every strategy run over it, each sized four ways, the ratio question answered
-   three ways, the sensitivity grid, and the caveats counted from the trade list. Pure: the page passes in the board's
-   rows and the bars and gets everything it prints. */
+   three ways for S0 and each S2 depth against S1, the sensitivity grid, and the caveats counted from the trade list.
+   Pure: the page passes in the board's rows and the bars and gets everything it prints. */
 
 export interface ModelInput {
   /** The watchlist board's rows (the benchmarks have no model). */
@@ -31,7 +31,7 @@ export interface StrategyRun {
   legs: Leg[];
   /** Setups with at least one leg. */
   setups: number;
-  /** Left out of this strategy, with the reason: no stop it needs, or an entry the rules would not take. */
+  /** Left out of this strategy, with the reason: no stop it can run on, or an entry the rules would not take. */
   excluded: Excluded[];
   /** In the universe, but with no leg yet: the fill is a session that has not happened. */
   pending: Excluded[];
@@ -41,7 +41,7 @@ export interface StrategyRun {
   refused: { key: string; days: string[] }[];
   stats: { closed: Stats; all: Stats };
   bootstrap: { pct: { closed: Interval | null; all: Interval | null }; r: { closed: Interval | null; all: Interval | null } };
-  /** The scale under per-strategy sizing: 1, or for S2 the equal-risk ratio against S1. */
+  /** The scale under per-strategy sizing: 1, or for S0 and S2 the equal-risk ratio against S1. */
   scale: number;
   sizes: Record<SizingId, number[]>;
   money: Record<SizingId, MoneyStats>;
@@ -58,7 +58,7 @@ export interface GridCell {
   /** The mean profit or loss per leg, in account units, under this sizing. */
   meanPnl: number | null;
   maxDrawdown: number;
-  /** The equal-risk ratio against S1, for the S2 depths. */
+  /** The equal-risk ratio against S1, for S0 and the S2 depths. */
   ratio: number | null;
 }
 
@@ -71,7 +71,10 @@ export interface Caveats {
   /** Neither the target nor the negation nor a removal has ended them yet. */
   open: number;
   derivedStops: number;
+  /** Without a tight stop: none in the report, or a derived one beyond the negation or unreadable. */
   noTightStop: number;
+  /** Of those, the setups with none in the report, which S1, S2 and S4 run on the negation (revision 9). */
+  onNegation: number;
   /** Imported already confirmed, their confirming close found by the lookback. */
   imported: number;
   reached: number;
@@ -85,7 +88,7 @@ export interface ModelResult {
   settings: ModelSettings;
   universe: Universe;
   runs: Record<StrategyId, StrategyRun>;
-  /** Each S2 depth against S1. */
+  /** S0 and each S2 depth against S1. */
   ratios: Partial<Record<StrategyId, Ratios>>;
   grid: GridCell[];
   caveats: Caveats;
@@ -103,12 +106,16 @@ function runStrategy(u: Universe, strategy: Strategy, settings: ModelSettings): 
   const refused: StrategyRun['refused'] = [];
   for (const c of u.candidates) {
     const no = (reason: string) => excluded.push({ key: c.key, sym: c.sym, dir: c.dir, reason });
-    if (NEEDS_STOP[strategy.code] && c.stop == null) { no(STOP_WORDS[c.stopSource]); continue; }
+    if (NEEDS_STOP[strategy.code] && c.stop == null) {
+      // No last full day in the report: the setup runs on the negation (revision 9). The other cases without a stop stay out.
+      if (c.stopSource !== 'none') { no(STOP_WORDS[c.stopSource]); continue; }
+      if (c.negation == null) { no(STOP_WORDS.none + ', and no negation on file'); continue; }
+    }
     if (strategy.code === 'S3' && c.negation == null) { no('no negation on file'); continue; }
     const sim = simulate(c, strategy, settings);
     legs.push(...sim.legs);
     if (!sim.legs.length) {
-      if (sim.note === WAITING) pending.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.note });
+      if (isWaiting(sim.note)) pending.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.note as string });
       else no(sim.note ?? 'no leg');
     }
     if (sim.waiting) waitingReentries.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.waiting });
@@ -139,6 +146,7 @@ function caveatsOf(u: Universe, s3: Leg[], listBegan: string): Caveats {
     open: s3.filter(l => l.open).length,
     derivedStops: u.candidates.filter(c => c.stopSource === 'derived').length,
     noTightStop: u.candidates.filter(c => c.stop == null).length,
+    onNegation: u.candidates.filter(c => c.stop == null && c.stopSource === 'none' && c.negation != null).length,
     imported: u.candidates.filter(c => c.imported).length,
     reached: u.candidates.filter(c => c.reached != null).length,
     removed: u.candidates.filter(c => c.removed != null).length,
@@ -159,7 +167,7 @@ export function runModel(input: ModelInput, settings: ModelSettings, listBegan: 
   const runs = {} as Record<StrategyId, StrategyRun>;
   for (const [id, p] of partial) {
     let scale = 1;
-    if (S2_IDS.includes(id)) {
+    if (RATIO_IDS.includes(id)) {
       const r = ratiosOf({ legs: s1.legs, flat: s1Flat }, { legs: p.legs, flat: id === 'S1' ? s1Flat : flatOf(p) });
       ratios[id] = r;
       scale = r.equalRisk.ratio ?? 1;

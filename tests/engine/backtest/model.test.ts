@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { runModel } from '../../../src/engine/backtest/model';
 import type { ModelResult } from '../../../src/engine/backtest/model';
-import { DEFAULT_SETTINGS, S2_IDS, SIZINGS, STRATEGY_IDS } from '../../../src/engine/backtest/settings';
-import { brokeOut, keyOf, STOP_WORDS } from '../../../src/engine/backtest/universe';
+import { DEFAULT_SETTINGS, RATIO_IDS, S2_IDS, SIZINGS, STRATEGY_IDS } from '../../../src/engine/backtest/settings';
+import { atOrPast } from '../../../src/engine/precision';
+import { brokeOut, keyOf } from '../../../src/engine/backtest/universe';
 import { evaluate } from '../../../src/engine/row';
 import type { Row } from '../../../src/engine/row';
 import type { Setup } from '../../../src/engine/types';
@@ -78,29 +79,100 @@ describe('the universe on the frozen board', () => {
 });
 
 describe('the strategies on the frozen board', () => {
-  it('leave out, by name and reason, exactly the candidates without a tight stop (S3 keeps them) and S3 those without a negation', () => {
+  it('leave out, by name and reason, exactly the candidates without a stop they can run on (S0 and S3 keep them) and S3 those without a negation', () => {
     const m = model();
-    const noStop = m.universe.candidates.filter(c => c.stop == null).map(c => c.key).sort();
+    // A derived stop beyond the negation, or none readable: out of the stop strategies. None in the report: on the negation instead.
+    const noStop = m.universe.candidates.filter(c => c.stop == null && !(c.stopSource === 'none' && c.negation != null)).map(c => c.key).sort();
     const noNegation = m.universe.candidates.filter(c => c.negation == null).map(c => c.key).sort();
-    const stopWords = new Set(Object.values(STOP_WORDS).filter(w => w.startsWith('no tight stop')));
+    const stopWords = (r: string) => r.startsWith('no tight stop');
     for (const id of STRATEGY_IDS) {
       const run = m.runs[id];
-      const forStop = run.excluded.filter(e => stopWords.has(e.reason)).map(e => e.key).sort();
-      expect(forStop, id).toEqual(id === 'S3' ? [] : noStop);
+      const forStop = run.excluded.filter(e => stopWords(e.reason)).map(e => e.key).sort();
+      expect(forStop, id).toEqual(id === 'S0' || id === 'S3' ? [] : noStop);
       expect(run.excluded.filter(e => e.reason === 'no negation on file').map(e => e.key).sort(), id).toEqual(id === 'S3' ? noNegation : []);
       // Anything else left out is an entry the rules would not take.
       for (const e of run.excluded) {
-        if (stopWords.has(e.reason) || e.reason === 'no negation on file') continue;
-        expect(e.reason, `${id} ${e.key}`).toMatch(/^(at the target on the (confirming close|last close before the report)|the (next open|first close after the report|confirming close) was |removed by the source before the fill|stopped out before the report)/);
+        if (stopWords(e.reason) || e.reason === 'no negation on file') continue;
+        expect(e.reason, `${id} ${e.key}`).toMatch(/^(at the target on the (confirming close|last close before the report)|the (next open|first close after the report|confirming close) was |removed by the source before the fill|stopped out before the report|pulled back to the trigger before the (report|fill))/);
       }
       expect(run.setups + run.pending.length + run.excluded.length, id).toBe(m.universe.candidates.length);
       for (const w of run.waitingReentries) expect(run.legs.some(l => l.key === w.key), `${id} ${w.key}`).toBe(true);
     }
   });
 
-  it('S1, S3 and S4 take one leg a setup; S2 takes one plus its re-entries, no more than the depth allows', () => {
+  it('a setup with no last full day in the report runs S1, S2 and S4 on the negation, and the caveats count it', () => {
     const m = model();
-    for (const id of ['S1', 'S3', 'S4'] as const) {
+    const onNegation = m.universe.candidates.filter(c => c.stop == null && c.stopSource === 'none' && c.negation != null);
+    expect(onNegation.length).toBeGreaterThan(0);
+    expect(m.caveats.onNegation).toBe(onNegation.length);
+    expect(m.caveats.noTightStop).toBeGreaterThanOrEqual(onNegation.length);
+    for (const id of ['S1', 'S2-u', 'S4'] as const) {
+      const run = m.runs[id];
+      for (const c of onNegation) {
+        const legs = run.legs.filter(l => l.key === c.key);
+        if (!legs.length) {
+          const why = [...run.excluded, ...run.pending].find(e => e.key === c.key);
+          expect(why && !why.reason.startsWith('no tight stop'), `${id} ${c.key}`).toBe(true);
+          continue;
+        }
+        expect(legs[0], `${id} ${c.key}`).toMatchObject({ stop: null, stopKind: 'negation', stopSource: 'none' });
+        expect(legs[0].riskPct, `${id} ${c.key}`).toBeCloseTo(Math.abs(legs[0].entry.price - c.negation!) / legs[0].entry.price * 100, 3);
+        for (const l of legs) if (l.exit && l.exit.reason === 'stop') expect(l.exit.stopKind, `${id} ${c.key}`).toBe('trailing stop');
+      }
+    }
+    // S0 and S3 never needed one.
+    for (const id of ['S0', 'S3'] as const) expect(m.runs[id].excluded.some(e => e.reason.startsWith('no tight stop')), id).toBe(false);
+  });
+
+  it('S0 runs on the trigger: every stop exit is a touch of it, and it is out no later than S1 on the same setup', () => {
+    const m = model();
+    const s0 = m.runs.S0, s1 = m.runs.S1;
+    expect(s0.legs.length).toBeGreaterThan(0);
+    let compared = 0;
+    for (const l of s0.legs) {
+      expect(l.n, l.key).toBe(1);
+      expect(l, l.key).toMatchObject({ stop: l.c.trigger, stopKind: 'trigger' });
+      if (l.exit && l.exit.reason === 'stop') {
+        expect(l.exit.stopKind, l.key).toBe('trigger');
+        expect(l.exit.level, l.key).toBe(l.c.trigger);
+      }
+      const other = s1.legs.find(x => x.key === l.key && x.n === 1);
+      // The last full day is inside the trigger, so a touch of it is a touch of the trigger first: S0 is out by then.
+      if (!other || !other.exit || other.exit.reason !== 'stop' || other.stop == null || atOrPast(l.dir === 'long', other.stop, l.c.trigger)) continue;
+      expect(l.exit, l.key).not.toBeNull();
+      expect(l.exit!.when <= other.exit.when, l.key).toBe(true);
+      compared++;
+    }
+    expect(compared).toBeGreaterThan(0);
+  });
+
+  it('under the trigger entry every first fill is at the trigger, or at the close of a day entirely past it (the capture has no opens), and never before the signal', () => {
+    const { bars, hist } = frozenInputs();
+    const m = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry: 'trigger' });
+    const counts = { level: 0, close: 0, open: 0 };
+    for (const id of STRATEGY_IDS) {
+      for (const l of m.runs[id].legs) {
+        const long = l.dir === 'long';
+        const d = l.c.days[l.entry.index];
+        counts[l.entry.basis]++;
+        if (l.entry.basis === 'level') expect(l.entry.price, `${id} ${l.key}`).toBe(l.c.trigger);
+        else if (l.entry.basis === 'close') { expect(d.o, `${id} ${l.key}`).toBeNull(); expect(atOrPast(long, long ? d.lo : d.hi, l.c.trigger), `${id} ${l.key}`).toBe(true); }
+        else expect(atOrPast(long, d.o as number, l.c.trigger), `${id} ${l.key}`).toBe(true);
+        if (l.n === 1) expect(l.entry.index >= l.c.signal.index + (l.c.signalKind === 'report' ? 1 : 0), `${id} ${l.key}`).toBe(true);
+        // The fill day's range is not read for a stop after a fill at the trigger.
+        if (l.entry.basis === 'level' && l.exit && l.exit.reason === 'stop') expect(l.exit.when > l.entry.when, `${id} ${l.key}`).toBe(true);
+      }
+    }
+    expect(counts.level).toBeGreaterThan(0);
+    expect(counts.close).toBeGreaterThan(0);
+    // The 1 Nov capture was written before opens were kept: no fill can be at one.
+    expect(counts.open).toBe(0);
+    for (const id of STRATEGY_IDS) expect(m.runs[id].setups + m.runs[id].pending.length + m.runs[id].excluded.length, id).toBe(m.universe.candidates.length);
+  });
+
+  it('S0, S1, S3 and S4 take one leg a setup; S2 takes one plus its re-entries, no more than the depth allows', () => {
+    const m = model();
+    for (const id of ['S0', 'S1', 'S3', 'S4'] as const) {
       expect(m.runs[id].legs.every(l => l.n === 1), id).toBe(true);
       expect(m.runs[id].legs.length, id).toBe(m.runs[id].setups);
     }
@@ -221,23 +293,49 @@ describe('one row through the whole model', () => {
     expect(m.universe.breakouts).toBe(1);
     for (const id of STRATEGY_IDS) expect(m.runs[id].excluded.map(e => e.reason), id).toEqual(['at the target on the confirming close']);
   });
+
+  it('a setup with no last full day in the report runs in every strategy, on the negation in the stop ones; with no negation either it is left out of them', () => {
+    const m = one({ ...LONG, lfd: 0 }, [...BREAK, ['2026-01-07', 99, 104, 103, 100]]);
+    for (const id of STRATEGY_IDS) expect(m.runs[id].legs, id).toHaveLength(1);
+    for (const id of ['S1', 'S2-u', 'S4'] as const) expect(m.runs[id].legs[0], id).toMatchObject({ stop: null, stopKind: 'negation', stopSource: 'none' });
+    expect(m.runs.S0.legs[0]).toMatchObject({ stop: 100, stopKind: 'trigger' });
+    expect(m.caveats).toMatchObject({ noTightStop: 1, onNegation: 1 });
+    const bare = one({ ...LONG, lfd: 0, negation: null }, [...BREAK, ['2026-01-07', 99, 104, 103, 100]]);
+    for (const id of ['S1', 'S2-u', 'S4'] as const) expect(bare.runs[id].excluded.map(e => e.reason), id).toEqual(['no tight stop: none in the report, and no negation on file']);
+    expect(bare.runs.S3.excluded.map(e => e.reason)).toEqual(['no negation on file']);
+    expect(bare.runs.S0.legs).toHaveLength(1);
+    expect(bare.caveats).toMatchObject({ noTightStop: 1, onNegation: 0 });
+  });
+
+  it('a buy-stop at the trigger still resting at the end of the record is a pending setup, not an excluded one', () => {
+    const { bars, hist } = series([...BREAK, ['2026-01-07', 100, 104, 103, 101], ['2026-01-08', 98.5, 99.5, 99, 99]]);
+    const p: Setup = { ...WITH_LFD, confirmed: '2026-01-07' };
+    const row = evaluate(p, hist, bars, null, '2026-02-01');
+    const m = runModel({ rows: [row], hist: { [p.sym]: hist }, bars: { [p.sym]: bars } }, { ...DEFAULT_SETTINGS, entry: 'trigger' });
+    expect(m.runs.S1).toMatchObject({ legs: [], pending: [{ key: 'X|long', reason: 'waiting for a session back at the trigger' }], excluded: [] });
+  });
 });
 
 describe('the result', () => {
-  it('has a grid cell for every strategy and sizing, a ratio for every S2 depth, and caveats counted from the list', () => {
+  it('has a grid cell for every strategy and sizing, a ratio for S0 and every S2 depth, and caveats counted from the list', () => {
     const m = model();
     expect(m.grid).toHaveLength(STRATEGY_IDS.length * SIZINGS.length);
-    for (const id of S2_IDS) {
+    expect(RATIO_IDS).toEqual(['S0', ...S2_IDS]);
+    for (const id of RATIO_IDS) {
       expect(m.ratios[id]).toBeTruthy();
       expect(m.runs[id].scale).toBe(m.ratios[id]!.equalRisk.ratio ?? 1);
+      expect(m.grid.find(g => g.strategy === id && g.sizing === 'flat')!.ratio).toBe(m.ratios[id]!.equalRisk.ratio);
     }
-    expect(m.ratios.S1).toBeUndefined();
+    // S0's stop, the trigger, is nearer than the last full day: the equal-risk ratio puts more on an S0 entry.
+    expect(m.ratios.S0!.equalRisk.ratio).toBeGreaterThan(1);
+    for (const id of ['S1', 'S3', 'S4'] as const) { expect(m.ratios[id]).toBeUndefined(); expect(m.runs[id].scale).toBe(1); }
     const u = m.universe.candidates;
     expect(m.caveats).toMatchObject({
       setups: u.length,
       shorts: u.filter(c => c.dir === 'short').length,
       derivedStops: u.filter(c => c.stopSource === 'derived').length,
       noTightStop: u.filter(c => c.stop == null).length,
+      onNegation: u.filter(c => c.stop == null && c.stopSource === 'none' && c.negation != null).length,
       imported: u.filter(c => c.imported).length,
       removed: u.filter(c => c.removed).length,
       open: m.runs.S3.legs.filter(l => l.open).length,

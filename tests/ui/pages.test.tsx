@@ -109,7 +109,7 @@ describe('the Method page', () => {
   it('explains the Model in the engine\'s own numbers: the strategies, the fills, the costs, the bootstrap, the day the list began', () => {
     const t = page();
     expect(t).toContain('The Model');
-    for (const s of ['S1 plays B1 and B2 only', 'S2 re-enters', 'S3 holds through breaches', 'S4 trails', 'Fills.', 'Nobody buys a breakout whose confirming close is already at the target']) expect(t).toContain(s);
+    for (const s of ['The Model runs five strategies', 'S0 plays B1 only', 'S1 plays B1 and B2 only', 'S2 re-enters', 'S3 holds through breaches', 'S4 trails', 'Fills.', 'a buy-stop at the trigger', 'Nobody buys a breakout whose confirming close is already at the target', 'one with none in the report runs on the negation instead']) expect(t).toContain(s);
     expect(t).toContain(`${DEFAULT_SETTINGS.commissionPct}% commission and ${DEFAULT_SETTINGS.slippagePct}% slippage a side`);
     expect(t).toContain(`bootstrap of ${DEFAULT_SETTINGS.resamples.toLocaleString('en-US')} resamples`);
     expect(t).toContain(`${TRAIL.atrs} ATRs (Wilder's ${TRAIL.period}-day)`);

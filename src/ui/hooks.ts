@@ -27,7 +27,13 @@ export const useNarrow = (): boolean => useMedia(NARROW_QUERY);
     list no longer fit as tables and would scroll sideways: every list is a stack of cards there, as on a phone, while
     the rest of the page keeps its desktop shape. The widest fits from 1,000 px up; Signals' averages need 1,100. */
 export const CARDS_QUERY = '(max-width: 1000px)';
-export const useCards = (): boolean => useMedia(CARDS_QUERY) || useNarrow();
+export const useCards = (): boolean => {
+  // Both hooks run on every render: `useMedia(CARDS_QUERY) || useNarrow()` would skip the second one once the first is
+  // true, and a change of hook count between renders (a tablet turned, a window resized across 1,000 px) breaks the page.
+  const cards = useMedia(CARDS_QUERY);
+  const narrow = useNarrow();
+  return cards || narrow;
+};
 
 /** localStorage that never throws: private mode and blocked storage read as empty and write nowhere. */
 export const store = {

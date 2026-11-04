@@ -1,6 +1,6 @@
 import type { Caveats, GridCell, ModelResult, StrategyRun } from '../engine/backtest/model';
 import type { Ratios } from '../engine/backtest/ratio';
-import { DEFAULT_SETTINGS, PAYOFF_SCALE, S2_IDS, SIZINGS, STRATEGY_IDS, STRATEGY_WORDS, TRAIL } from '../engine/backtest/settings';
+import { DEFAULT_SETTINGS, PAYOFF_SCALE, RATIO_IDS, SIZINGS, STRATEGY_IDS, STRATEGY_WORDS, TRAIL } from '../engine/backtest/settings';
 import type { SizingId, StrategyId } from '../engine/backtest/settings';
 import type { Leg } from '../engine/backtest/simulate';
 import type { MoneyStats, Stats } from '../engine/backtest/stats';
@@ -15,16 +15,16 @@ import type { Tile } from './tiles';
    number carries its unit: % of the position, R (multiples of the risk taken), or the account currency's name. */
 
 export const STRATEGY_LABEL: Record<StrategyId, string> = {
-  S1: 'S1 · B1/B2 only', 'S2-1': 'S2 · one re-entry', 'S2-2': 'S2 · two re-entries', 'S2-3': 'S2 · three re-entries',
+  S0: 'S0 · B1 only', S1: 'S1 · B1/B2 only', 'S2-1': 'S2 · one re-entry', 'S2-2': 'S2 · two re-entries', 'S2-3': 'S2 · three re-entries',
   'S2-u': 'S2 · re-entries unlimited', S3: 'S3 · negation only', S4: 'S4 · trailing',
 };
-export const STRATEGY_SHORT: Record<StrategyId, string> = { S1: 'S1', 'S2-1': 'S2 ×1', 'S2-2': 'S2 ×2', 'S2-3': 'S2 ×3', 'S2-u': 'S2 ×∞', S3: 'S3', S4: 'S4' };
+export const STRATEGY_SHORT: Record<StrategyId, string> = { S0: 'S0', S1: 'S1', 'S2-1': 'S2 ×1', 'S2-2': 'S2 ×2', 'S2-3': 'S2 ×3', 'S2-u': 'S2 ×∞', S3: 'S3', S4: 'S4' };
 
 export const SIZING_LABEL: Record<SizingId, string> = { flat: 'Flat', perStrategy: 'Per strategy', payoff: 'Payoff-scaled', risk: 'Risk-based' };
 
 /** What the strategy does, in one line, for the line under the dial. */
 export function strategyWords(id: StrategyId): string {
-  const w = STRATEGY_WORDS[id.startsWith('S2') ? 'S2' : (id as 'S1' | 'S3' | 'S4')];
+  const w = STRATEGY_WORDS[id.startsWith('S2') ? 'S2' : (id as 'S0' | 'S1' | 'S3' | 'S4')];
   return `In at ${w.entry}; out on ${w.exit}; the stop is ${w.stop}.`;
 }
 
@@ -52,53 +52,57 @@ export function legsInScope(run: StrategyRun, sizing: SizingId, scope: Scope): {
   return { legs: keep.map(([l]) => l), sizes: keep.map(([, s]) => s) };
 }
 
-/** The eight tiles for a strategy under a sizing: the trade count, the rates and means, the money. The money statistics are the
-    view's own (closed legs alone, under that scope); every leg's by default. */
-export function modelTiles(run: StrategyRun, sizing: SizingId, scope: Scope, label: string, m: MoneyStats = run.money[sizing]): Tile[] {
-  const st = scope === 'closed' ? run.stats.closed : run.stats.all;
-  const iv = scope === 'closed' ? run.bootstrap.pct.closed : run.bootstrap.pct.all;
-  const scopeWords = scope === 'closed' ? 'closed trades only' : `${plural(st.open, 'open leg', 'open legs')} marked at the latest close`;
+/** The caption over each column of a tile: every leg, with the open ones marked at the latest close, or the closed ones alone. */
+export const SCOPE_HEAD: Record<Scope, string> = { all: 'All legs', closed: 'Closed only' };
+
+/** The money statistics under one sizing, over every leg and over the closed legs alone. */
+export interface ScopeMoney { all: MoneyStats; closed: MoneyStats }
+
+/** Why the two columns differ, for the line under the tiles. */
+export const SCOPE_NOTE = 'Closed only leans toward losers while trades are young: a stop is touched within days and a target takes weeks, so the winners still in play are among the open legs, which All legs marks at the latest settled close.';
+
+/** The eight tiles for a strategy under a sizing, each with every leg beside the closed ones: the trade count, the rates and
+    means, the money. */
+export function modelTiles(run: StrategyRun, sizing: SizingId, label: string, m: ScopeMoney): Tile[] {
+  const pair = (name: string, title: string, f: (scope: Scope) => { value: string; sub?: string; tone?: Tile['tone'] }): Tile => {
+    const all = f('all'), closed = f('closed');
+    return { label: name, value: all.value, tone: all.tone, title, cols: [{ head: SCOPE_HEAD.all, ...all }, { head: SCOPE_HEAD.closed, ...closed }] };
+  };
+  const st = (scope: Scope) => (scope === 'closed' ? run.stats.closed : run.stats.all);
+  const iv = (scope: Scope) => (scope === 'closed' ? run.bootstrap.pct.closed : run.bootstrap.pct.all);
   return [
-    {
-      label: 'Trades', value: String(st.legs),
-      sub: st.legs ? `${plural(st.setups, 'setup', 'setups')} · ${scopeWords}` : 'none under these settings',
-      title: 'Legs: each entry is one, a re-entry included. ' + (scope === 'closed' ? 'Closed trades only.' : 'Open legs are marked at the latest settled close.'),
-    },
-    {
-      label: 'Win rate', value: st.winRate == null ? '–' : Math.round(st.winRate) + '%',
-      sub: st.legs ? `${st.wins} up · ${st.losses} down${st.flat ? ` · ${st.flat} flat` : ''}` : 'no trades',
-      title: 'Legs that came out ahead after both sides\' costs, as a share of all legs.',
-    },
-    {
-      label: 'Expectancy', value: signedPct(st.expectancyPct), tone: tone(st.expectancyPct),
-      sub: iv ? `90% interval ${signedPct(iv.low)} to ${signedPct(iv.high)}` : 'too few trades for an interval',
-      title: `The mean net return per leg, in % of the position. The interval is a bootstrap: the list resampled ${iv ? iv.resamples.toLocaleString('en-US') : DEFAULT_SETTINGS.resamples.toLocaleString('en-US')} times, the middle 90% of the means.`,
-    },
-    {
-      label: 'In R', value: signedR(st.expectancyR), tone: tone(st.expectancyR),
-      sub: st.withR ? `over ${plural(st.withR, 'leg', 'legs')} with a stop to measure from` : 'no leg had a stop to measure from',
-      title: 'The mean net return in multiples of the risk taken: the distance from the entry to the stop in force (the negation where there was no tight stop).',
-    },
-    {
-      label: 'Profit factor', value: ratio2(st.profitFactor),
-      sub: st.profitFactor == null ? (st.legs ? 'no losing leg' : 'no trades') : 'gains over losses, net of costs',
-      title: 'The sum of the winning legs\' returns over the sum of the losing legs\', both in % of the position.',
-    },
-    {
-      label: 'Max drawdown', value: money(-m.maxDrawdown, label), tone: m.maxDrawdown > 0 ? 'bad' : undefined,
-      sub: `from a high of ${money(m.peakEquity, label)} · ${SIZING_LABEL[sizing].toLowerCase()} sizing${scope === 'closed' ? ' · closed legs' : ''}`,
-      title: 'The deepest fall of the equity line from a high, in account units, with every leg marked daily at the settled close and FX held constant.',
-    },
-    {
-      label: 'Positions open', value: m.avgOpen == null ? '–' : m.avgOpen.toFixed(1),
-      sub: m.peakOpen ? `on average · ${m.peakOpen} at the most, at once` : 'none',
-      title: 'Legs held per day, over the days on which at least one was held; the exit day counts.',
-    },
-    {
-      label: 'Capital in use', value: money(m.peakExposure, label),
-      sub: 'at the most, at once',
-      title: 'The most account units held in open legs on one day under this sizing.',
-    },
+    pair('Trades', 'Legs: each entry is one, a re-entry included. Every leg, with the open ones marked at the latest settled close, beside the closed trades alone.', scope => {
+      const x = st(scope);
+      return { value: String(x.legs), sub: x.legs ? (scope === 'all' ? `${plural(x.setups, 'setup', 'setups')} · ${x.open} still open` : plural(x.setups, 'setup', 'setups')) : 'none' };
+    }),
+    pair('Win rate', 'Legs that came out ahead after both sides\' costs, as a share of all legs.', scope => {
+      const x = st(scope);
+      return { value: x.winRate == null ? '–' : Math.round(x.winRate) + '%', sub: x.legs ? `${x.wins} up · ${x.losses} down${x.flat ? ` · ${x.flat} flat` : ''}` : 'no trades' };
+    }),
+    pair('Expectancy', `The mean net return per leg, in % of the position. The interval is a bootstrap: the list resampled ${DEFAULT_SETTINGS.resamples.toLocaleString('en-US')} times, the middle 90% of the means.`, scope => {
+      const x = st(scope), i = iv(scope);
+      return { value: signedPct(x.expectancyPct), tone: tone(x.expectancyPct), sub: i ? `90% interval ${signedPct(i.low)} to ${signedPct(i.high)}` : 'too few for an interval' };
+    }),
+    pair('In R', 'The mean net return in multiples of the risk taken: the distance from the entry to the stop in force (the negation where there was no tight stop). A leg filled at its own stop, S0 at the trigger, has none to measure.', scope => {
+      const x = st(scope);
+      return { value: signedR(x.expectancyR), tone: tone(x.expectancyR), sub: x.withR ? `over ${plural(x.withR, 'leg', 'legs')} with risk to measure` : 'no leg had risk to measure' };
+    }),
+    pair('Profit factor', 'The sum of the winning legs\' returns over the sum of the losing legs\', both in % of the position.', scope => {
+      const x = st(scope);
+      return { value: ratio2(x.profitFactor), sub: x.profitFactor == null ? (x.legs ? 'no losing leg' : 'no trades') : 'gains over losses, net' };
+    }),
+    pair('Max drawdown', 'The deepest fall of the equity line from a high, in account units, with every leg marked daily at the settled close and FX held constant.', scope => {
+      const x = m[scope];
+      return { value: money(-x.maxDrawdown, label), tone: x.maxDrawdown > 0 ? 'bad' : undefined, sub: `from a high of ${money(x.peakEquity, label)}` };
+    }),
+    pair('Positions open', `Legs held per day, over the days on which at least one was held; the exit day counts. ${SIZING_LABEL[sizing]} sizing.`, scope => {
+      const x = m[scope];
+      return { value: x.avgOpen == null ? '–' : x.avgOpen.toFixed(1), sub: x.peakOpen ? `on average · ${x.peakOpen} at the most` : 'none' };
+    }),
+    pair('Capital in use', `The most account units held in open legs on one day under ${SIZING_LABEL[sizing].toLowerCase()} sizing.`, scope => {
+      const x = m[scope];
+      return { value: money(x.peakExposure, label), sub: 'at the most, at once' };
+    }),
   ];
 }
 
@@ -130,7 +134,7 @@ export function tradeCells(l: Leg, size: number, label: string): TradeCells {
       ? { value: fmtD(l.exit.when), sub: `${fmt(l.exit.price)}${ccy} · ${REASON_WORDS[l.exit.reason]}${exitStop}, ${basisWords(l.exit.basis)}` }
       : { value: 'open', sub: `marked ${fmt(l.mark.price)}${ccy} on ${fmtD(l.mark.when)}`, tone: 'warn' },
     ret: { value: signedPct(l.netPct), tone: tone(l.netPct) as Cell['tone'], sub: `${signedPct(l.grossPct)} before costs` },
-    r: { value: signedR(l.r), sub: l.riskPct != null ? `risk ${l.riskPct.toFixed(1)}% to the ${l.stopKind === 'none' ? 'negation' : l.stopKind}` : 'no level on the losing side' },
+    r: { value: signedR(l.r), sub: l.riskPct != null ? `risk ${l.riskPct.toFixed(1)}% to the ${l.stopKind === 'none' ? 'negation' : l.stopKind}` : l.stop != null || l.c.negation != null ? 'filled at the stop: no risk to measure' : 'no level on the losing side' },
     days: { value: String(l.days), sub: l.days === 1 ? 'day' : 'days' },
     type: l.tag ? { value: l.tag, badge: { text: l.tag, cls: l.tag.toLowerCase() } } : { value: '–', sub: 'no type' },
     stop: stopCell(l, ccy),
@@ -138,15 +142,16 @@ export function tradeCells(l: Leg, size: number, label: string): TradeCells {
   };
 }
 
-/** The stop the leg ran on at its entry: the last full day and where it came from, a new one read for a re-entry, or the
-    negation where there was no tight stop. */
+/** The stop the leg ran on at its entry: the last full day and where it came from, a new one read for a re-entry, the
+    trigger under S0, or the negation where there was no tight stop. */
 function stopCell(l: Leg, ccy: string): Cell {
   if (l.stopKind === 'last full day' && l.stop != null) {
     return { value: fmt(l.stop) + ccy, sub: 'last full day, ' + (l.stopSource === 'report' ? 'from the report' : 'read from the bars') };
   }
   if (l.stopKind === 'new last full day' && l.stop != null) return { value: fmt(l.stop) + ccy, sub: 'new last full day, read from the re-entry run' };
+  if (l.stopKind === 'trigger') return { value: fmt(l.c.trigger) + ccy, sub: 'the trigger: out on its first touch' };
   if (l.c.negation != null) {
-    return { value: fmt(l.c.negation) + ccy, sub: l.stopKind === 'negation' ? 'the negation' : l.n > 1 ? 'the negation: no new last full day could be read' : 'the negation: no tight stop' };
+    return { value: fmt(l.c.negation) + ccy, sub: l.stopKind === 'negation' ? (l.stopSource === 'none' ? 'the negation: no last full day in the report' : 'the negation') : l.n > 1 ? 'the negation: no new last full day could be read' : 'the negation: no tight stop' };
   }
   return { value: 'none', sub: 'no level on the losing side' };
 }
@@ -191,9 +196,9 @@ export interface RatioRow { id: StrategyId; label: string; equalRisk: string; eq
 
 const ratioText = (v: number | null) => (v == null ? '–' : v.toFixed(2));
 
-/** The ratio question, one row per S2 depth against S1. */
+/** The ratio question, one row for S0 and one per S2 depth, each against S1. */
 export function ratioRows(result: ModelResult): RatioRow[] {
-  return S2_IDS.map(id => {
+  return RATIO_IDS.map(id => {
     const r = result.ratios[id] as Ratios | undefined;
     return {
       id, label: STRATEGY_LABEL[id],
@@ -217,12 +222,24 @@ export function gridRows(result: ModelResult, label: string): GridRow[] {
 
 const monthWords = (ym: string): string => new Date(ym + '-15T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
+/** "4 without a tight stop (none in the report: on the negation in S1, S2 and S4)", with the other cases, which run only
+    where no tight stop is needed: S0 and S3. */
+export function noStopWords(c: Caveats): string {
+  const rest = c.noTightStop - c.onNegation;
+  const head = `${c.noTightStop} without a tight stop`;
+  const only = 'only where no tight stop is needed, in S0 and S3';
+  if (!c.noTightStop) return head;
+  if (!c.onNegation) return `${head} (${only})`;
+  if (!rest) return `${head} (none in the report: on the negation in S1, S2 and S4)`;
+  return `${head} (${c.onNegation} with none in the report run on the negation in S1, S2 and S4; ${rest} ${only})`;
+}
+
 /** The caveats, each with its number from the day's list (plan B5), and the bias the list carries (plan B1). */
 export function caveatText(c: Caveats, u: ModelResult['universe'], fromListBegan: boolean): string {
   const parts: string[] = [];
   parts.push(`Counted from the trade list: ${plural(c.setups, 'setup', 'setups')} of the ${plural(u.breakouts, 'breakout', 'breakouts')}` +
     (c.busiestMonth ? `, ${c.busiestMonth.count} of them from ${monthWords(c.busiestMonth.month)}` : '') +
-    `; ${plural(c.shorts, 'short', 'shorts')}; ${c.open} still open; ${c.derivedStops} with a stop read from the bars rather than the report; ${c.noTightStop} without a tight stop (in S3 only); ${c.imported} imported already confirmed; ${c.reached} closed on the day the source counted the target; ${c.removed} closed on removal.`);
+    `; ${plural(c.shorts, 'short', 'shorts')}; ${c.open} still open; ${c.derivedStops} with a stop read from the bars rather than the report; ${noStopWords(c)}; ${c.imported} imported already confirmed; ${c.reached} closed on the day the source counted the target; ${c.removed} closed on removal.`);
   parts.push(fromListBegan
     ? `Only breakouts from ${fmtD(c.listBegan)} on, the day the list began: the ${plural(c.beforeListBegan, 'breakout', 'breakouts')} before it ${c.beforeListBegan === 1 ? 'is' : 'are'} left out.`
     : `The list began on ${fmtD(c.listBegan)} with setups already confirmed, so the ${plural(c.beforeListBegan, 'breakout', 'breakouts')} before it are the ones the source still listed then: winners and open trades are over-represented there. The From dial leaves them out.`);
@@ -246,15 +263,15 @@ export const fxWords = (label: string): string =>
 
 /** The one-line rule for each dial, for the Method page and the controls' help. */
 export const DIAL_WORDS = {
-  entry: 'The entry is the next session\'s open where the bars have it, or the confirming close itself.',
+  entry: 'The entry is the next session\'s open where the bars have it, the confirming close itself, or a buy-stop at the trigger: filled at the trigger on the day that closes past it, or at the open where that day opened past it (from a report, at the first open at or past the trigger, or at the trigger on the first session back at it).',
   importedEntry: 'A setup imported already confirmed enters from the report that listed it (its first session after the report\'s date), or at the confirming close the lookback found.',
   targetOn: 'The target counts on a settled close at or past it, the board\'s rule, or on an intraday touch.',
   reentryStop: 'After a re-entry the stop is the original last full day, or a new one read from the re-entry run as the first was.',
   removed: 'A setup the source removed after it broke out is closed at the last close on or before the removal date, or left out.',
   from: 'All breakouts, or only those from the day the list began.',
   costs: 'Commission and slippage per side, in % of the position, taken off every leg\'s return, open ones included.',
-  sizing: `Flat puts the same amount on every entry; per strategy scales S2 by its equal-risk ratio against S1; payoff scales by the setup's payoff against the median, between ${PAYOFF_SCALE.min}× and ${PAYOFF_SCALE.max}×; risk puts a fixed sum between the entry and the stop, up to a cap.`,
-  trail: `S4's trail is ${TRAIL.atrs} ATRs (Wilder's ${TRAIL.period}-day) under the best close since the entry; it only ever tightens, and the stop is the higher of it and the last full day.`,
+  sizing: `Flat puts the same amount on every entry; per strategy scales S0 and S2 by their equal-risk ratio against S1, up to the cap; payoff scales by the setup's payoff against the median, between ${PAYOFF_SCALE.min}× and ${PAYOFF_SCALE.max}×; risk puts a fixed sum between the entry and the stop, up to a cap.`,
+  trail: `S4's trail is ${TRAIL.atrs} ATRs (Wilder's ${TRAIL.period}-day) under the best close since the entry; it only ever tightens, and the stop is the higher of it and the last full day (or the negation, where the report gives none).`,
 } as const;
 
 /** What the money figures are built on, for the line under the charts. */

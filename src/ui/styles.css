@@ -793,8 +793,14 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 .numwrap input[type="text"] { width: 128px; }
 .numwrap input:focus-visible { outline-offset: 0; }
 .numunit { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
-.page.model .tiles { margin-top: 18px; }
+/* The Model's tiles show every leg beside the closed trades alone, two figures a tile under their captions, so the grid
+   is two tiles wide and each figure keeps its unit. */
+.page.model .tiles { margin-top: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .page.model .tile .tv { font-size: 24px; }
+.tile .tvs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tile .tcol { min-width: 0; }
+.tile .tcol + .tcol { padding-left: 14px; border-left: 1px solid var(--hair); }
+.tile .th { display: block; margin-bottom: 2px; font-size: 11.5px; font-weight: 600; color: var(--text-muted); }
 
 .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
 .chart { margin: 0; padding: 12px 14px 10px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
@@ -828,7 +834,8 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 .leftout .gaplist li b { font-weight: 650; }
 
 @media (max-width: 700px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
-  .page.model .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page.model .tiles { grid-template-columns: minmax(0, 1fr); }
+  .page.model .tile .tv { font-size: 20px; }
   .modelctl { padding: 12px 12px 10px; }
   .dials { gap: 10px 14px; }
   .dial .choice { flex-wrap: wrap; }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { runModel } from '../../src/engine/backtest/model';
-import { DEFAULT_SETTINGS, S2_IDS, SIZINGS, STRATEGY_IDS } from '../../src/engine/backtest/settings';
+import { DEFAULT_SETTINGS, RATIO_IDS, SIZINGS, STRATEGY_IDS } from '../../src/engine/backtest/settings';
+import { moneyStatsOf } from '../../src/engine/backtest/stats';
+import type { StrategyRun } from '../../src/engine/backtest/model';
+import type { SizingId } from '../../src/engine/backtest/settings';
 import type { Leg } from '../../src/engine/backtest/simulate';
-import { caveatText, exclusionLines, gridRows, legsInScope, modelTiles, money, ratioRows, reasonLine, signedR, sortTrades, strategyWords, tradeCells, typeRows } from '../../src/ui/modelcells';
+import { caveatText, exclusionLines, gridRows, legsInScope, modelTiles, money, noStopWords, ratioRows, reasonLine, SCOPE_HEAD, signedR, sortTrades, strategyWords, tradeCells, typeRows } from '../../src/ui/modelcells';
 import { frozenBoard, frozenInputs } from './frozen';
 
 /* What the Model page says, read back against the engine's own result on the frozen board. Every count comes from the
@@ -26,31 +29,48 @@ describe('units', () => {
   });
 });
 
+/** The money of a run under a sizing, over every leg and over the closed legs alone, as the page hands it to the tiles. */
+const moneyOf = (run: StrategyRun, sizing: SizingId) => {
+  const closed = legsInScope(run, sizing, 'closed');
+  return { all: run.money[sizing], closed: moneyStatsOf(closed.legs, closed.sizes) };
+};
+
 describe('the tiles', () => {
-  it('carry the strategy\'s own counts and means, each with its unit', () => {
+  it('carry the strategy\'s own counts and means, every leg beside the closed ones, each with its unit', () => {
     const run = result.runs['S2-u'];
-    const tiles = modelTiles(run, 'flat', 'all', 'units');
+    const m = moneyOf(run, 'flat');
+    const tiles = modelTiles(run, 'flat', 'units', m);
     const by = Object.fromEntries(tiles.map(t => [t.label, t]));
-    expect(by.Trades.value).toBe(String(run.stats.all.legs));
-    expect(by.Trades.sub).toContain(`${run.setups} setups`);
-    expect(by['Win rate'].value).toBe(Math.round(run.stats.all.winRate!) + '%');
-    expect(by.Expectancy.value).toMatch(/^[+−]?\d+\.\d%$/);
-    expect(by.Expectancy.sub).toContain('90% interval');
-    expect(by['In R'].value).toMatch(/ R$/);
-    expect(by['In R'].sub).toContain('legs with a stop');
-    expect(by['Max drawdown'].value).toBe(money(-run.money.flat.maxDrawdown, 'units'));
-    expect(by['Capital in use'].value).toBe(money(run.money.flat.peakExposure, 'units'));
-    expect(by['Positions open'].sub).toContain(`${run.money.flat.peakOpen} at the most`);
     expect(tiles).toHaveLength(8);
+    for (const t of tiles) {
+      expect(t.cols!.map(c => c.head), t.label).toEqual([SCOPE_HEAD.all, SCOPE_HEAD.closed]);
+      expect(t.value, t.label).toBe(t.cols![0].value);
+    }
+    expect(by.Trades.cols![0].value).toBe(String(run.stats.all.legs));
+    expect(by.Trades.cols![1].value).toBe(String(run.stats.closed.legs));
+    expect(by.Trades.cols![0].sub).toBe(`${run.setups} setups · ${run.stats.all.open} still open`);
+    expect(by.Trades.cols![1].sub).toBe(`${run.stats.closed.setups} setups`);
+    expect(by['Win rate'].cols![0].value).toBe(Math.round(run.stats.all.winRate!) + '%');
+    expect(by['Win rate'].cols![1].value).toBe(Math.round(run.stats.closed.winRate!) + '%');
+    for (const c of by.Expectancy.cols!) { expect(c.value).toMatch(/^[+−]?\d+\.\d%$/); expect(c.sub).toContain('90% interval'); }
+    for (const c of by['In R'].cols!) { expect(c.value).toMatch(/ R$/); expect(c.sub).toContain('with risk to measure'); }
+    expect(by['Max drawdown'].cols![0].value).toBe(money(-m.all.maxDrawdown, 'units'));
+    expect(by['Max drawdown'].cols![1].value).toBe(money(-m.closed.maxDrawdown, 'units'));
+    expect(by['Capital in use'].cols![0].value).toBe(money(m.all.peakExposure, 'units'));
+    expect(by['Capital in use'].cols![1].value).toBe(money(m.closed.peakExposure, 'units'));
+    expect(by['Positions open'].cols![0].sub).toContain(`${m.all.peakOpen} at the most`);
+    // The open legs are the difference between the columns.
+    expect(run.stats.all.legs - run.stats.closed.legs).toBe(run.stats.all.open);
   });
 
-  it('switch to the closed trades, and to another sizing\'s money, when asked', () => {
+  it('take another sizing\'s money and currency label', () => {
     const run = result.runs.S1;
-    const closed = modelTiles(run, 'risk', 'closed', 'USD');
-    expect(closed[0].value).toBe(String(run.stats.closed.legs));
-    expect(closed[0].sub).toContain('closed trades only');
-    expect(closed[5].value).toBe(money(-run.money.risk.maxDrawdown, 'USD'));
-    expect(closed[5].sub).toContain('risk-based sizing');
+    const m = moneyOf(run, 'risk');
+    const tiles = modelTiles(run, 'risk', 'USD', m);
+    expect(tiles[5].cols![0].value).toBe(money(-run.money.risk.maxDrawdown, 'USD'));
+    expect(tiles[5].cols![1].value).toBe(money(-m.closed.maxDrawdown, 'USD'));
+    expect(tiles[6].title).toContain('Risk-based sizing');
+    expect(tiles[7].title).toContain('risk-based sizing');
   });
 });
 
@@ -72,14 +92,22 @@ describe('a trade\'s cells', () => {
     expect(c.type.badge).toEqual({ text: leg.tag, cls: leg.tag!.toLowerCase() });
   });
 
-  it('name the stop the leg ran on: the last full day and where it came from, or the negation where there was no tight stop', () => {
+  it('name the stop the leg ran on: the last full day and where it came from, the trigger under S0, or the negation where there was no tight stop', () => {
     const s1 = tradeCells(leg, 10000, 'units').stop;
     expect(s1.value).toContain(leg.currency);
     expect(s1.sub).toMatch(/^last full day, (from the report|read from the bars)$/);
-    const s3 = result.runs.S3.legs[0];
+    const s3 = result.runs.S3.legs.find(l => l.stopSource !== 'none')!;
     const c3 = tradeCells(s3, 10000, 'units').stop;
     expect(c3.value).toBe(String(s3.c.negation!.toLocaleString('en-US', { maximumFractionDigits: Math.abs(s3.c.negation!) >= 100 ? 1 : 2 })) + ' ' + s3.currency);
     expect(c3.sub).toBe('the negation');
+    const s0 = result.runs.S0.legs[0];
+    const c0 = tradeCells(s0, 10000, 'units').stop;
+    expect(c0.value).toContain(s0.currency);
+    expect(c0.sub).toBe('the trigger: out on its first touch');
+    expect(tradeCells(s0, 10000, 'units').r.sub).toMatch(/to the trigger$/);
+    const onNegation = result.runs.S1.legs.find(l => l.stopSource === 'none')!;
+    expect(onNegation).toBeTruthy();
+    expect(tradeCells(onNegation, 10000, 'units').stop.sub).toBe('the negation: no last full day in the report');
   });
 
   it('count the closed legs alone when asked, with their sizes', () => {
@@ -129,9 +157,10 @@ describe('the tables', () => {
     expect(line.split(' · ').map(x => Number(x.split(' ')[0]))).toEqual(counts);
   });
 
-  it('answer the ratio question for every S2 depth against S1, with what is behind each number', () => {
+  it('answer the ratio question for S0 and every S2 depth against S1, with what is behind each number', () => {
     const rows = ratioRows(result);
-    expect(rows.map(r => r.id)).toEqual(S2_IDS);
+    expect(rows.map(r => r.id)).toEqual(RATIO_IDS);
+    expect(rows[0].label).toBe('S0 · B1 only');
     for (const r of rows) {
       expect(r.equalRisk).toBe(result.ratios[r.id]!.equalRisk.ratio!.toFixed(2));
       expect(r.behind).toContain('setups with a stop');
@@ -154,6 +183,8 @@ describe('the words', () => {
     expect(t).toContain(`${result.caveats.setups} setups of the ${result.universe.breakouts} breakouts`);
     expect(t).toContain(`${result.caveats.shorts} shorts`);
     expect(t).toContain(`${result.caveats.derivedStops} with a stop read from the bars`);
+    expect(t).toContain(noStopWords(result.caveats));
+    expect(result.caveats.onNegation).toBeGreaterThan(0);
     expect(t).toContain(`${result.caveats.beforeListBegan} breakouts before it`);
     expect(t).toContain('08-08-26');
     expect(caveatText(result.caveats, result.universe, true)).toContain('Only breakouts from 08-08-26 on');
@@ -174,7 +205,17 @@ describe('the words', () => {
     for (const g of groups) for (const e of g.items) expect(e.reason).toBeTruthy();
   });
 
+  it('count the setups without a tight stop, and say which run on the negation', () => {
+    const c = (noTightStop: number, onNegation: number) => ({ ...result.caveats, noTightStop, onNegation });
+    expect(noStopWords(c(0, 0))).toBe('0 without a tight stop');
+    expect(noStopWords(c(2, 0))).toBe('2 without a tight stop (only where no tight stop is needed, in S0 and S3)');
+    expect(noStopWords(c(4, 4))).toBe('4 without a tight stop (none in the report: on the negation in S1, S2 and S4)');
+    expect(noStopWords(c(6, 4))).toBe('6 without a tight stop (4 with none in the report run on the negation in S1, S2 and S4; 2 only where no tight stop is needed, in S0 and S3)');
+  });
+
   it('say what each strategy does in one line', () => {
+    expect(strategyWords('S0')).toContain('out on the first touch of the trigger');
+    expect(strategyWords('S0')).toContain('the stop is the trigger');
     expect(strategyWords('S1')).toContain('In at the confirming close');
     expect(strategyWords('S2-3')).toContain('again at a settled close back past the trigger');
     expect(strategyWords('S4')).toContain('ATRs');

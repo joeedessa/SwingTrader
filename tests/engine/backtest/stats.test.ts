@@ -115,6 +115,8 @@ describe('sizing', () => {
   it('flat is the amount; per strategy scales it', () => {
     expect(sizeOf(leg(6, 120), 'flat', s, { scale: 0.3, medianPayoff: 20 })).toBe(10000);
     expect(sizeOf(leg(6, 120), 'perStrategy', s, { scale: 0.3, medianPayoff: 20 })).toBeCloseTo(3000, 9);
+    // The per-strategy size stops at the cap: S0's ratio against S1 can run to several times the flat amount.
+    expect(sizeOf(leg(6, 120), 'perStrategy', s, { scale: 5.8, medianPayoff: 20 })).toBe(s.maxSize);
   });
 
   it('payoff scales by the setup\'s payoff over the median, between half and double', () => {

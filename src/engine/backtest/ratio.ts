@@ -2,17 +2,17 @@ import { median } from '../outcomes';
 import type { Leg } from './simulate';
 import type { MoneyStats } from './stats';
 
-/* "What ratio between A and B makes sense" (plan B3): how much to put on an S2 entry for each unit on an S1 entry.
-   Three answers, one primary:
+/* "What ratio between A and B makes sense" (plan B3): how much to put on an S2 entry, or (revision 9) an S0 entry,
+   for each unit on an S1 entry. Three answers, one primary:
 
    Equal risk per setup. The median, over setups, of the risk a setup makes you take in total (the entry-to-stop
-   distance of every leg it opens, added up) under S1, over the same under S2-k. This follows from the rules, not from
-   how the sample happened to go.
+   distance of every leg it opens, added up) under S1, over the same under S0 or S2-k. This follows from the rules, not
+   from how the sample happened to go. A leg filled at its own stop (S0 at the trigger) has no distance to add.
 
-   Equal maximum drawdown. Scale S2's flat amount until its deepest drawdown equals S1's. Both are linear in the
-   amount, so the ratio is S1's drawdown over S2's.
+   Equal maximum drawdown. Scale the strategy's flat amount until its deepest drawdown equals S1's. Both are linear in
+   the amount, so the ratio is S1's drawdown over the strategy's.
 
-   Equal capital in use. Scale until the peak amount held at once matches: S1's peak exposure over S2's. */
+   Equal capital in use. Scale until the peak amount held at once matches: S1's peak exposure over the strategy's. */
 
 export interface Ratio {
   ratio: number | null;

@@ -8,7 +8,9 @@ import { DEFAULT_SETTINGS, LIST_BEGAN, SIZINGS, STRATEGY_IDS } from '../../src/e
 import { route } from '../../src/router';
 import { ModelPage } from '../../src/ui/model';
 import { moneyStatsOf } from '../../src/engine/backtest/stats';
-import { legsInScope, modelTiles, STRATEGY_LABEL } from '../../src/ui/modelcells';
+import { legsInScope, modelTiles, SCOPE_NOTE, STRATEGY_LABEL } from '../../src/ui/modelcells';
+import type { StrategyRun } from '../../src/engine/backtest/model';
+import type { SizingId } from '../../src/engine/backtest/settings';
 import { engineSettings, parseModelQuery } from '../../src/ui/modelurl';
 import { frozenInputs } from './frozen';
 
@@ -20,6 +22,10 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#39;|&apo
 
 // The store patches, so a query from the test before has to be cleared, not left out.
 const at = (query: string) => { route.set({ page: 'model', row: null, query: query || undefined }); return render(<ModelPage />); };
+const tilesOf = (run: StrategyRun, sizing: SizingId, label: string) => {
+  const closed = legsInScope(run, sizing, 'closed');
+  return modelTiles(run, sizing, label, { all: run.money[sizing], closed: moneyStatsOf(closed.legs, closed.sizes) });
+};
 const resultFor = (query: string) => {
   const s = app.get();
   const { bd } = boardView(s, 'watchlist');
@@ -44,9 +50,12 @@ describe('the Model page', () => {
     const html = at('');
     const t = text(html);
     expect(t).toContain(`${r.universe.breakouts} breakouts · ${r.universe.candidates.length} setups in the trade list · ${STRATEGY_LABEL['S2-u']}`);
-    const tiles = modelTiles(r.runs['S2-u'], 'flat', 'all', 'units');
-    for (const tile of tiles) { expect(t).toContain(tile.label); expect(t).toContain(tile.value); }
-    expect(t).toContain('every leg, the open ones marked at the latest settled close');
+    const tiles = tilesOf(r.runs['S2-u'], 'flat', 'units');
+    for (const tile of tiles) { expect(t).toContain(tile.label); for (const c of tile.cols!) { expect(t).toContain(c.head); expect(t).toContain(c.value); } }
+    expect((html.match(/class="tile pair"/g) || []).length).toBe(tiles.length);
+    expect(t).toContain('every leg beside the closed trades alone');
+    expect(t).toContain(SCOPE_NOTE);
+    expect(t).toContain('count every leg, the open ones marked at the latest settled close');
     expect((html.match(/class="symbtn"/g) || []).length).toBe(r.runs['S2-u'].legs.length);
   });
 
@@ -55,12 +64,12 @@ describe('the Model page', () => {
     const r = resultFor(q);
     const t = text(at(q));
     expect(t).toContain(STRATEGY_LABEL.S1);
-    // Closed only: the money, the lines and the list are over the closed legs alone.
+    // Closed only: the lines and the list are over the closed legs alone; the tiles show both columns whatever the count.
     const closed = legsInScope(r.runs.S1, 'risk', 'closed');
     expect(closed.legs.length).toBeLessThan(r.runs.S1.legs.length);
-    const tiles = modelTiles(r.runs.S1, 'risk', 'closed', 'USD', moneyStatsOf(closed.legs, closed.sizes));
-    for (const tile of tiles) expect(t).toContain(tile.value);
-    expect(t).toContain('closed trades only');
+    const tiles = tilesOf(r.runs.S1, 'risk', 'USD');
+    for (const tile of tiles) for (const c of tile.cols!) expect(t).toContain(c.value);
+    expect(t).toContain('count closed trades only');
     expect(t).toContain(' USD');
     expect(t).not.toContain(' units');
     expect((at(q).match(/class="symbtn"/g) || []).length).toBe(closed.legs.length);
@@ -76,6 +85,16 @@ describe('the Model page', () => {
     expect(t).toContain(String(r.runs['S2-u'].legs.length));
   });
 
+  it('runs the engine on the trigger entry, and shows the dial pressed', () => {
+    const q = 'entry=trigger';
+    const r = resultFor(q);
+    expect(r.settings.entry).toBe('trigger');
+    const html = at(q);
+    expect(html).toContain('aria-pressed="true">At the trigger</button>');
+    expect(text(html)).toContain(String(r.runs['S2-u'].legs.length));
+    expect(at('')).toContain('aria-pressed="false">At the trigger</button>');
+  });
+
   it('prints the same numbers for the same link, twice', () => {
     const q = 's=S2-2&sz=payoff&cur=EUR';
     expect(at(q)).toBe(at(q));
@@ -86,8 +105,8 @@ describe('the Model page', () => {
     for (const strategy of STRATEGY_IDS) {
       for (const sizing of SIZINGS) {
         const r = resultFor(`s=${strategy}&sz=${sizing}`);
-        for (const tile of modelTiles(r.runs[strategy], sizing, 'all', 'units')) {
-          expect(tile.value, `${strategy} ${sizing} ${tile.label}`).toMatch(/^(–|\d+|\d+\.\d|[+−]?\d+\.\d%|[+−]?\d+\.\d\d R|\d+%|\d+\.\d\d|−?[\d,]+ units)$/);
+        for (const tile of tilesOf(r.runs[strategy], sizing, 'units')) {
+          for (const c of tile.cols!) expect(c.value, `${strategy} ${sizing} ${tile.label} ${c.head}`).toMatch(/^(–|\d+|\d+\.\d|[+−]?\d+\.\d%|[+−]?\d+\.\d\d R|\d+%|\d+\.\d\d|−?[\d,]+ units)$/);
         }
       }
     }
