@@ -34,15 +34,36 @@ describe('the universe on the frozen board', () => {
     expect(keys).toEqual(broke.map(r => keyOf(r.p.sym, r.p.dir)).sort());
   });
 
-  it('every candidate enters at the close the board itself reads the breakout from', () => {
+  it('every candidate is signalled from the close the board reads the breakout from, or, imported, from the last close before the report', () => {
     const rows = rowByKey();
+    let fromReport = 0;
     for (const c of model().universe.candidates) {
       const r = rows.get(c.key)!;
-      const when = r.st.breakout!.close != null ? r.st.breakout!.when : r.lfd!.conf;
-      expect(c.signal.when, c.key).toBe(when);
+      expect(c.imported, c.key).toBe(r.st.breakout!.close == null);
+      if (!c.imported) {
+        expect(c.signal.when, c.key).toBe(r.st.breakout!.when);
+        expect(c.signalKind, c.key).toBe('close');
+        expect(c.confirming, c.key).toBeNull();
+      } else {
+        expect(c.confirming!.when, c.key).toBe(r.lfd!.conf);
+        expect(c.signalKind, c.key).toBe('report');
+        expect(c.signal.when <= r.p.confirmed!, c.key).toBe(true);
+        expect(c.days.some(d => d.when > c.signal.when && d.when <= r.p.confirmed!), c.key).toBe(false);
+        fromReport++;
+      }
       // The capture's closes came from the old page's rounded feed and its bars from the chart feed, so a tick apart.
       expect(c.days[c.signal.index].c, c.key).toBeCloseTo(c.signal.price, 3);
-      expect(c.imported, c.key).toBe(r.st.breakout!.close == null);
+    }
+    expect(fromReport).toBeGreaterThan(0);
+  });
+
+  it('with the confirming-close entry, an imported candidate is signalled from the close the lookback found', () => {
+    const { bars, hist } = frozenInputs();
+    const m = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, importedEntry: 'close' });
+    const rows = rowByKey();
+    for (const c of m.universe.candidates.filter(x => x.imported)) {
+      expect(c.signal.when, c.key).toBe(rows.get(c.key)!.lfd!.conf);
+      expect(c.signalKind, c.key).toBe('close');
     }
   });
 
@@ -108,11 +129,17 @@ describe('the strategies on the frozen board', () => {
       const T = r.hit ? r.hit.btype : r.btype;
       if (!T || !T.breaches) continue;
       const legs = s2.legs.filter(l => l.key === c.key);
+      if (!legs.length) continue;
+      // An imported setup enters from the report: what the board counted before that day is not the model's, and one the
+      // board had already stopped out by then (out, waiting for a close back past the trigger) is a trade the board does
+      // not have at all, so there is nothing to hold it to.
+      const from = legs[0].entry.when;
+      if (c.signalKind === 'report' && T.breaches.some(b => b.when < from)) continue;
       const exits = legs.filter(l => l.exit && l.exit.reason === 'stop').map(l => l.exit!.when);
-      expect(exits, c.key).toEqual(T.breaches.map(b => b.when));
+      expect(exits, c.key).toEqual(T.breaches.map(b => b.when).filter(w => w >= from));
       // The board counts a re-entry close that is also at the target; the model does not buy there.
       const target = r.st.targetHit ? r.st.targetHit.when : null;
-      const reentries = (T.reentries ?? []).map(x => x.when).filter(w => !target || w < target);
+      const reentries = (T.reentries ?? []).map(x => x.when).filter(w => (!target || w < target) && w >= from);
       expect(legs.slice(1).map(l => c.days[l.entry.index - (l.entry.basis === 'open' ? 1 : 0)].when), c.key).toEqual(reentries);
       compared++;
     }
@@ -252,10 +279,11 @@ describe('the result', () => {
 
   it('the entry at the close moves every fill to the confirming close and keeps the exits', () => {
     const { bars, hist } = frozenInputs();
-    const atClose = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry: 'close' });
+    const atOpen = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, importedEntry: 'close' });
+    const atClose = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry: 'close', importedEntry: 'close' });
     expect(atClose.runs.S1.legs.every(l => l.entry.basis === 'close')).toBe(true);
     expect(atClose.runs.S1.pending).toEqual([]);
-    const byKey = new Map(model().runs.S1.legs.map(l => [l.key, l]));
+    const byKey = new Map(atOpen.runs.S1.legs.map(l => [l.key, l]));
     for (const l of atClose.runs.S1.legs) {
       const o = byKey.get(l.key);
       if (!o || !o.exit || !l.exit) continue;

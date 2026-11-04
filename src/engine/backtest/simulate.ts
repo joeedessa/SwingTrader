@@ -13,7 +13,9 @@ import type { Candidate, Day, StopSource } from './universe';
 
    Fills. A stop or the negation fills at its level, or at the open where the day opened past it (a gap). A target on
    a close fills at that close; on a touch, at the target, or at the open where the day opened past it. The entry is
-   the next session's open where the bars have it, else the confirming close itself (Q6).
+   the next session's open where the bars have it, else the confirming close itself (Q6). A setup imported already
+   confirmed enters from the report that listed it (revision 8): the first session after the report's date, at its
+   open, or at its close under the close entry; the confirming close the lookback found is the other setting.
 
    Entries the rules would not take. Nobody buys a breakout whose confirming close is already at the target, or at a
    next open that is past the target, or at one that is already at or beyond the stop (the negation, for S3): no leg
@@ -171,6 +173,11 @@ export function simulate(c: Candidate, strategy: Strategy, settings: ModelSettin
       if (d.closeOnly) return { outcome: 'waiting', index: next };
       // A day written before opens were kept has none to fill at: the confirming close stands in.
       fill = d.o != null ? { when: d.when, price: d.o, basis: 'open', index: next } : closeFill(signal);
+    } else if (n === 1 && c.signalKind === 'report') {
+      // Entered from the report, which came out after the last close before it: the first session after it, at its close.
+      if (next > end) return { outcome: next < days.length ? 'removed' : 'waiting', index: next };
+      if (days[next].c == null) return { outcome: 'waiting', index: next };
+      fill = closeFill(next);
     } else fill = closeFill(signal);
     const level = stop ?? c.negation;
     if (c.negation != null && against(long, fill.price, c.negation)) return { outcome: 'beyondNegation', index: fill.index };
@@ -190,7 +197,8 @@ export function simulate(c: Candidate, strategy: Strategy, settings: ModelSettin
     // from the next day; a fill at an open is not, so the first close sets the best.
     best = fill.basis === 'close' ? fill.price : (long ? -Infinity : Infinity);
     if (atr && fill.basis === 'close') ratchet(fill.index);
-    return { first: fill.index === signal ? signal + 1 : fill.index };
+    // Exits are read from the day after a fill at a close, and on the fill day itself after a fill at its open.
+    return { first: fill.basis === 'close' ? fill.index + 1 : fill.index };
   };
 
   /** S4: the trail for tomorrow, from the best close so far less the ATR multiple; it only ever tightens. */

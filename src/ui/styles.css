@@ -778,3 +778,63 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
   .log .ev { grid-template-columns: minmax(0, 1fr); }
   .folded { margin-top: 18px; }
 }
+
+/* ------------------------------------------------------------------ model: the dials, the charts, the grid */
+
+.modelctl { margin-top: 18px; padding: 14px 16px 12px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); }
+.dials { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: flex-end; }
+.dials + .dials { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hair); }
+.dial { display: grid; gap: 5px; min-width: 0; }
+.diallabel { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.dialwords { margin: 10px 2px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); max-width: 90ch; }
+.numfield { display: grid; gap: 5px; min-width: 0; }
+.numwrap { display: inline-flex; align-items: center; gap: 8px; }
+.numwrap input { width: 112px; min-width: 0; border: 0; border-radius: 10px; background: var(--fill); padding: 7px 10px; font-size: 14px; font-variant-numeric: tabular-nums; appearance: none; -webkit-appearance: none; box-shadow: inset 0 0 0 0.5px var(--hair); }
+.numwrap input[type="text"] { width: 128px; }
+.numwrap input:focus-visible { outline-offset: 0; }
+.numunit { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+.page.model .tiles { margin-top: 18px; }
+.page.model .tile .tv { font-size: 24px; }
+
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.chart { margin: 0; padding: 12px 14px 10px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
+.chart figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.chartname { font-size: 13px; font-weight: 650; }
+.chartlast { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chart svg { display: block; width: 100%; height: 180px; }
+.chartline { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.chartfill { fill: var(--accent); opacity: .10; }
+.chart.drawdown .chartline { stroke: var(--down); }
+.chart.drawdown .chartfill { fill: var(--down); }
+.chartzero { stroke: var(--baseline); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chartlabel { font-size: 11px; fill: var(--text-muted); font-family: inherit; }
+.chart.empty { padding: 36px 24px; text-align: center; color: var(--text-secondary); }
+.chart.empty p { margin: 0; }
+
+.retag { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.sortdial { margin-left: auto; }
+.board.small th, .board.small td { padding: 9px 12px; font-size: 13px; }
+.board.small td.sub { font-size: 12px; color: var(--text-muted); white-space: normal; }
+.board.grid td { padding: 4px; }
+.gcell { display: grid; gap: 1px; width: 100%; border: 0; border-radius: 10px; background: none; padding: 7px 10px; text-align: right; font: inherit; color: inherit; }
+.gcell:hover { background: var(--fill); }
+.gcell[aria-pressed="true"] { background: var(--fill-2); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.gv { font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.gs { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prose.caveats { max-width: 90ch; }
+.leftout { margin-top: 14px; }
+.leftout h3 { font-size: 14px; font-weight: 650; margin-bottom: 6px; display: flex; align-items: baseline; gap: 8px; }
+.leftout .gaplist li b { font-weight: 650; }
+
+@media (max-width: 700px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .page.model .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modelctl { padding: 12px 12px 10px; }
+  .dials { gap: 10px 14px; }
+  .dial .choice { flex-wrap: wrap; }
+  .charts { grid-template-columns: minmax(0, 1fr); }
+  .chart svg { height: 150px; }
+  .sortdial { margin-left: 0; width: 100%; }
+  .board.grid { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .board.ratios, .board.small:not(.grid) { display: block; overflow-x: auto; }
+  .numwrap input { width: 100px; }
+}

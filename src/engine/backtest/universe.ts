@@ -44,8 +44,12 @@ export interface Candidate {
   target: number | null;
   negation: number | null;
   boundary: number | null;
-  /** The confirming close: the day and the price the breakout was read from, and its index in `days`. */
+  /** The day the entry is signalled from, its close, and its index in `days`: the confirming close, or for a setup imported
+      already confirmed and entered from the report, the last day on or before the report's date. */
   signal: { when: string; price: number; index: number };
+  signalKind: 'close' | 'report';
+  /** For an imported setup, the confirming close the lookback found, whichever day it enters from. */
+  confirming: { when: string; price: number } | null;
   /** The tight stop, or null where there is none (the report gives none, or a derived one is beyond the negation). */
   stop: number | null;
   stopSource: StopSource;
@@ -114,7 +118,7 @@ function tagOf(r: Row, hist: History | undefined, bars: Bars | undefined, remove
   return row.hit ? (row.hit.btype ? row.hit.btype.tag : null) : (row.btype ? row.btype.tag : null);
 }
 
-function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined): Candidate | Excluded {
+function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined, settings: ModelSettings): Candidate | Excluded {
   const p = r.p;
   const key = keyOf(p.sym, p.dir);
   const no = (reason: string): Excluded => ({ key, sym: p.sym, dir: p.dir, reason });
@@ -123,14 +127,28 @@ function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined):
   const days = daysOf(bars, hist);
   if (!days.some(d => !d.closeOnly)) return no('no daily bars');
   const b = r.st.breakout;
-  let when: string, price: number | null = null;
-  if (b.close != null) { when = b.when; price = b.close; }
-  else if (r.lfd && r.lfd.conf) { when = r.lfd.conf; }
-  else return no('the confirming close was not found in the sessions before the report\'s date');
-  const index = days.findIndex(d => d.when === when);
-  if (index < 0) return no(`the confirming close (${when}) is not in the bars`);
-  if (price == null) price = days[index].c;
-  if (price == null) return no(`the confirming close (${when}) has no price`);
+  let when: string, price: number | null = null, index: number;
+  let signalKind: Candidate['signalKind'] = 'close';
+  let confirming: Candidate['confirming'] = null;
+  if (b.close != null) {
+    when = b.when; price = b.close;
+    index = days.findIndex(d => d.when === when);
+    if (index < 0) return no(`the confirming close (${when}) is not in the bars`);
+  } else {
+    // Imported already confirmed: the report's date is the breakout's, and the lookback found the close behind it.
+    const conf = r.lfd ? r.lfd.conf : null;
+    if (!conf) return no('the confirming close was not found in the sessions before the report\'s date');
+    const ci = days.findIndex(d => d.when === conf);
+    if (ci < 0 || days[ci].c == null) return no(`the confirming close (${conf}) is not in the bars`);
+    confirming = { when: conf, price: days[ci].c as number };
+    if (settings.importedEntry === 'report' && p.confirmed) {
+      // The last close on or before the report's date: what was known when the report came out.
+      let k = days.length - 1;
+      while (k > ci && (days[k].when > p.confirmed || days[k].c == null)) k--;
+      index = k; when = days[k].when; price = days[k].c; signalKind = 'report';
+    } else { index = ci; when = conf; price = confirming.price; }
+  }
+  if (price == null) return no(`the signal day (${when}) has no close`);
   const L = r.lfd;
   const stopSource: StopSource = !L || L.src == null ? 'underived' : L.looser ? 'looser' : L.src;
   const stop = L && L.at != null && !L.looser ? L.at : null;
@@ -138,7 +156,7 @@ function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined):
   return {
     key, sym: p.sym, dir: p.dir, currency: hist ? hist.currency : '',
     trigger: p.breakthrough, target: p.target ?? null, negation: p.negation ?? null, boundary: p.boundary ?? null,
-    signal: { when, price, index },
+    signal: { when, price, index }, signalKind, confirming,
     stop, stopSource, days,
     removed,
     removedReason: removed ? p.removed_reason || null : null,
@@ -157,7 +175,7 @@ export function universeOf(rows: readonly Row[], hist: Record<string, History | 
   for (const r of rows) {
     if (!brokeOut(r)) continue;
     breakouts++;
-    const c = candidateOf(r, hist[r.p.sym], bars[r.p.sym]);
+    const c = candidateOf(r, hist[r.p.sym], bars[r.p.sym], settings);
     if ('reason' in c) { excluded.push(c); continue; }
     if (settings.from && c.signal.when < settings.from) { excluded.push({ key: c.key, sym: c.sym, dir: c.dir, reason: `broke out before ${settings.from}` }); continue; }
     if (settings.removed === 'exclude' && c.removed) { excluded.push({ key: c.key, sym: c.sym, dir: c.dir, reason: 'removed by the source after breaking out' }); continue; }

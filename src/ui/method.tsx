@@ -1,5 +1,6 @@
 import { app } from '../data/app';
 import { flagsOf } from '../data/selectors';
+import { DEFAULT_SETTINGS, LIST_BEGAN } from '../engine/backtest/settings';
 import { LFD_LOOKBACK } from '../engine/lfd';
 import { RULES, THRESHOLDS } from '../engine/flags';
 import type { FlagKind, Surface, Tier } from '../engine/flags';
@@ -10,6 +11,7 @@ import { useStore } from '../store';
 import { Hero } from './hero';
 import { GROUP_TITLE } from './flagview';
 import { dataRows } from './methoddata';
+import { DIAL_WORDS } from './modelcells';
 
 /* Method: what the rules are, where the data comes from, and how fresh it is. It replaces the prose that used to sit in
    footers and tooltips. The rules are written for a reader; every threshold comes from the engine's own constants, and
@@ -57,7 +59,7 @@ export function MethodPage() {
   const T = THRESHOLDS;
   return (
     <main class="page method" data-underlay>
-      <Hero title="Method" stamp="The rules, where the data comes from, and how fresh it is." />
+      <Hero title="Method" stamp="The rules, where the data comes from, how fresh it is, and what the Model does with it." />
 
       <section class="prose" aria-labelledby="m-data">
         <h2 id="m-data">Data and freshness</h2>
@@ -113,6 +115,14 @@ export function MethodPage() {
         <p>The level test says what the close did the last time it came near an average: a close within {MA_RULES.tolShare * 100}% of the instrument's typical bar-to-bar move (never under {MA_RULES.tolFloor * 100}% or over {MA_RULES.tolCap * 100}%) in the last {MA_RULES.testBars} bars, counted only while the latest close is still within {MA_RULES.stillNear} times that distance of the line. Near it from above and still above is <i>held</i>, from below and still below <i>rejected</i>, from below and now above <i>reclaimed</i>, from above and now below <i>lost</i>. The arrow says which way the average itself is heading: its move over a window of a {MA_RULES.slopeDivisor}th of its period (between {MA_RULES.slopeFloor} and {MA_RULES.slopeCap} bars) against the window before, with "flat" scaled to how much the instrument normally moves.</p>
         <p>A level change is a close that has changed sides on a 150 or 200 within {freshWords()}, and that the level test calls reclaimed or lost, so it is still near the line; the monthly ones are listed first. A decisive cross, from far under to far over, is not a level change, but the scan below has it. The cross scan looks back {TF_WORDS.daily.lookback} sessions, {TF_WORDS.weekly.lookback} weeks or {TF_WORDS.monthly.lookback} months for crosses on five tiers, quickest to slowest: {TIERS.map(t => t.label).join(', ')}, the 5 and 21 exponential and the rest simple. A cross that the following bars gave back is marked whipsawed. A name needs {MIN_BARS} bars on a timeframe to be scanned on it.</p>
         <p>The day against the market is a setup's day move less its local index's, and less the median of the day moves of its sector across the whole list, in percentage points; a sector needs {MIN_SECTOR_PEERS} names (a name listed both long and short counts once). Yahoo pads every weekly and monthly series with a bar stamped at the last trade, which would count the week or month in progress twice: Signals leaves it out when it falls inside the period the bar before it opened.</p>
+      </section>
+
+      <section class="prose" aria-labelledby="m-model">
+        <h2 id="m-model">The Model</h2>
+        <p>The Model runs four strategies over every watchlist setup that broke out, on the same settled bars and by the same rules as the board, each day's low or high read before its close. S1 plays B1 and B2 only: in at the confirming close, out on a touch of the last full day, a touch of the negation, or a close at the target. S2 re-enters on a settled close back past the trigger after a stop-out, one, two, three or any number of times, with the original last full day as the stop (or a new one read from the re-entry run). S3 holds through breaches and leaves on the negation or the target. S4 trails: {DIAL_WORDS.trail}</p>
+        <p>Fills. A stop or the negation fills at its level, or at the open where the day opened past it; a target fills at the close that reached it, or at the level on a touch. {DIAL_WORDS.entry} {DIAL_WORDS.importedEntry} Nobody buys a breakout whose confirming close is already at the target, or at a next open past the target or already at or beyond the stop: such a setup is listed as left out, and S2 waits for the next close back past the trigger.</p>
+        <p>Costs are {DEFAULT_SETTINGS.commissionPct}% commission and {DEFAULT_SETTINGS.slippagePct}% slippage a side unless you set them, taken off every leg, open ones included. Returns are in % of the position and in R, the return over the distance from the entry to the stop in force (the negation where there was no tight stop), so legs in every listing currency add without converting anything; money enters only through the position size, in the currency label you choose, with FX held constant over each trade. {DIAL_WORDS.sizing} The 90% interval on the expectancy is a bootstrap of {DEFAULT_SETTINGS.resamples.toLocaleString('en-US')} resamples of the trade list with a fixed seed, so a link reproduces its numbers.</p>
+        <p>What is left out, and said so: a setup whose confirming close the lookback could not find, one with no daily bars, and under S1, S2 and S4 one with no tight stop (none in the report, or a derived one beyond the negation), under S3 one with no negation on file. A setup the source removed after breaking out is closed on the removal date, or left out. The list began on {fmtD(LIST_BEGAN)} with setups already confirmed, so the breakouts before it over-represent winners and open trades; the From dial leaves them out. The type by which results are broken down is the one the setup had at its first outcome, and never chooses a trade.</p>
       </section>
 
       <section class="prose" aria-labelledby="m-flags">

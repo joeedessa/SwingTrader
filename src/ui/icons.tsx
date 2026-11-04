@@ -11,6 +11,9 @@ const Svg = ({ children, size = 22 }: { children: ComponentChildren; size?: numb
 export const IconSetups = () => (
   <Svg><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4.5" cy="6" r="1.2" fill="currentColor" stroke="none" /><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none" /></Svg>
 );
+export const IconModel = () => (
+  <Svg><path d="M4 17l5-6 4 3 7-8" /><path d="M16 6h4v4" /><path d="M4 21h16" /></Svg>
+);
 export const IconBenchmarks = () => (
   <Svg><path d="M5 20V11M12 20V4M19 20v-6" /></Svg>
 );

@@ -11,6 +11,7 @@ import { dismiss, notice } from './ui/notice';
 import { HistoryPage } from './ui/history';
 import { FillDialog } from './ui/journal';
 import { MethodPage } from './ui/method';
+import { ModelPage } from './ui/model';
 import { MorePage } from './ui/more';
 import { TabBar, TopNav } from './ui/nav';
 import { BoardPage } from './ui/page';
@@ -79,6 +80,7 @@ export function App() {
       {r.page === 'today' ? <TodayPage key="today" />
         : r.page === 'positions' ? <PositionsPage key="positions" />
         : r.page === 'history' ? <HistoryPage key="history" />
+        : r.page === 'model' ? <ModelPage key="model" />
         : r.page === 'signals' ? <SignalsPage key="signals" />
         : r.page === 'method' ? <MethodPage key="method" />
         : r.page === 'more' ? <MorePage key="more" />

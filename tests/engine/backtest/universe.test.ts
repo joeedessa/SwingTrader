@@ -91,14 +91,26 @@ describe('the universe', () => {
     expect(universeOf([looser.row], looser.hist, looser.bars, DEFAULT_SETTINGS).candidates[0]).toMatchObject({ stop: null, stopSource: 'looser' });
   });
 
-  it('an imported row enters at the confirming close the lookback found (the latest close at or past the trigger before the report\'s date), and is marked imported', () => {
+  it('an imported row, under the confirming-close entry, is signalled from the close the lookback found (the latest close at or past the trigger before the report\'s date)', () => {
+    const atClose = { ...DEFAULT_SETTINGS, importedEntry: 'close' as const };
     const { row, hist, bars } = rowOf({ ...LONG, confirmed: '2026-01-10', lfd: 94 });
-    const c = universeOf([row], hist, bars, DEFAULT_SETTINGS).candidates[0];
+    const c = universeOf([row], hist, bars, atClose).candidates[0];
     expect(c.signal).toEqual({ when: '2026-01-09', price: 102, index: 5 });
-    expect(c.imported).toBe(true);
+    expect(c).toMatchObject({ imported: true, signalKind: 'close', confirming: { when: '2026-01-09', price: 102 } });
     // With one cross only, it is that one.
     const once = rowOf({ ...LONG, confirmed: '2026-01-10', lfd: 94 }, PATH.slice(0, 4));
-    expect(universeOf([once.row], once.hist, once.bars, DEFAULT_SETTINGS).candidates[0].signal).toEqual({ when: '2026-01-06', price: 101, index: 2 });
+    expect(universeOf([once.row], once.hist, once.bars, atClose).candidates[0].signal).toEqual({ when: '2026-01-06', price: 101, index: 2 });
+  });
+
+  it('an imported row, by default, is signalled from the last close on or before the report\'s date, and keeps the confirming close on record', () => {
+    // Confirmed on Saturday 01-10: the last close before it is Wednesday 01-07's (the bars end there), two days after the confirming close.
+    const { row, hist, bars } = rowOf({ ...LONG, confirmed: '2026-01-10', lfd: 94 }, PATH.slice(0, 4));
+    const c = universeOf([row], hist, bars, DEFAULT_SETTINGS).candidates[0];
+    expect(c.signal).toEqual({ when: '2026-01-07', price: 103, index: 3 });
+    expect(c).toMatchObject({ imported: true, signalKind: 'report', confirming: { when: '2026-01-06', price: 101 } });
+    // A report dated a trading day is read as published after that day's close.
+    const onFriday = rowOf({ ...LONG, confirmed: '2026-01-09', lfd: 94 });
+    expect(universeOf([onFriday.row], onFriday.hist, onFriday.bars, DEFAULT_SETTINGS).candidates[0].signal.when).toBe('2026-01-09');
   });
 
   it('excludes, with the reason: no bars, no trigger, a confirming close the lookback could not find', () => {

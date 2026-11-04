@@ -3,7 +3,9 @@ import { render } from 'preact-render-to-string';
 import { app } from '../../src/data/app';
 import type { AppState } from '../../src/data/app';
 import { emptyLog } from '../../src/data/tradelog';
+import { DEFAULT_SETTINGS, LIST_BEGAN, PAYOFF_SCALE, TRAIL } from '../../src/engine/backtest/settings';
 import { RULES, THRESHOLDS } from '../../src/engine/flags';
+import { fmtD } from '../../src/engine/format';
 import type { FlagKind } from '../../src/engine/flags';
 import { LFD_LOOKBACK } from '../../src/engine/lfd';
 import { MA_RULES, MIN_BARS, TF_WORDS, TIERS } from '../../src/engine/ma';
@@ -104,6 +106,18 @@ describe('the Method page', () => {
     expect(t).toContain('Yahoo pads every weekly and monthly series');
   });
 
+  it('explains the Model in the engine\'s own numbers: the strategies, the fills, the costs, the bootstrap, the day the list began', () => {
+    const t = page();
+    expect(t).toContain('The Model');
+    for (const s of ['S1 plays B1 and B2 only', 'S2 re-enters', 'S3 holds through breaches', 'S4 trails', 'Fills.', 'Nobody buys a breakout whose confirming close is already at the target']) expect(t).toContain(s);
+    expect(t).toContain(`${DEFAULT_SETTINGS.commissionPct}% commission and ${DEFAULT_SETTINGS.slippagePct}% slippage a side`);
+    expect(t).toContain(`bootstrap of ${DEFAULT_SETTINGS.resamples.toLocaleString('en-US')} resamples`);
+    expect(t).toContain(`${TRAIL.atrs} ATRs (Wilder's ${TRAIL.period}-day)`);
+    expect(t).toContain(`between ${PAYOFF_SCALE.min}× and ${PAYOFF_SCALE.max}×`);
+    expect(t).toContain(`The list began on ${fmtD(LIST_BEGAN)}`);
+    expect(t).toContain('enters from the report that listed it');
+  });
+
   it('has a freshness table counted from what is loaded, with the lists\' counts and when each file was written', () => {
     const s = app.get();
     const t = page();
@@ -200,6 +214,8 @@ describe('the freshness rows', () => {
 describe('the More page', () => {
   it('lists the pages that live under it, each a link with a line on what it is', () => {
     const html = render(<MorePage />);
+    expect(html).toContain('href="#/model"');
+    expect(text(html)).toContain('What to play and how much');
     expect(html).toContain('href="#/signals"');
     expect(html).toContain('href="#/benchmarks"');
     expect(html).toContain('href="#/method"');

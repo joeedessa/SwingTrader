@@ -311,11 +311,20 @@ describe('the Today tab', () => {
     expect(ackStore.get().acks.watchlist).toEqual({});
   });
 
-  it('marks the page it is on, and the order is Today, Setups, Positions, History, then More', () => {
+  it('marks the page it is on, and the order is Today, Setups, Positions, History, Model, then More', () => {
     const html = render(<TopNav page="setups" />);
-    expect(text(html.replace(/<span class="navbadge"[^>]*>\d+<\/span>/, ''))).toContain('SwingTrader Today Setups Positions History More');
+    expect(text(html.replace(/<span class="navbadge"[^>]*>\d+<\/span>/, ''))).toContain('SwingTrader Today Setups Positions History Model More');
     expect(html).toMatch(/<a href="#\/setups" aria-current="page"/);
     expect(render(<TabBar page="positions" />)).toMatch(/<a href="#\/positions" aria-current="page"/);
+  });
+
+  it('gives Model a tab on a desktop, and a phone finds it under More, its tab bar keeping four pages and More', () => {
+    expect(render(<TopNav page="model" />)).toMatch(/<a href="#\/model" aria-current="page"/);
+    expect(render(<TopNav page="model" />)).not.toMatch(/class="navmore"[^>]*aria-current/);
+    const bar = render(<TabBar page="model" />);
+    expect(bar).not.toContain('href="#/model"');
+    expect(bar).toMatch(/<a href="#\/more" aria-current="page"/);
+    expect(text(bar.replace(/<span class="navbadge"[^>]*>[^<]*<\/span>/, ''))).toBe('Today Setups Positions History More');
   });
 
   it('keeps Benchmarks and Method under More: the top bar\'s menu and a phone\'s last tab are current on them', () => {

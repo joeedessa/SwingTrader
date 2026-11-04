@@ -44,7 +44,7 @@ export interface StrategyWords {
 
 export const STRATEGY_WORDS: Record<StrategyCode, StrategyWords> = {
   S1: { name: 'B1/B2 only', entry: 'the confirming close', exit: 'a touch of the last full day, a touch of the negation, or a close at the target', stop: 'the last full day' },
-  S2: { name: 'with re-entries', entry: 'as S1, then again at a settled close back past the trigger after a stop-out', exit: 'as S1, up to the chosen number of re-entries', stop: 'the original last full day (or a new one read from the re-entry run)' },
+  S2: { name: 'with re-entries', entry: 'the confirming close, and again at a settled close back past the trigger after a stop-out', exit: 'a touch of the last full day, a touch of the negation, or a close at the target, with the chosen number of re-entries', stop: 'the original last full day (or a new one read from the re-entry run)' },
   S3: { name: 'negation only', entry: 'the confirming close', exit: 'a touch of the negation, or a close at the target', stop: 'the negation' },
   S4: { name: 'trailing', entry: 'the confirming close', exit: 'a touch of the higher of the last full day and a stop two ATRs under the highest close, a touch of the negation, or a close at the target', stop: 'the last full day, then the trail' },
 };
@@ -69,6 +69,9 @@ export const TRAIL = { atrs: 2, period: 14 } as const;
 export interface ModelSettings {
   /** Q6: the fill is the next session's open where the bars have it, or the confirming close itself. */
   entry: 'open' | 'close';
+  /** Revision 8: a setup imported already confirmed enters from the report that listed it (its first session after the
+      report's date), or at the confirming close the lookback found, which can fall days before the report. */
+  importedEntry: 'report' | 'close';
   /** Q2: the target counts on a settled close at or past it (the board's rule), or on an intraday touch. */
   targetOn: 'close' | 'touch';
   /** Q3: the stop after a re-entry is the original last full day, or a new one read from the re-entry run. */
@@ -95,6 +98,7 @@ export interface ModelSettings {
 
 export const DEFAULT_SETTINGS: ModelSettings = {
   entry: 'open',
+  importedEntry: 'report',
   targetOn: 'close',
   reentryStop: 'original',
   removed: 'include',

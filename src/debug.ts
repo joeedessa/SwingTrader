@@ -76,8 +76,28 @@ export interface ModelDebug {
   result: ModelResult;
 }
 
+/** `window.__model` is the Model page's own account of itself: the dials it ran on (and the address they make), what it
+    prints in its tiles, and the whole result. */
+export interface ModelPageDebug {
+  query: string;
+  settings: ModelSettings;
+  strategy: string;
+  sizing: string;
+  scope: string;
+  label: string;
+  breakouts: number;
+  candidates: number;
+  legs: number;
+  setups: number;
+  excluded: { key: string; reason: string }[];
+  tiles: Record<string, string>;
+  ms: number;
+  result: ModelResult;
+}
+
 declare global {
   interface Window {
+    __model?: ModelPageDebug;
     __board?: BoardDebug;
     __today?: TodayDebug;
     __positions?: PositionsDebug;
@@ -85,6 +105,16 @@ declare global {
     __signals?: SignalsDebug;
     __runModel?: (overrides?: Partial<ModelSettings>) => ModelDebug;
   }
+}
+
+export function publishModelPage(d: { view: { settings: ModelSettings; strategy: string; sizing: string; scope: string; label: string }; result: ModelResult; run: { legs: unknown[]; setups: number; excluded: { key: string; reason: string }[] }; tiles: Record<string, string>; query: string }): void {
+  window.__model = {
+    query: d.query, settings: d.view.settings, strategy: d.view.strategy, sizing: d.view.sizing, scope: d.view.scope, label: d.view.label,
+    breakouts: d.result.universe.breakouts, candidates: d.result.universe.candidates.length,
+    legs: d.run.legs.length, setups: d.run.setups,
+    excluded: [...d.result.universe.excluded, ...d.run.excluded].map(e => ({ key: e.key, reason: e.reason })),
+    tiles: d.tiles, ms: d.result.ms, result: d.result,
+  };
 }
 
 export function installModel(run: (overrides?: Partial<ModelSettings>) => ModelResult): void {

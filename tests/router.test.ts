@@ -4,16 +4,16 @@ import { DEFAULT_ROUTE, hashFor, PAGES, parseHash, ROW_PAGES } from '../src/rout
 describe('routes', () => {
   it('open on Today, and fall back to it for an address nobody knows', () => {
     expect(DEFAULT_ROUTE).toEqual({ page: 'today', row: null });
-    for (const h of ['', '#', '#/', '#/nonsense', '#/model', '#//']) expect(parseHash(h), h).toEqual(DEFAULT_ROUTE);
+    for (const h of ['', '#', '#/', '#/nonsense', '#/backtest', '#//']) expect(parseHash(h), h).toEqual(DEFAULT_ROUTE);
   });
 
   it('know the pages that exist, Today first', () => {
-    expect(PAGES).toEqual(['today', 'setups', 'positions', 'history', 'signals', 'benchmarks', 'method', 'more']);
+    expect(PAGES).toEqual(['today', 'setups', 'positions', 'history', 'model', 'signals', 'benchmarks', 'method', 'more']);
     for (const page of PAGES) expect(parseHash('#/' + page)).toEqual({ page, row: null });
   });
 
   it('open a setup over any page that lists setups, so a trip into a drawer leaves the page it came from', () => {
-    expect(ROW_PAGES).toEqual(['today', 'setups', 'positions', 'history', 'signals', 'benchmarks']);
+    expect(ROW_PAGES).toEqual(['today', 'setups', 'positions', 'history', 'model', 'signals', 'benchmarks']);
     for (const page of ROW_PAGES) {
       expect(parseHash(`#/${page}/AME/long`)).toEqual({ page, row: { sym: 'AME', dir: 'long' } });
       expect(parseHash(`#/${page}/BANKINDIA.NS/short`)).toEqual({ page, row: { sym: 'BANKINDIA.NS', dir: 'short' } });
@@ -33,6 +33,17 @@ describe('routes', () => {
     }
     expect(hashFor({ page: 'today', row: null })).toBe('#/today');
     expect(hashFor({ page: 'setups', row: { sym: 'GC=F', dir: 'long' } })).toBe('#/setups/GC%3DF/long');
+  });
+
+  it('carry a page\'s settings after a question mark, with or without a drawer, and leave them off when there are none', () => {
+    expect(parseHash('#/model?s=S1&sz=risk')).toEqual({ page: 'model', row: null, query: 's=S1&sz=risk' });
+    expect(parseHash('#/model/AME/long?s=S1')).toEqual({ page: 'model', row: { sym: 'AME', dir: 'long' }, query: 's=S1' });
+    expect(parseHash('#/model?')).toEqual({ page: 'model', row: null });
+    expect(hashFor({ page: 'model', row: null, query: 's=S1&sz=risk' })).toBe('#/model?s=S1&sz=risk');
+    expect(hashFor({ page: 'model', row: { sym: 'GC=F', dir: 'long' }, query: 'cur=USD' })).toBe('#/model/GC%3DF/long?cur=USD');
+    expect(parseHash(hashFor({ page: 'model', row: { sym: 'GC=F', dir: 'long' }, query: 'cur=USD' }))).toEqual({ page: 'model', row: { sym: 'GC=F', dir: 'long' }, query: 'cur=USD' });
+    // A query on a page that has none is kept as it was written; the page just does not read it.
+    expect(parseHash('#/setups?x=1')).toEqual({ page: 'setups', row: null, query: 'x=1' });
   });
 
   it('ignore a half-written setup: it is the page, not a drawer', () => {
