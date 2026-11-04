@@ -95,7 +95,7 @@ export interface Simulation {
 export const WAITING = 'waiting for the next open';
 
 /** A leg opened, with the first index exits are read on; or why not, with the index of the fill that was refused. */
-type Opened = { first: number } | { outcome: 'waiting' | 'removed' | 'atTarget' | 'pastTarget' | 'atStop' | 'beyondNegation'; index: number };
+type Opened = { first: number } | { outcome: 'waiting' | 'removed' | 'atTarget' | 'pastTarget' | 'atStop' | 'beyondNegation'; index: number; basis?: FillBasis };
 
 export function simulate(c: Candidate, strategy: Strategy, settings: ModelSettings): Simulation {
   const long = c.dir === 'long';
@@ -179,10 +179,15 @@ export function simulate(c: Candidate, strategy: Strategy, settings: ModelSettin
       if (days[next].c == null) return { outcome: 'waiting', index: next };
       fill = closeFill(next);
     } else fill = closeFill(signal);
+    // A report-day signal with no open on file to fill at fills at that first session's close, never at the close before the report.
+    if (n === 1 && c.signalKind === 'report' && fill.index === signal) {
+      if (days[next].c == null) return { outcome: 'waiting', index: next };
+      fill = closeFill(next);
+    }
     const level = stop ?? c.negation;
-    if (c.negation != null && against(long, fill.price, c.negation)) return { outcome: 'beyondNegation', index: fill.index };
-    if (level != null && atOrAgainst(long, fill.price, level)) return { outcome: 'atStop', index: fill.index };
-    if (c.target != null && atOrPast(long, fill.price, c.target)) return { outcome: 'pastTarget', index: fill.index };
+    if (c.negation != null && against(long, fill.price, c.negation)) return { outcome: 'beyondNegation', index: fill.index, basis: fill.basis };
+    if (level != null && atOrAgainst(long, fill.price, level)) return { outcome: 'atStop', index: fill.index, basis: fill.basis };
+    if (c.target != null && atOrPast(long, fill.price, c.target)) return { outcome: 'pastTarget', index: fill.index, basis: fill.basis };
     const riskRaw = level == null ? null : (sig7(fill.price) - sig7(level)) * sgn / sig7(fill.price) * 100;
     const L: Leg = {
       key: c.key, sym: c.sym, dir: c.dir, currency: c.currency, n, entry: fill, exit: null, stop, stopKind: kind,
@@ -209,24 +214,34 @@ export function simulate(c: Candidate, strategy: Strategy, settings: ModelSettin
     if (stopNow == null || tighter(trail, stopNow) === trail && trail !== stopNow) { stopNow = trail; stopKindNow = 'trailing stop'; }
   }
 
-  const words: Record<Exclude<Opened, { first: number }>['outcome'], string> = {
+  // The fill a first entry was refused at: the next open; the first close after the report; or the confirming close itself.
+  const fillWords = (basis: FillBasis | undefined): string =>
+    basis === 'open' ? 'the next open' : c.signalKind === 'report' ? 'the first close after the report' : 'the confirming close';
+  const words = (o: Exclude<Opened, { first: number }>): string => ({
     waiting: WAITING,
     removed: 'removed by the source before the fill',
-    atTarget: 'at the target on the confirming close',
-    pastTarget: 'the next open was past the target',
-    atStop: strategy.code === 'S3' ? 'the next open was at or beyond the negation' : 'the next open was at or beyond the stop',
-    beyondNegation: 'the next open was beyond the negation',
-  };
+    atTarget: c.signalKind === 'report' ? 'at the target on the last close before the report' : 'at the target on the confirming close',
+    pastTarget: `${fillWords(o.basis)} was past the target`,
+    atStop: `${fillWords(o.basis)} was at or beyond the ${strategy.code === 'S3' ? 'negation' : 'stop'}`,
+    beyondNegation: `${fillWords(o.basis)} was beyond the negation`,
+  })[o.outcome];
 
-  const firstStop = strategy.code === 'S3' ? null : c.stop;
-  const opened = open(c.signal.index, 1, firstStop, strategy.code === 'S3' ? 'negation' : firstStop != null ? 'last full day' : 'none');
   let i: number;
-  if ('first' in opened) i = opened.first;
-  else {
-    out.note = words[opened.outcome];
-    // A refused open on a breakout the board counts as breached: S2 waits for the close back past the trigger.
-    if (opened.outcome === 'atStop' && strategy.code === 'S2') { state = 'out'; i = opened.index + 1; }
-    else return out;
+  if (c.outAtSignal && strategy.code !== 'S3') {
+    // The board had this setup out when the report came: no first leg; S2 waits for a close back past the trigger.
+    if (strategy.code !== 'S2') { out.note = 'stopped out before the report, and this strategy does not re-enter'; return out; }
+    out.note = 'stopped out before the report: in only on a close back past the trigger';
+    state = 'out'; i = c.signal.index + 1;
+  } else {
+    const firstStop = strategy.code === 'S3' ? null : c.stop;
+    const opened = open(c.signal.index, 1, firstStop, strategy.code === 'S3' ? 'negation' : firstStop != null ? 'last full day' : 'none');
+    if ('first' in opened) i = opened.first;
+    else {
+      out.note = words(opened);
+      // A refused open on a breakout the board counts as breached: S2 waits for the close back past the trigger.
+      if (opened.outcome === 'atStop' && strategy.code === 'S2') { state = 'out'; i = opened.index + 1; }
+      else return out;
+    }
   }
   for (; i <= end; i++) {
     const d = days[i];

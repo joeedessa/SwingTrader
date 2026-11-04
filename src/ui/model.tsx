@@ -4,6 +4,8 @@ import { boardView } from '../data/selectors';
 import { publishModelPage } from '../debug';
 import { runModel } from '../engine/backtest/model';
 import type { StrategyRun } from '../engine/backtest/model';
+import { moneyStatsOf } from '../engine/backtest/stats';
+import type { MoneyStats } from '../engine/backtest/stats';
 import { LIST_BEGAN, SIZINGS, STRATEGY_IDS } from '../engine/backtest/settings';
 import type { ModelSettings, SizingId, StrategyId } from '../engine/backtest/settings';
 import type { Leg } from '../engine/backtest/simulate';
@@ -19,8 +21,8 @@ import type { DCol } from './datatable';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
 import { useNarrow } from './hooks';
-import { caveatText, DIAL_WORDS, exclusionLines, fxWords, gridRows, modelTiles, moneyWords, ratioRows, reasonLine, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
-import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, TRADE_SORTS } from './modelurl';
+import { caveatText, DIAL_WORDS, exclusionLines, fxWords, gridRows, legsInScope, modelTiles, moneyWords, ratioRows, reasonLine, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
+import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, PCT_MAX, readNumber, TRADE_SORTS, UNITS_MAX } from './modelurl';
 import type { ModelView, Scope, TradeSort } from './modelurl';
 import { say } from './notice';
 import { Tiles } from './tiles';
@@ -46,17 +48,20 @@ function Dial<T extends string>({ label, hint, value, items, onChange }: {
   );
 }
 
-/** A number the model runs on, committed when the field is left or Enter is pressed. */
-function NumberField({ label, value, unit, step, onCommit }: { label: string; value: number; unit: string; step: string; onCommit: (v: number) => void }) {
+/** A number the model runs on, committed when the field is left or Enter is pressed. An empty field, a word, a negative
+    number or one over the cap is put back to what it was: nothing but a number from zero to the cap reaches the engine. */
+function NumberField({ label, value, unit, step, max, onCommit }: { label: string; value: number; unit: string; step: string; max: number; onCommit: (v: number) => void }) {
   const commit = (e: Event) => {
-    const v = Number((e.currentTarget as HTMLInputElement).value);
-    if (isFinite(v) && v >= 0 && v !== value) onCommit(v);
+    const el = e.currentTarget as HTMLInputElement;
+    const v = readNumber(el.value, max);
+    if (v == null) { el.value = String(value); return; }
+    if (v !== value) onCommit(v);
   };
   return (
     <label class="numfield">
       <span class="diallabel">{label}</span>
       <span class="numwrap">
-        <input type="number" inputMode="decimal" min="0" step={step} value={String(value)} onChange={commit} aria-label={label} />
+        <input type="number" inputMode="decimal" min="0" max={String(max)} step={step} value={String(value)} onChange={commit} aria-label={label} />
         <span class="numunit">{unit}</span>
       </span>
     </label>
@@ -91,11 +96,11 @@ function Controls({ view, onView, onSettings }: { view: ModelView; onView: (p: P
           items={[{ id: 'all', label: 'All breakouts' }, { id: 'list', label: `From ${fmtD(LIST_BEGAN)}` }]} />
       </div>
       <div class="dials numbers">
-        <NumberField label="Commission" unit="% a side" step="0.05" value={s.commissionPct} onCommit={v => onSettings({ commissionPct: v })} />
-        <NumberField label="Slippage" unit="% a side" step="0.05" value={s.slippagePct} onCommit={v => onSettings({ slippagePct: v })} />
-        <NumberField label="Per entry" unit={view.label} step="1000" value={s.size} onCommit={v => onSettings({ size: v })} />
-        <NumberField label="At risk per entry" unit={view.label} step="100" value={s.riskUnits} onCommit={v => onSettings({ riskUnits: v })} />
-        <NumberField label="Risk-based cap" unit={view.label} step="1000" value={s.maxSize} onCommit={v => onSettings({ maxSize: v })} />
+        <NumberField label="Commission" unit="% a side" step="0.05" max={PCT_MAX} value={s.commissionPct} onCommit={v => onSettings({ commissionPct: v })} />
+        <NumberField label="Slippage" unit="% a side" step="0.05" max={PCT_MAX} value={s.slippagePct} onCommit={v => onSettings({ slippagePct: v })} />
+        <NumberField label="Per entry" unit={view.label} step="1000" max={UNITS_MAX} value={s.size} onCommit={v => onSettings({ size: v })} />
+        <NumberField label="At risk per entry" unit={view.label} step="100" max={UNITS_MAX} value={s.riskUnits} onCommit={v => onSettings({ riskUnits: v })} />
+        <NumberField label="Risk-based cap" unit={view.label} step="1000" max={UNITS_MAX} value={s.maxSize} onCommit={v => onSettings({ maxSize: v })} />
         <label class="numfield">
           <span class="diallabel">Currency label</span>
           <span class="numwrap">
@@ -107,9 +112,10 @@ function Controls({ view, onView, onSettings }: { view: ModelView; onView: (p: P
   );
 }
 
-function TradeList({ run, view, narrow, onOpen, onSort }: { run: StrategyRun; view: ModelView; narrow: boolean; onOpen: (l: Leg) => void; onSort: (s: TradeSort) => void }) {
-  const rows = useMemo(() => sortTrades(run.legs, run.sizes[view.sizing], view.sort), [run, view.sizing, view.sort]);
+function TradeList({ run, legs, sizes, view, narrow, onOpen, onSort }: { run: StrategyRun; legs: Leg[]; sizes: number[]; view: ModelView; narrow: boolean; onOpen: (l: Leg) => void; onSort: (s: TradeSort) => void }) {
+  const rows = useMemo(() => sortTrades(legs, sizes, view.sort), [legs, sizes, view.sort]);
   const label = view.label;
+  const st = view.scope === 'closed' ? run.stats.closed : run.stats.all;
   const cols: DCol<TradeRow>[] = [
     {
       key: 'setup', label: 'Setup', text: true,
@@ -134,8 +140,8 @@ function TradeList({ run, view, narrow, onOpen, onSort }: { run: StrategyRun; vi
     <>
       <div class="sechead">
         <h2>Trades</h2>
-        <span class="gcount">{run.legs.length}</span>
-        <span class="secnote">{reasonLine(run.stats.all) || 'none'}</span>
+        <span class="gcount">{rows.length}</span>
+        <span class="secnote">{reasonLine(st) || 'none'}</span>
         <div class="dial sortdial">
           <span class="diallabel">Order</span>
           <Choice label="Order" value={view.sort} onChange={onSort} items={TRADE_SORTS.map(id => ({ id, label: SORT_LABEL[id] }))} />
@@ -162,14 +168,17 @@ export function ModelPage() {
   // The engine runs again only when a dial it reads moves, or the data does: picking a strategy or a sizing to look at is a lookup.
   const result = useMemo(() => (ready ? runModel({ rows: bd.rows, hist: s.hist, bars: bars ?? {} }, settings) : null), [ready, bd, s.hist, bars, key]);
   const run = result ? result.runs[view.strategy] : null;
+  // What the view counts: every leg, or the closed ones alone, and the money over those.
+  const scoped = useMemo(() => (run ? legsInScope(run, view.sizing, view.scope) : { legs: [] as Leg[], sizes: [] as number[] }), [run, view.sizing, view.scope]);
+  const moneyInScope: MoneyStats | null = useMemo(() => (run ? (view.scope === 'all' ? run.money[view.sizing] : moneyStatsOf(scoped.legs, scoped.sizes)) : null), [run, view.sizing, view.scope, scoped]);
 
   const onView = (patch: Partial<ModelView>) => setQuery(modelQuery({ ...view, ...patch }));
   const onSettings = (patch: Partial<ModelSettings>) => setQuery(modelQuery({ ...view, settings: { ...view.settings, ...patch } }));
   const openRow = (l: Leg) => go({ page: 'model', row: { sym: l.sym, dir: l.dir }, ...(r.query ? { query: r.query } : {}) });
-  const tiles = run ? modelTiles(run, view.sizing, view.scope, view.label) : [];
+  const tiles = run && moneyInScope ? modelTiles(run, view.sizing, view.scope, view.label, moneyInScope) : [];
 
   useEffect(() => {
-    if (result && run) publishModelPage({ view, result, run, tiles: Object.fromEntries(tiles.map(t => [t.label, t.value])), query: modelQuery(view) });
+    if (result && run) publishModelPage({ view, settings, result, run, tiles: Object.fromEntries(tiles.map(t => [t.label, t.value])), query: modelQuery(view) });
   }, [result, run, view]);
 
   const copyLink = () => {
@@ -186,10 +195,10 @@ export function ModelPage() {
         <button type="button" class="btn primary" onClick={() => void load()}>Try again</button>
       </div>
     );
-  } else if (loading || !result || !run) {
+  } else if (loading || !result || !run || !moneyInScope) {
     body = <div class="empty" aria-busy="true"><p>Loading the model…</p></div>;
   } else {
-    const m = run.money[view.sizing];
+    const m = moneyInScope;
     const equity = m.curve.equity;
     let peak = 0;
     const drawdown = equity.map(v => { if (v > peak) peak = v; return v - peak; });
@@ -208,7 +217,7 @@ export function ModelPage() {
         </div>
         <p class="tilenote">{moneyWords(m, view.label)}</p>
 
-        <TradeList run={run} view={view} narrow={narrow} onOpen={openRow} onSort={v => onView({ sort: v })} />
+        <TradeList run={run} legs={scoped.legs} sizes={scoped.sizes} view={view} narrow={narrow} onOpen={openRow} onSort={v => onView({ sort: v })} />
 
         <div class="sechead"><h2>By type</h2><span class="secnote">the type the setup had at its first outcome; B4 is a negation</span></div>
         {types.length ? (
@@ -218,14 +227,14 @@ export function ModelPage() {
           </table>
         ) : <div class="empty"><p>No trade to break down.</p></div>}
 
-        <div class="sechead"><h2>The ratio question</h2><span class="secnote">how much to put on an S2 entry for each {view.label.endsWith('s') ? 'unit' : view.label} on an S1 entry</span></div>
+        <div class="sechead"><h2>The ratio question</h2><span class="secnote">how much to put on an S2 entry against an S1 entry, as a ratio of the amounts</span></div>
         <table class="board small ratios" aria-label="S2 against S1, three ways">
           <thead><tr><th scope="col" class="text">S2 depth</th><th scope="col">Equal risk per setup</th><th scope="col">Equal max drawdown</th><th scope="col">Equal capital in use</th><th scope="col" class="text">Behind the numbers</th></tr></thead>
           <tbody>{ratios.map(x => <tr key={x.id}><td class="text">{x.label}</td><td>{x.equalRisk}</td><td>{x.equalDrawdown}</td><td>{x.equalCapital}</td><td class="text sub">{x.behind}</td></tr>)}</tbody>
         </table>
         <p class="tilenote">Equal risk is the one that follows from the rules: the median, over setups, of the total risk S1 makes you take (entry to stop, every leg added up) over the same under S2. The other two scale S2's flat amount until its deepest drawdown, or its peak capital in use, equals S1's. Per-strategy sizing applies the equal-risk ratio.</p>
 
-        <div class="sechead"><h2>Sensitivity</h2><span class="secnote">every strategy under every sizing: the size-weighted return and the deepest drawdown; press a cell to look at it</span></div>
+        <div class="sechead"><h2>Sensitivity</h2><span class="secnote">every strategy under every sizing, over every leg: the size-weighted return, the deepest drawdown and, for S2, the equal-risk ratio against S1; press a cell to look at it</span></div>
         <table class="board small grid" aria-label="Strategy by sizing">
           <thead><tr><th scope="col" class="text">Strategy</th>{SIZINGS.map(sz => <th scope="col" key={sz}>{SIZING_LABEL[sz]}</th>)}</tr></thead>
           <tbody>
@@ -235,10 +244,10 @@ export function ModelPage() {
                 {row.cells.map(c => (
                   <td key={c.sizing}>
                     <button type="button" class="gcell" aria-pressed={c.strategy === view.strategy && c.sizing === view.sizing}
-                      aria-label={`${STRATEGY_LABEL[c.strategy]}, ${SIZING_LABEL[c.sizing]}: ${c.text}, drawdown ${c.dd}`}
+                      aria-label={`${STRATEGY_LABEL[c.strategy]}, ${SIZING_LABEL[c.sizing]}: ${c.text}, drawdown ${c.dd}${c.ratio != null ? `, ratio ${c.ratio.toFixed(2)} to S1` : ''}`}
                       onClick={() => onView({ strategy: c.strategy as StrategyId, sizing: c.sizing as SizingId })}>
                       <span class={'gv' + (c.weightedPct != null && c.weightedPct < 0 ? ' tone-bad' : c.weightedPct != null && c.weightedPct > 0 ? ' tone-good' : '')}>{c.text}</span>
-                      <span class="gs">{c.dd}{c.ratio != null ? ` · ${c.ratio.toFixed(2)}` : ''}</span>
+                      <span class="gs">{c.dd}{c.ratio != null ? ` · ratio ${c.ratio.toFixed(2)}` : ''}</span>
                     </button>
                   </td>
                 ))}
@@ -272,7 +281,7 @@ export function ModelPage() {
     <>
       <main class="page model" data-underlay>
         <Hero title="Model"
-          stamp={loading || !result ? 'Loading…' : <>{result.universe.breakouts} breakouts · {result.universe.candidates.length} in the trade list · {STRATEGY_LABEL[view.strategy]}<span class="wideonly"> · each price in its own listing currency</span></>}
+          stamp={s.phase === 'error' ? 'Not loaded.' : loading || !result ? 'Loading…' : <>{result.universe.breakouts} breakouts · {result.universe.candidates.length} setups in the trade list · {STRATEGY_LABEL[view.strategy]}<span class="wideonly"> · each price in its own listing currency</span></>}
           actions={<>
             {r.query ? <button type="button" class="btn" onClick={() => setQuery(modelQuery(DEFAULT_VIEW))}>Defaults</button> : null}
             <button type="button" class="btn" onClick={copyLink}>Copy link</button>

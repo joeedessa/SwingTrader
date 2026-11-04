@@ -97,6 +97,15 @@ describe('fills', () => {
     expect(part.legs[0].exit).toMatchObject({ price: 94, basis: 'level', reason: 'stop' });
   });
 
+  it('entered from a report with no open on file, the fill is the first session\'s close, never the close before the report', () => {
+    const p: Setup = { ...WITH_LFD, confirmed: '2026-01-10' };
+    const sim = run(p, [['2026-01-05', 95, 99, 98], ['2026-01-06', 98, 102, 101], ['2026-01-07', 100, 104, 103], ['2026-01-12', 101, 105, 104], ['2026-01-13', 103, 107, 106]], 'S1');
+    expect(sim.legs[0].entry).toMatchObject({ when: '2026-01-12', price: 104, basis: 'close' });
+    expect(sim.legs[0].mark).toEqual({ when: '2026-01-13', price: 106 });
+    // With the first session not on file yet, the setup waits.
+    expect(run(p, [['2026-01-05', 95, 99, 98], ['2026-01-06', 98, 102, 101], ['2026-01-07', 100, 104, 103]], 'S1')).toMatchObject({ legs: [], note: 'waiting for the next open' });
+  });
+
   it('a target touched at the open fills at the open; one closed through fills at the close', () => {
     const touch = run(WITH_LFD, [...BREAK, ['2026-01-07', 99, 104, 103, 100], ['2026-01-08', 119, 125, 118, 121]], 'S1', { targetOn: 'touch' });
     expect(touch.legs[0].exit).toMatchObject({ price: 121, basis: 'open', reason: 'target', level: 120 });
@@ -157,6 +166,9 @@ describe('entries the rules would not take', () => {
     const s1 = run(WITH_LFD, path, 'S1');
     expect(s1.legs).toHaveLength(0);
     expect(s1.note).toBe('the next open was at or beyond the stop');
+    // The same with the fill at the confirming close names that close.
+    const p2: Setup = { ...WITH_LFD, lfd: 101.5 };
+    expect(run(p2, [...BREAK, ['2026-01-07', 102, 106, 105, 103]], 'S1', { entry: 'close' }).note).toBe('the confirming close was at or beyond the stop');
     const s2 = run(WITH_LFD, path, 'S2-u');
     expect(s2.note).toBe('the next open was at or beyond the stop');
     expect(s2.legs.map(l => [l.n, l.entry.when, l.entry.price])).toEqual([[2, '2026-01-09', 101]]);

@@ -7,7 +7,8 @@ import { runModel } from '../../src/engine/backtest/model';
 import { DEFAULT_SETTINGS, LIST_BEGAN, SIZINGS, STRATEGY_IDS } from '../../src/engine/backtest/settings';
 import { route } from '../../src/router';
 import { ModelPage } from '../../src/ui/model';
-import { modelTiles, STRATEGY_LABEL } from '../../src/ui/modelcells';
+import { moneyStatsOf } from '../../src/engine/backtest/stats';
+import { legsInScope, modelTiles, STRATEGY_LABEL } from '../../src/ui/modelcells';
 import { engineSettings, parseModelQuery } from '../../src/ui/modelurl';
 import { frozenInputs } from './frozen';
 
@@ -42,7 +43,7 @@ describe('the Model page', () => {
     const r = resultFor('');
     const html = at('');
     const t = text(html);
-    expect(t).toContain(`${r.universe.breakouts} breakouts · ${r.universe.candidates.length} in the trade list · ${STRATEGY_LABEL['S2-u']}`);
+    expect(t).toContain(`${r.universe.breakouts} breakouts · ${r.universe.candidates.length} setups in the trade list · ${STRATEGY_LABEL['S2-u']}`);
     const tiles = modelTiles(r.runs['S2-u'], 'flat', 'all', 'units');
     for (const tile of tiles) { expect(t).toContain(tile.label); expect(t).toContain(tile.value); }
     expect(t).toContain('every leg, the open ones marked at the latest settled close');
@@ -54,11 +55,15 @@ describe('the Model page', () => {
     const r = resultFor(q);
     const t = text(at(q));
     expect(t).toContain(STRATEGY_LABEL.S1);
-    const tiles = modelTiles(r.runs.S1, 'risk', 'closed', 'USD');
+    // Closed only: the money, the lines and the list are over the closed legs alone.
+    const closed = legsInScope(r.runs.S1, 'risk', 'closed');
+    expect(closed.legs.length).toBeLessThan(r.runs.S1.legs.length);
+    const tiles = modelTiles(r.runs.S1, 'risk', 'closed', 'USD', moneyStatsOf(closed.legs, closed.sizes));
     for (const tile of tiles) expect(t).toContain(tile.value);
     expect(t).toContain('closed trades only');
     expect(t).toContain(' USD');
     expect(t).not.toContain(' units');
+    expect((at(q).match(/class="symbtn"/g) || []).length).toBe(closed.legs.length);
   });
 
   it('runs the engine on the dials in the link: the entry, the imported entry, the target, the stop, the removal, the day the list began, the costs', () => {
@@ -116,6 +121,8 @@ describe('the Model page', () => {
     expect(text(at(''))).toContain('Loading the model');
     app.set({ phase: 'error', error: 'The watchlist didn\'t load.' });
     expect(text(at(''))).toContain('Try again');
+    expect(text(at(''))).toContain('Not loaded.');
+    expect(text(at(''))).not.toContain('Loading…');
     app.set({ phase: 'ready', error: null });
   });
 

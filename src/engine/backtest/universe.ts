@@ -1,3 +1,4 @@
+import { typeOf } from '../btype';
 import { evaluate } from '../row';
 import type { Row } from '../row';
 import type { Bars, BreakoutTag, Dir, History } from '../types';
@@ -50,6 +51,9 @@ export interface Candidate {
   signalKind: 'close' | 'report';
   /** For an imported setup, the confirming close the lookback found, whichever day it enters from. */
   confirming: { when: string; price: number } | null;
+  /** Entered from the report, the board had already counted a breach (a touch of the last full day) with no close back
+      past the trigger since: the setup is out, and only a re-entry can take it. */
+  outAtSignal: boolean;
   /** The tight stop, or null where there is none (the report gives none, or a derived one is beyond the negation). */
   stop: number | null;
   stopSource: StopSource;
@@ -130,6 +134,7 @@ function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined, 
   let when: string, price: number | null = null, index: number;
   let signalKind: Candidate['signalKind'] = 'close';
   let confirming: Candidate['confirming'] = null;
+  let outAtSignal = false;
   if (b.close != null) {
     when = b.when; price = b.close;
     index = days.findIndex(d => d.when === when);
@@ -146,6 +151,13 @@ function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined, 
       let k = days.length - 1;
       while (k > ci && (days[k].when > p.confirmed || days[k].c == null)) k--;
       index = k; when = days[k].when; price = days[k].c; signalKind = 'report';
+      // The board's own counting from the confirming close to that day: a breach not followed by a re-entry close means
+      // the setup is out when the report comes.
+      if (hist) {
+        const cut: History = { ...hist, settled: hist.settled.filter(([d]) => d <= when) };
+        const T = typeOf(p, { state: 'breakout', breakout: b, targetHit: null, failed: null }, r.lfd, cut, bars);
+        outAtSignal = !!(T && T.out);
+      }
     } else { index = ci; when = conf; price = confirming.price; }
   }
   if (price == null) return no(`the signal day (${when}) has no close`);
@@ -156,7 +168,7 @@ function candidateOf(r: Row, hist: History | undefined, bars: Bars | undefined, 
   return {
     key, sym: p.sym, dir: p.dir, currency: hist ? hist.currency : '',
     trigger: p.breakthrough, target: p.target ?? null, negation: p.negation ?? null, boundary: p.boundary ?? null,
-    signal: { when, price, index }, signalKind, confirming,
+    signal: { when, price, index }, signalKind, confirming, outAtSignal,
     stop, stopSource, days,
     removed,
     removedReason: removed ? p.removed_reason || null : null,

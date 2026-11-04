@@ -26,14 +26,22 @@ export const DEFAULT_VIEW: ModelView = { settings: DEFAULT_SETTINGS, strategy: '
 /** The label is a word: letters, digits and the common currency signs, twelve characters at most. */
 export const LABEL_MAX = 12;
 export const cleanLabel = (raw: string): string => {
-  const s = raw.replace(/[^\p{L}\p{N}$€£¥₹ ]/gu, '').trim().slice(0, LABEL_MAX).trim();
+  const s = raw.replace(/[^\p{L}\p{N}\p{Sc} ]/gu, '').trim().slice(0, LABEL_MAX).trim();
   return s || DEFAULT_VIEW.label;
 };
 
 /** Costs are a share of the position per side; a hundred per cent would be a joke, so that is the cap. */
-const PCT_MAX = 100;
+export const PCT_MAX = 100;
 /** Amounts in account units; a thousand million is plenty. */
-const UNITS_MAX = 1e9;
+export const UNITS_MAX = 1e9;
+
+/** What a number field hands the engine: the typed value when it is a number from zero to the cap, else nothing. */
+export function readNumber(raw: string, max: number): number | null {
+  const t = raw.trim();
+  if (t === '') return null;
+  const v = Number(t);
+  return isFinite(v) && v >= 0 && v <= max ? v : null;
+}
 
 const num = (raw: string | null, max: number, fallback: number): number => {
   if (raw == null || raw === '') return fallback;

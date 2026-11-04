@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runModel } from '../../src/engine/backtest/model';
 import { DEFAULT_SETTINGS, S2_IDS, SIZINGS, STRATEGY_IDS } from '../../src/engine/backtest/settings';
 import type { Leg } from '../../src/engine/backtest/simulate';
-import { caveatText, exclusionLines, gridRows, modelTiles, money, ratioRows, reasonLine, signedR, sortTrades, strategyWords, tradeCells, typeRows } from '../../src/ui/modelcells';
+import { caveatText, exclusionLines, gridRows, legsInScope, modelTiles, money, ratioRows, reasonLine, signedR, sortTrades, strategyWords, tradeCells, typeRows } from '../../src/ui/modelcells';
 import { frozenBoard, frozenInputs } from './frozen';
 
 /* What the Model page says, read back against the engine's own result on the frozen board. Every count comes from the
@@ -37,6 +37,7 @@ describe('the tiles', () => {
     expect(by.Expectancy.value).toMatch(/^[+−]?\d+\.\d%$/);
     expect(by.Expectancy.sub).toContain('90% interval');
     expect(by['In R'].value).toMatch(/ R$/);
+    expect(by['In R'].sub).toContain('legs with a stop');
     expect(by['Max drawdown'].value).toBe(money(-run.money.flat.maxDrawdown, 'units'));
     expect(by['Capital in use'].value).toBe(money(run.money.flat.peakExposure, 'units'));
     expect(by['Positions open'].sub).toContain(`${run.money.flat.peakOpen} at the most`);
@@ -69,6 +70,26 @@ describe('a trade\'s cells', () => {
     expect(c.size.value).toBe('10,000 units');
     expect(c.size.sub).toBe('first entry');
     expect(c.type.badge).toEqual({ text: leg.tag, cls: leg.tag!.toLowerCase() });
+  });
+
+  it('name the stop the leg ran on: the last full day and where it came from, or the negation where there was no tight stop', () => {
+    const s1 = tradeCells(leg, 10000, 'units').stop;
+    expect(s1.value).toContain(leg.currency);
+    expect(s1.sub).toMatch(/^last full day, (from the report|read from the bars)$/);
+    const s3 = result.runs.S3.legs[0];
+    const c3 = tradeCells(s3, 10000, 'units').stop;
+    expect(c3.value).toBe(String(s3.c.negation!.toLocaleString('en-US', { maximumFractionDigits: Math.abs(s3.c.negation!) >= 100 ? 1 : 2 })) + ' ' + s3.currency);
+    expect(c3.sub).toBe('the negation');
+  });
+
+  it('count the closed legs alone when asked, with their sizes', () => {
+    const run = result.runs['S2-u'];
+    const all = legsInScope(run, 'risk', 'all');
+    expect(all.legs).toBe(run.legs);
+    const closed = legsInScope(run, 'risk', 'closed');
+    expect(closed.legs.every(l => !l.open)).toBe(true);
+    expect(closed.legs.length).toBe(run.legs.filter(l => !l.open).length);
+    expect(closed.sizes).toEqual(closed.legs.map(l => run.sizes.risk[run.legs.indexOf(l)]));
   });
 
   it('mark an open leg as open, at the latest close', () => {
@@ -136,6 +157,12 @@ describe('the words', () => {
     expect(t).toContain(`${result.caveats.beforeListBegan} breakouts before it`);
     expect(t).toContain('08-08-26');
     expect(caveatText(result.caveats, result.universe, true)).toContain('Only breakouts from 08-08-26 on');
+    // With the dial set, the breakouts left out are counted from what the universe excluded for it.
+    const { bars, hist } = frozenInputs();
+    const from = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, from: '2026-08-08' });
+    expect(from.caveats.beforeListBegan).toBe(from.universe.excluded.filter(e => e.reason.startsWith('broke out before')).length);
+    expect(from.caveats.beforeListBegan).toBe(result.caveats.beforeListBegan);
+    expect(caveatText(from.caveats, from.universe, true)).toContain(`the ${from.caveats.beforeListBegan} breakouts before it are left out`);
   });
 
   it('list what is left out with its reason, the universe\'s first', () => {

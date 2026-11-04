@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '../../../src/engine/backtest/settings';
+import { DEFAULT_SETTINGS, STRATEGIES, strategyId } from '../../../src/engine/backtest/settings';
+import { simulate } from '../../../src/engine/backtest/simulate';
 import { brokeOut, daysOf, payoffOf, universeOf } from '../../../src/engine/backtest/universe';
 import { evaluate } from '../../../src/engine/row';
 import type { Row } from '../../../src/engine/row';
@@ -134,6 +135,32 @@ describe('the universe', () => {
     expect(u.breakouts).toBe(1);
     expect(u.excluded[0].reason).toBe('removed by the source after breaking out');
     expect(universeOf([gone.row], gone.hist, gone.bars, DEFAULT_SETTINGS).candidates[0]).toMatchObject({ removed: '2026-01-10' });
+  });
+
+  it('an imported setup the board had stopped out before the report is out at its signal: S1 leaves it, S2 waits for a close back past the trigger, S3 takes it', () => {
+    const path: Day[] = [
+      ['2026-01-05', 95, 99, 98, 96], ['2026-01-06', 98, 102, 101, 99],   // the confirming close
+      ['2026-01-07', 100, 104, 103, 100],
+      ['2026-01-08', 93, 99, 96, 97],      // a breach of the 94 last full day
+      ['2026-01-09', 96, 100, 99, 97],     // the last close before the Saturday report, still under the trigger
+      ['2026-01-12', 99.5, 103, 102, 99.5], // a close back past the trigger: the board's re-entry
+      ['2026-01-13', 101, 105, 104, 101.5],
+    ];
+    const { row, hist, bars } = rowOf({ ...LONG, lfd: 94, confirmed: '2026-01-10' }, path);
+    expect(row.section).toBe('reentered');
+    const c = universeOf([row], hist, bars, DEFAULT_SETTINGS).candidates[0];
+    expect(c).toMatchObject({ signalKind: 'report', outAtSignal: true, signal: { when: '2026-01-09', price: 99 } });
+    const sim = (id: 'S1' | 'S2-u' | 'S3' | 'S4') => simulate(c, STRATEGIES.find(s => strategyId(s) === id)!, DEFAULT_SETTINGS);
+    expect(sim('S1')).toMatchObject({ legs: [], note: 'stopped out before the report, and this strategy does not re-enter' });
+    expect(sim('S4').legs).toEqual([]);
+    const s2 = sim('S2-u');
+    expect(s2.note).toBe('stopped out before the report: in only on a close back past the trigger');
+    expect(s2.legs.map(l => [l.n, l.entry.when, l.entry.price, l.entry.basis])).toEqual([[2, '2026-01-13', 101.5, 'open']]);
+    expect(sim('S3').legs.map(l => [l.n, l.entry.when, l.entry.price])).toEqual([[1, '2026-01-12', 99.5]]);
+    // Under the confirming-close entry the same setup is a plain first leg, and the breach is the model's own exit.
+    const atClose = universeOf([row], hist, bars, { ...DEFAULT_SETTINGS, importedEntry: 'close' }).candidates[0];
+    expect(atClose.outAtSignal).toBe(false);
+    expect(simulate(atClose, STRATEGIES.find(s => strategyId(s) === 'S1')!, { ...DEFAULT_SETTINGS, importedEntry: 'close' }).legs[0].exit).toMatchObject({ when: '2026-01-08', reason: 'stop' });
   });
 
   it('a removed setup is typed as it stood on the removal date, not by the bars after it', () => {

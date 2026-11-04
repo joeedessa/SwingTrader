@@ -91,7 +91,7 @@ describe('the strategies on the frozen board', () => {
       // Anything else left out is an entry the rules would not take.
       for (const e of run.excluded) {
         if (stopWords.has(e.reason) || e.reason === 'no negation on file') continue;
-        expect(e.reason, `${id} ${e.key}`).toMatch(/^(at the target on the confirming close|the next open was |removed by the source before the fill)/);
+        expect(e.reason, `${id} ${e.key}`).toMatch(/^(at the target on the (confirming close|last close before the report)|the (next open|first close after the report|confirming close) was |removed by the source before the fill|stopped out before the report)/);
       }
       expect(run.setups + run.pending.length + run.excluded.length, id).toBe(m.universe.candidates.length);
       for (const w of run.waitingReentries) expect(run.legs.some(l => l.key === w.key), `${id} ${w.key}`).toBe(true);
@@ -130,17 +130,19 @@ describe('the strategies on the frozen board', () => {
       if (!T || !T.breaches) continue;
       const legs = s2.legs.filter(l => l.key === c.key);
       if (!legs.length) continue;
-      // An imported setup enters from the report: what the board counted before that day is not the model's, and one the
-      // board had already stopped out by then (out, waiting for a close back past the trigger) is a trade the board does
-      // not have at all, so there is nothing to hold it to.
-      const from = legs[0].entry.when;
-      if (c.signalKind === 'report' && T.breaches.some(b => b.when < from)) continue;
+      // An imported setup enters from the report: what the board counted before the model's first fill is not the model's.
+      // A fill at an open is in for that day's low; one at a close is in from the day after.
+      const first = legs[0];
+      const inFrom = (w: string) => (first.entry.basis === 'open' ? w >= first.entry.when : w > first.entry.when);
       const exits = legs.filter(l => l.exit && l.exit.reason === 'stop').map(l => l.exit!.when);
-      expect(exits, c.key).toEqual(T.breaches.map(b => b.when).filter(w => w >= from));
-      // The board counts a re-entry close that is also at the target; the model does not buy there.
+      expect(exits, c.key).toEqual(T.breaches.map(b => b.when).filter(inFrom));
+      // Re-entries: the model's legs after the first, or every leg when the setup was out at the report and the first leg
+      // is itself a re-entry. The board counts a re-entry close that is also at the target; the model does not buy there.
+      const signalDay = (l: typeof first) => c.days[l.entry.index - (l.entry.basis === 'open' ? 1 : 0)].when;
       const target = r.st.targetHit ? r.st.targetHit.when : null;
-      const reentries = (T.reentries ?? []).map(x => x.when).filter(w => (!target || w < target) && w >= from);
-      expect(legs.slice(1).map(l => c.days[l.entry.index - (l.entry.basis === 'open' ? 1 : 0)].when), c.key).toEqual(reentries);
+      const firstSignal = signalDay(first);
+      const reentries = (T.reentries ?? []).map(x => x.when).filter(w => (!target || w < target) && (first.n > 1 ? w >= firstSignal : w > firstSignal));
+      expect(legs.filter(l => l.n > 1).map(signalDay), c.key).toEqual(reentries);
       compared++;
     }
     expect(compared).toBeGreaterThan(0);

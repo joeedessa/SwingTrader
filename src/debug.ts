@@ -107,9 +107,9 @@ declare global {
   }
 }
 
-export function publishModelPage(d: { view: { settings: ModelSettings; strategy: string; sizing: string; scope: string; label: string }; result: ModelResult; run: { legs: unknown[]; setups: number; excluded: { key: string; reason: string }[] }; tiles: Record<string, string>; query: string }): void {
+export function publishModelPage(d: { view: { strategy: string; sizing: string; scope: string; label: string }; settings: ModelSettings; result: ModelResult; run: { legs: unknown[]; setups: number; excluded: { key: string; reason: string }[] }; tiles: Record<string, string>; query: string }): void {
   window.__model = {
-    query: d.query, settings: d.view.settings, strategy: d.view.strategy, sizing: d.view.sizing, scope: d.view.scope, label: d.view.label,
+    query: d.query, settings: d.settings, strategy: d.view.strategy, sizing: d.view.sizing, scope: d.view.scope, label: d.view.label,
     breakouts: d.result.universe.breakouts, candidates: d.result.universe.candidates.length,
     legs: d.run.legs.length, setups: d.run.setups,
     excluded: [...d.result.universe.excluded, ...d.run.excluded].map(e => ({ key: e.key, reason: e.reason })),

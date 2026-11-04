@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, LIST_BEGAN, SIZINGS, STRATEGY_IDS } from '../../src/engine/backtest/settings';
-import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, TRADE_SORTS } from '../../src/ui/modelurl';
+import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, PCT_MAX, readNumber, TRADE_SORTS, UNITS_MAX } from '../../src/ui/modelurl';
 import type { ModelView } from '../../src/ui/modelurl';
 
 /* The Model's dials in the address: a scenario is a link. Only what differs from the defaults is written, everything
@@ -62,9 +62,22 @@ describe('the Model\'s address', () => {
     expect(engineSettings(DEFAULT_VIEW, LIST_BEGAN).from).toBeNull();
   });
 
+  it('reads a number field as a number from zero to the cap, and nothing else', () => {
+    expect(readNumber('0.15', PCT_MAX)).toBe(0.15);
+    expect(readNumber(' 0 ', PCT_MAX)).toBe(0);
+    expect(readNumber('', PCT_MAX)).toBeNull();
+    expect(readNumber('abc', PCT_MAX)).toBeNull();
+    expect(readNumber('-5', PCT_MAX)).toBeNull();
+    expect(readNumber('150', PCT_MAX)).toBeNull();
+    expect(readNumber('1e12', UNITS_MAX)).toBeNull();
+    expect(readNumber('20000', UNITS_MAX)).toBe(20000);
+  });
+
   it('keeps the currency label a short word', () => {
     expect(cleanLabel('  USD ')).toBe('USD');
     expect(cleanLabel('€')).toBe('€');
+    expect(cleanLabel('₺')).toBe('₺');
+    expect(cleanLabel('₩ won')).toBe('₩ won');
     expect(cleanLabel('<script>')).toBe('script');
     expect(cleanLabel('a very long currency name indeed')).toBe('a very long');
     expect(cleanLabel('   ')).toBe('units');

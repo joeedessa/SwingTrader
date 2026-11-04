@@ -45,11 +45,18 @@ const tone = (v: number | null | undefined): Tile['tone'] => (v == null ? undefi
 
 const plural = (n: number, one: string, many: string) => n + ' ' + (n === 1 ? one : many);
 
-/** The eight tiles for a strategy under a sizing: the trade count, the rates and means, the money. */
-export function modelTiles(run: StrategyRun, sizing: SizingId, scope: Scope, label: string): Tile[] {
+/** The legs a view counts, with their sizes: every leg, or the closed ones alone. */
+export function legsInScope(run: StrategyRun, sizing: SizingId, scope: Scope): { legs: Leg[]; sizes: number[] } {
+  if (scope === 'all') return { legs: run.legs, sizes: run.sizes[sizing] };
+  const keep = run.legs.map((l, i) => [l, run.sizes[sizing][i]] as const).filter(([l]) => !l.open);
+  return { legs: keep.map(([l]) => l), sizes: keep.map(([, s]) => s) };
+}
+
+/** The eight tiles for a strategy under a sizing: the trade count, the rates and means, the money. The money statistics are the
+    view's own (closed legs alone, under that scope); every leg's by default. */
+export function modelTiles(run: StrategyRun, sizing: SizingId, scope: Scope, label: string, m: MoneyStats = run.money[sizing]): Tile[] {
   const st = scope === 'closed' ? run.stats.closed : run.stats.all;
   const iv = scope === 'closed' ? run.bootstrap.pct.closed : run.bootstrap.pct.all;
-  const m = run.money[sizing];
   const scopeWords = scope === 'closed' ? 'closed trades only' : `${plural(st.open, 'open leg', 'open legs')} marked at the latest close`;
   return [
     {
@@ -69,7 +76,7 @@ export function modelTiles(run: StrategyRun, sizing: SizingId, scope: Scope, lab
     },
     {
       label: 'In R', value: signedR(st.expectancyR), tone: tone(st.expectancyR),
-      sub: st.withR ? `over ${st.withR} with a stop to measure from` : 'no leg had a stop to measure from',
+      sub: st.withR ? `over ${plural(st.withR, 'leg', 'legs')} with a stop to measure from` : 'no leg had a stop to measure from',
       title: 'The mean net return in multiples of the risk taken: the distance from the entry to the stop in force (the negation where there was no tight stop).',
     },
     {
@@ -79,7 +86,7 @@ export function modelTiles(run: StrategyRun, sizing: SizingId, scope: Scope, lab
     },
     {
       label: 'Max drawdown', value: money(-m.maxDrawdown, label), tone: m.maxDrawdown > 0 ? 'bad' : undefined,
-      sub: `from a high of ${money(m.peakEquity, label)} · ${SIZING_LABEL[sizing].toLowerCase()} sizing`,
+      sub: `from a high of ${money(m.peakEquity, label)} · ${SIZING_LABEL[sizing].toLowerCase()} sizing${scope === 'closed' ? ' · closed legs' : ''}`,
       title: 'The deepest fall of the equity line from a high, in account units, with every leg marked daily at the settled close and FX held constant.',
     },
     {
@@ -126,9 +133,22 @@ export function tradeCells(l: Leg, size: number, label: string): TradeCells {
     r: { value: signedR(l.r), sub: l.riskPct != null ? `risk ${l.riskPct.toFixed(1)}% to the ${l.stopKind === 'none' ? 'negation' : l.stopKind}` : 'no level on the losing side' },
     days: { value: String(l.days), sub: l.days === 1 ? 'day' : 'days' },
     type: l.tag ? { value: l.tag, badge: { text: l.tag, cls: l.tag.toLowerCase() } } : { value: '–', sub: 'no type' },
-    stop: { value: l.stop != null ? fmt(l.stop) + ccy : 'none', sub: l.stopSource === 'report' ? 'from the report' : l.stopSource === 'derived' ? 'read from the bars' : l.stopSource === 'none' ? 'none in the report' : l.stopSource === 'looser' ? 'derived, beyond the negation' : 'none could be read' },
+    stop: stopCell(l, ccy),
     size: { value: money(size, label), sub: l.n > 1 ? `re-entry ${l.n - 1}` : 'first entry' },
   };
+}
+
+/** The stop the leg ran on at its entry: the last full day and where it came from, a new one read for a re-entry, or the
+    negation where there was no tight stop. */
+function stopCell(l: Leg, ccy: string): Cell {
+  if (l.stopKind === 'last full day' && l.stop != null) {
+    return { value: fmt(l.stop) + ccy, sub: 'last full day, ' + (l.stopSource === 'report' ? 'from the report' : 'read from the bars') };
+  }
+  if (l.stopKind === 'new last full day' && l.stop != null) return { value: fmt(l.stop) + ccy, sub: 'new last full day, read from the re-entry run' };
+  if (l.c.negation != null) {
+    return { value: fmt(l.c.negation) + ccy, sub: l.stopKind === 'negation' ? 'the negation' : l.n > 1 ? 'the negation: no new last full day could be read' : 'the negation: no tight stop' };
+  }
+  return { value: 'none', sub: 'no level on the losing side' };
 }
 
 export function sortTrades(legs: readonly Leg[], sizes: readonly number[], sort: TradeSort): { leg: Leg; size: number }[] {
@@ -204,7 +224,7 @@ export function caveatText(c: Caveats, u: ModelResult['universe'], fromListBegan
     (c.busiestMonth ? `, ${c.busiestMonth.count} of them from ${monthWords(c.busiestMonth.month)}` : '') +
     `; ${plural(c.shorts, 'short', 'shorts')}; ${c.open} still open; ${c.derivedStops} with a stop read from the bars rather than the report; ${c.noTightStop} without a tight stop (in S3 only); ${c.imported} imported already confirmed; ${c.reached} closed on the day the source counted the target; ${c.removed} closed on removal.`);
   parts.push(fromListBegan
-    ? `Only breakouts from ${fmtD(c.listBegan)} on, the day the list began: the ${c.beforeListBegan === 0 ? 'none' : c.beforeListBegan} before it are left out.`
+    ? `Only breakouts from ${fmtD(c.listBegan)} on, the day the list began: the ${plural(c.beforeListBegan, 'breakout', 'breakouts')} before it ${c.beforeListBegan === 1 ? 'is' : 'are'} left out.`
     : `The list began on ${fmtD(c.listBegan)} with setups already confirmed, so the ${plural(c.beforeListBegan, 'breakout', 'breakouts')} before it are the ones the source still listed then: winners and open trades are over-represented there. The From dial leaves them out.`);
   return parts.join(' ');
 }

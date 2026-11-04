@@ -807,7 +807,8 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
 .chart.drawdown .chartline { stroke: var(--down); }
 .chart.drawdown .chartfill { fill: var(--down); }
 .chartzero { stroke: var(--baseline); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.chartlabel { font-size: 11px; fill: var(--text-muted); font-family: inherit; }
+.chartaxis { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.chartaxis .chartrange { text-align: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chart.empty { padding: 36px 24px; text-align: center; color: var(--text-secondary); }
 .chart.empty p { margin: 0; }
 

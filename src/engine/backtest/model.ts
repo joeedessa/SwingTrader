@@ -142,7 +142,7 @@ function caveatsOf(u: Universe, s3: Leg[], listBegan: string): Caveats {
     imported: u.candidates.filter(c => c.imported).length,
     reached: u.candidates.filter(c => c.reached != null).length,
     removed: u.candidates.filter(c => c.removed != null).length,
-    beforeListBegan: u.candidates.filter(c => c.signal.when < listBegan).length,
+    beforeListBegan: u.candidates.filter(c => c.signal.when < listBegan).length + u.excluded.filter(e => e.reason.startsWith('broke out before ')).length,
     listBegan,
   };
 }
