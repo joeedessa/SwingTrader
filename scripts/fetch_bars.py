@@ -27,6 +27,7 @@ Run: python3 scripts/fetch_bars.py [--backfill]
 Run: python3 scripts/fetch_bars.py
 """
 
+import copy
 import json
 import sys
 import time
@@ -68,8 +69,10 @@ def load(path):
 
 def update_bars(syms, backfill=False):
     old = load(BARS)
-    bars = old.get("bars") or {}
-    ccy = old.get("ccy") or {}
+    # Copies, not views: the unchanged-file test and the coverage check below compare against `old`,
+    # and editing it in place made every run read as "no new days" (nothing was written from 1 Nov to 3 Nov).
+    bars = copy.deepcopy(old.get("bars") or {})
+    ccy = dict(old.get("ccy") or {})
     first_run = not bars
     rng = "2y" if first_run or backfill else "1mo"
     failed = []
