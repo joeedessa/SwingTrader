@@ -23,10 +23,10 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { page: 'today', label: 'Today', icon: IconToday, badge: true },
-  { page: 'setups', label: 'Setups', icon: IconSetups },
-  { page: 'positions', label: 'Positions', icon: IconPositions },
-  { page: 'history', label: 'History', icon: IconHistory },
+  { page: 'today', label: 'Today', icon: IconToday, badge: true, blurb: 'What needs a decision this morning, and what changed since you last looked.' },
+  { page: 'setups', label: 'Setups', icon: IconSetups, blurb: 'Where every setup stands: the board, one section at a time.' },
+  { page: 'positions', label: 'Positions', icon: IconPositions, blurb: 'Am I still right, and where do I get out: the stop ladder.' },
+  { page: 'history', label: 'History', icon: IconHistory, blurb: 'What happened, what the record looks like, and the journal.' },
   { page: 'model', label: 'Model', icon: IconModel, blurb: 'What to play and how much: the strategies run over your own breakouts.', tabbar: false },
 ];
 

@@ -199,7 +199,8 @@ export function parseChart(json: unknown, nowMs: number): { bars: Bars; ccy: str
   const ts = res.timestamp;
   for (let i = 0; i < ts.length; i++) {
     const lo = q.low?.[i], hi = q.high?.[i], c = q.close?.[i], o = q.open?.[i];
-    if (lo == null || hi == null) continue;
+    // No low or high, or a zero for one (Yahoo's "no price"), is no bar.
+    if (lo == null || hi == null || lo <= 0 || hi <= 0) continue;
     // The last bar is forming when its stamp falls inside the session that has not ended yet.
     if (i === ts.length - 1 && reg && reg.start != null && reg.end != null && ts[i] >= reg.start && nowMs / 1000 < reg.end) continue;
     bars[localDate(ts[i], tz)] = o == null ? [lo, hi, c ?? null] : [lo, hi, c ?? null, o];

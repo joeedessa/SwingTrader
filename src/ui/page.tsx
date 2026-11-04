@@ -21,7 +21,7 @@ import { DrawerHost } from './drawerhost';
 import { isFiltered, marketsOf, matches, NO_FILTERS } from './filters';
 import type { Filters } from './filters';
 import { AddSetup } from './forms';
-import { useNarrow, usePersisted } from './hooks';
+import { useCards, useNarrow, usePersisted } from './hooks';
 import { IconMore, IconPlus, IconRefresh, IconSearch } from './icons';
 import { say } from './notice';
 
@@ -45,6 +45,7 @@ const EMPTY: Record<Section, string> = {
 export function BoardPage({ set }: { set: SetId }) {
   const s = useStore(app);
   const narrow = useNarrow();
+  const cards = useCards();
   const meta = SETS[set];
   const [section, setSection] = usePersisted('mc-seg-' + meta.key, 'watch', v => (SECTIONS as readonly string[]).includes(v));
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
@@ -159,7 +160,7 @@ export function BoardPage({ set }: { set: SetId }) {
         {isFiltered(filters) ? <button type="button" class="btn" onClick={() => setFilters(NO_FILTERS)}>Clear search and filters</button> : null}
       </div>
     );
-  } else if (narrow) {
+  } else if (cards) {
     body = <BoardCards rows={rows} section={sec} onOpen={openRow} today={today} panelId={panelId} chipsFor={chipsFor} />;
   } else {
     body = <BoardTable rows={rows} section={sec} sort={sorts[sec]} onSort={k => setSorts(o => ({ ...o, [sec]: nextSort(sec, o[sec], k) }))} onOpen={openRow} today={today} panelId={panelId} chipsFor={chipsFor} />;

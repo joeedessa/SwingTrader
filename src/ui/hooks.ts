@@ -23,6 +23,12 @@ export function useMedia(query: string): boolean {
 export const NARROW_QUERY = '(max-width: 700px), (orientation: landscape) and (max-height: 500px) and (pointer: coarse)';
 export const useNarrow = (): boolean => useMedia(NARROW_QUERY);
 
+/** Below this width the board's widest sections (Confirmed, Failed, Watching), the stop ladder and the Model's trade
+    list no longer fit as tables and would scroll sideways: every list is a stack of cards there, as on a phone, while
+    the rest of the page keeps its desktop shape. The widest fits from 1,000 px up; Signals' averages need 1,100. */
+export const CARDS_QUERY = '(max-width: 1000px)';
+export const useCards = (): boolean => useMedia(CARDS_QUERY) || useNarrow();
+
 /** localStorage that never throws: private mode and blocked storage read as empty and write nowhere. */
 export const store = {
   get(key: string): string | null {

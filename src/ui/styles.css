@@ -835,7 +835,36 @@ ol.tl .ev { grid-template-columns: 64px minmax(0, 1fr) auto; align-items: start;
   .charts { grid-template-columns: minmax(0, 1fr); }
   .chart svg { height: 150px; }
   .sortdial { margin-left: 0; width: 100%; }
-  .board.grid { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .board.ratios, .board.small:not(.grid) { display: block; overflow-x: auto; }
   .numwrap input { width: 100px; }
 }
+
+/* The Model's small tables (by type, the ratios, the grid) scroll inside their own box wherever the page is too narrow
+   for them, from a tablet down, rather than pushing the page sideways. */
+@media (max-width: 1000px) {
+  .board.grid { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .board.ratios, .board.small:not(.grid) { display: block; overflow-x: auto; }
+}
+
+/* ------------------------------------------------------------------ between a phone and a desktop (701 to 1,000 px) */
+
+/* The lists are cards here (hooks.ts, CARDS_QUERY), so the segment bar need not carry the full section names with the search
+   and the filters on one line: the short names, and the tools under them. */
+@media (max-width: 1000px) and (min-width: 701px) {
+  .seg .lfull { display: none; }
+  .seg .lshort { display: inline; }
+  .seg button { padding: 6px 11px; }
+  .tools { width: 100%; margin-left: 0; }
+}
+
+/* A fingertip needs 24 px of target: the small text buttons and links grow to it where the pointer is a finger, without
+   moving the text around them. */
+@media (pointer: coarse) {
+  .symbtn, .linkbtn, .datalink, .tile button.tv { min-height: 28px; display: inline-flex; align-items: center; }
+  .symbtn, .tile button.tv { min-width: 28px; }
+  .ext { width: 28px; min-width: 28px; height: 28px; flex: none; }
+}
+
+.pagelist { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 6px; }
+.pagelist li { font-size: 14px; line-height: 1.45; }
+.pagelist li a, .pagelist li b { font-weight: 650; margin-right: 6px; }
+.pagelist li span { color: var(--text-secondary); }

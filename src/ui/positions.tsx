@@ -18,7 +18,7 @@ import type { Sort } from './columns';
 import { DataLine } from './dataline';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
-import { useNarrow } from './hooks';
+import { useCards } from './hooks';
 import { ladderColumns, ladderSort } from './positioncells';
 import { Tiles } from './tiles';
 import type { Tile } from './tiles';
@@ -56,7 +56,7 @@ export function nearestTile(p: Position | null, onOpen: (r: Row) => void): Tile 
 export function PositionsPage() {
   const s = useStore(app);
   const acks = useStore(ackStore);
-  const narrow = useNarrow();
+  const cards = useCards();
   const ready = s.phase === 'ready';
   const loading = s.phase === 'loading';
   const { bd, today } = boardView(s, 'watchlist');
@@ -112,14 +112,14 @@ export function PositionsPage() {
 
         <SectionHead title="In trade" count={rows.length} note="Confirmed, or back in after an exit. Nearest its stop first." />
         {rows.length ? (
-          narrow
+          cards
             ? <BoardCards rows={rows} section="breakout" cols={cols} label="Stop ladder" onOpen={openRow} today={today} panelId={LADDER} chipsFor={chipsFor} heldFor={heldFor} />
             : <BoardTable rows={rows} section="breakout" cols={cols} label="Stop ladder" sort={sort} onSort={k => setSort(o => nextSort(cols, o, k))} onOpen={openRow} today={today} panelId={LADDER} chipsFor={chipsFor} heldFor={heldFor} />
         ) : <div class="empty" id={LADDER}><p>Nothing is in trade right now.</p></div>}
 
         <SectionHead title="Stopped out" count={stopped.length} note="Out at the last full day. A close back past the trigger re-enters; the negation ends it." />
         {stopped.length ? (
-          narrow
+          cards
             ? <BoardCards rows={stopped} section="stopped" onOpen={openRow} today={today} panelId={STOPPED} chipsFor={chipsFor} heldFor={heldFor} />
             : <BoardTable rows={stopped} section="stopped" sort={stoppedSort} onSort={k => setStoppedSort(o => nextSort('stopped', o, k))} onOpen={openRow} today={today} panelId={STOPPED} chipsFor={chipsFor} heldFor={heldFor} />
         ) : <div class="empty" id={STOPPED}><p>None are stopped out and waiting to re-enter.</p></div>}

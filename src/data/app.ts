@@ -11,7 +11,7 @@ import { migrateLegacyKeys } from './migrate';
 import { loadJson } from './load';
 import { emptyOverlay, readOverlay, SETS, workingList, writeOverlay } from './overlay';
 import type { Overlay, SetId } from './overlay';
-import { parseEvents, parseSeries, parseSetups } from './schema';
+import { parseBars, parseEvents, parseSeries, parseSetups } from './schema';
 import { fetchBarsFor, fetchLive, mergeLive } from './sources';
 import type { LiveResult } from './sources';
 import { emptyLog, readLogOverlay, writeLogOverlay } from './tradelog';
@@ -138,7 +138,7 @@ export function load(): Promise<void> {
       tryLoad<unknown>('watchlist.json', problems),
       tryLoad<unknown>('benchmarks.json', problems),
       tryLoad<unknown>('watch-events.json', problems),
-      tryLoad<BarsFile>('bars.json', problems),
+      tryLoad<unknown>('bars.json', problems),
       tryLoad<LatestFile>('prices-latest.json', problems),
       // The journal is optional: a missing file is an empty journal, not a problem to put on every page.
       loadJson<unknown>('tradelog.json').catch(() => null),
@@ -147,6 +147,8 @@ export function load(): Promise<void> {
     if (watch) { const p = parseSetups(watch, 'watchlist.json'); lists.watchlist = p.rows; problems.push(...p.problems); }
     if (bench) { const p = parseSetups(bench, 'benchmarks.json'); lists.benchmarks = p.rows; problems.push(...p.problems); }
     const prev = app.get();
+    let barsFile: BarsFile | null = null;
+    if (bars) { const p = parseBars(bars); barsFile = p.file; problems.push(...p.problems); }
     const noLists = !lists.watchlist && !lists.benchmarks && !prev.shared.watchlist.length;
     app.set({
       phase: noLists ? 'error' : 'ready',
@@ -157,7 +159,7 @@ export function load(): Promise<void> {
       eventsAt: events ? (parseEvents(events).generated_at ?? null) : prev.eventsAt,
       // A file that is missing or not a list leaves what was there.
       tradelog: Array.isArray(trades) ? (trades as Fill[]) : prev.tradelog,
-      barsFile: bars ?? prev.barsFile,
+      barsFile: barsFile ?? prev.barsFile,
       snapshot: latest ?? prev.snapshot,
       live: null,
       liveStatus: 'idle',

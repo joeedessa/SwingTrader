@@ -20,7 +20,7 @@ import { DataTable } from './datatable';
 import type { DCol } from './datatable';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
-import { useMedia, useNarrow, usePersisted } from './hooks';
+import { useCards, useMedia, useNarrow, usePersisted } from './hooks';
 import { agoWords, averageColumns, averageSort, changeText, crossAgo, forSetup, scanEmpty, scanNote, SCOPE_LABEL, signalTiles } from './signalcells';
 import type { SlowBars } from './signalcells';
 import { Tiles } from './tiles';
@@ -186,6 +186,7 @@ export function AveragesPanel({ rows, tf, setTf, ladder, rel, narrow, onOpen, to
 export function SignalsPage() {
   const s = useStore(app);
   const narrow = useNarrow();
+  const cards = useCards();
   const ready = s.phase === 'ready';
   const loading = s.phase === 'loading';
   const { bd, today } = boardView(s, 'watchlist');
@@ -249,7 +250,7 @@ export function SignalsPage() {
   } else if (loading) {
     body = <div class="empty" aria-busy="true"><p>Loading signals…</p></div>;
   } else if (t === 'changes') {
-    body = <ChangesPanel events={events} onOpen={openRow} narrow={narrow} waiting={waitingFor(['weekly'])} />;
+    body = <ChangesPanel events={events} onOpen={openRow} narrow={cards} waiting={waitingFor(['weekly'])} />;
   } else if (t === 'scan') {
     body = <ScanPanel scan={scan} tf={timeframe} setTf={setTf} scope={sc} setScope={setScope} counts={counts} onOpen={openRow} waiting={waitingFor([timeframe])} />;
   } else {

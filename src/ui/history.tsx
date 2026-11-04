@@ -17,7 +17,7 @@ import type { Sort } from './columns';
 import { DataLine } from './dataline';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
-import { useNarrow, usePersisted } from './hooks';
+import { useCards, useNarrow, usePersisted } from './hooks';
 import { JournalPanel, openFillForm } from './journal';
 import { Tiles } from './tiles';
 import type { Tile } from './tiles';
@@ -99,6 +99,7 @@ export function outcomeTiles(o: Outcomes): Tile[] {
 export function HistoryPage() {
   const s = useStore(app);
   const narrow = useNarrow();
+  const cards = useCards();
   const ready = s.phase === 'ready';
   const loading = s.phase === 'loading';
   const { bd, today } = boardView(s, 'watchlist');
@@ -124,12 +125,12 @@ export function HistoryPage() {
   } else if (loading) {
     body = <div class="empty" aria-busy="true"><p>Loading history…</p></div>;
   } else if (t === 'journal') {
-    body = <JournalPanel narrow={narrow} />;
+    body = <JournalPanel narrow={cards} />;
   } else {
     const section: Section = t;
     const rows = sortRows(bd.bySection[section], section, sorts[t]);
     body = rows.length ? (
-      narrow
+      cards
         ? <BoardCards rows={rows} section={section} onOpen={openRow} today={today} panelId={panel} />
         : <BoardTable rows={rows} section={section} sort={sorts[t]} onSort={k => setSorts(o => ({ ...o, [t]: nextSort(section, o[t], k) }))} onOpen={openRow} today={today} panelId={panel} />
     ) : <div class="empty" id={panel}><p>{EMPTY[t]}</p></div>;

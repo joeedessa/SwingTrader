@@ -50,11 +50,29 @@ python3 scripts/fetch_events.py  # refresh watch-events.json
 
 ## Weekly report sync
 
-```bash
-swift scripts/report/pdftext.swift "$HOME/Downloads/GLOBAL EQUITY MARKETS - <date> Part II.pdf" > /tmp/report.txt
-python3 scripts/report/watchlist.py /tmp/report.txt
-```
+Every week (around Saturday) the Tech Charts report `GLOBAL EQUITY MARKETS - <date> Part II.pdf` lands in
+`~/Downloads`, sometimes with a screenshot of the "Ongoing breakout ideas" sheet (its LFDR column is the last
+full day). The report and its PDFs are licensed: they are never committed; only the levels are, by Joe's decision.
 
-`watchlist.py` prints the differences against `public/data/watchlist.json` and
-changes nothing. Apply the changes by hand, then read the breakout levels off the
-charts (`scripts/report/pdfpage.swift`).
+1. **Diff the report.** Text it, then compare it with last week's list:
+
+   ```bash
+   swift scripts/report/pdftext.swift "$HOME/Downloads/GLOBAL EQUITY MARKETS - <date> Part II.pdf" > /tmp/report.txt
+   python3 scripts/report/watchlist.py /tmp/report.txt
+   ```
+
+   `watchlist.py` prints the additions, changes and removals against `public/data/watchlist.json` and changes
+   nothing. Apply them by hand.
+2. **Read the breakout levels off the charts.** The negation and the last full day are only on the chart: render the
+   page with `swift scripts/report/pdfpage.swift` and read them. A "CHECK THE CHART" line means the write-up may be
+   stale or describe the wrong side.
+3. **New rows** need a Yahoo symbol that resolves (Hong Kong drops leading zeros: `135` is `0135.HK`; share classes
+   use a hyphen: `ROKO-B.ST`, `GIB-A.TO`). The data job fetches their bars on its next run; the page fetches them
+   through the Worker until then.
+4. **With each sheet:** compare its LFDR, negation and target with ours, and note whether the source ever changes an
+   older B3's last full day (an open question since 25 Oct 2026); for every Failed row the sheet still lists as
+   ongoing, append the sheet's date to `source_open`.
+5. **Dropped setups** get `removed: <report date>` and a `removed_reason`. Never delete a row: the engine and the
+   tests count on every row staying.
+6. `npm test` (the live-file tests check every row), commit `public/data/watchlist.json`, `git pull --rebase origin main`
+   (the data jobs commit every few minutes), push. The deploy is automatic.

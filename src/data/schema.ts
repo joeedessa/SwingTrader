@@ -1,5 +1,6 @@
+import type { BarsFile } from '../engine/bars';
 import type { SeriesEntry, SeriesFile } from '../engine/signals';
-import type { Setup, SymbolEvents } from '../engine/types';
+import type { Bars, DayBar, Setup, SymbolEvents } from '../engine/types';
 
 /* The shared files are hand-maintained and written by a report sync, so they are validated at the edge:
    a bad row is reported and dropped rather than reaching the engine as a NaN. Fields the engine never
@@ -67,6 +68,39 @@ export function parseSetups(json: unknown, file: string): Parsed {
   return { rows, problems };
 }
 
+const finite = (v: unknown): v is number => typeof v === 'number' && isFinite(v);
+
+/** bars.json as the page reads it. A bar with a zero or a negative in it is Yahoo's "no price", not a day: it is left out
+    and reported, since a low of zero would read as a touch of every negation. The close may be null (a day without one). */
+export function parseBars(json: unknown): { file: BarsFile | null; problems: string[] } {
+  const problems: string[] = [];
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return { file: null, problems: ['bars.json: not an object'] };
+  const j = json as { generated_at?: unknown; missing?: unknown; ccy?: unknown; bars?: unknown };
+  if (!j.bars || typeof j.bars !== 'object' || Array.isArray(j.bars)) return { file: null, problems: ['bars.json: no bars'] };
+  const bars: Record<string, Bars> = {};
+  for (const [sym, days] of Object.entries(j.bars as Record<string, unknown>)) {
+    if (!days || typeof days !== 'object' || Array.isArray(days)) { problems.push(`bars.json ${sym}: not a map of days; left out`); continue; }
+    const kept: Bars = {};
+    for (const [d, raw] of Object.entries(days as Record<string, unknown>)) {
+      const b = raw as unknown[];
+      const ok = Array.isArray(b) && b.length >= 3 && finite(b[0]) && b[0] > 0 && finite(b[1]) && b[1] > 0
+        && (b[2] === null || (finite(b[2]) && b[2] > 0)) && (b.length < 4 || b[3] === null || (finite(b[3]) && b[3] > 0));
+      if (!ok) { problems.push(`bars.json ${sym} ${d}: a bar with no price in it was left out`); continue; }
+      kept[d] = b as unknown as DayBar;
+    }
+    if (Object.keys(kept).length) bars[sym] = kept;
+  }
+  return {
+    file: {
+      generated_at: typeof j.generated_at === 'string' ? j.generated_at : '',
+      missing: Array.isArray(j.missing) ? (j.missing as unknown[]).filter((x): x is string => typeof x === 'string') : [],
+      ccy: j.ccy && typeof j.ccy === 'object' && !Array.isArray(j.ccy) ? (j.ccy as Record<string, string>) : {},
+      bars,
+    },
+    problems,
+  };
+}
+
 export interface EventsFile {
   generated_at?: string;
   symbols: Record<string, SymbolEvents>;
@@ -90,8 +124,6 @@ export interface ParsedSeries {
   file: SeriesFile | null;
   problems: string[];
 }
-
-const finite = (v: unknown): v is number => typeof v === 'number' && isFinite(v);
 
 /** One timeframe of series.json: `{SYM: {ccy, t: [stamps], c: [closes]}}`. A symbol whose arrays are not the same length of
     numbers is left out and reported, so a bad entry cannot reach the averages as a NaN. */

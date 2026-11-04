@@ -7,9 +7,11 @@ import type { FlagKind, Surface, Tier } from '../engine/flags';
 import { fmtD } from '../engine/format';
 import { MA_RULES, MIN_BARS, TF_WORDS, TIERS } from '../engine/ma';
 import { FRESH_WITHIN, MIN_SECTOR_PEERS } from '../engine/signals';
+import { hashFor } from '../router';
 import { useStore } from '../store';
 import { Hero } from './hero';
 import { GROUP_TITLE } from './flagview';
+import { MORE, NAV } from './nav';
 import { dataRows } from './methoddata';
 import { DIAL_WORDS } from './modelcells';
 
@@ -60,6 +62,15 @@ export function MethodPage() {
   return (
     <main class="page method" data-underlay>
       <Hero title="Method" stamp="The rules, where the data comes from, how fresh it is, and what the Model does with it." />
+
+      <section class="prose" aria-labelledby="m-pages">
+        <h2 id="m-pages">The pages</h2>
+        <ul class="pagelist">
+          {[...NAV, ...MORE.filter(m => m.page !== 'method')].map(n => <li key={n.page}><a class="datalink" href={hashFor({ page: n.page, row: null })}>{n.label}</a> <span>{n.blurb}</span></li>)}
+          <li><b>Method</b> <span>This page.</span></li>
+        </ul>
+        <p>Every page reads the same files and the same rules, rebuilt from the bars on each load; a setup's drawer opens over any of them from its symbol, and Back closes it.</p>
+      </section>
 
       <section class="prose" aria-labelledby="m-data">
         <h2 id="m-data">Data and freshness</h2>

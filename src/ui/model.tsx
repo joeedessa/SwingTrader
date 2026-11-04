@@ -20,7 +20,7 @@ import { DataTable } from './datatable';
 import type { DCol } from './datatable';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
-import { useNarrow } from './hooks';
+import { useCards, useNarrow } from './hooks';
 import { caveatText, DIAL_WORDS, exclusionLines, fxWords, gridRows, legsInScope, modelTiles, moneyWords, ratioRows, reasonLine, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
 import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, PCT_MAX, readNumber, TRADE_SORTS, UNITS_MAX } from './modelurl';
 import type { ModelView, Scope, TradeSort } from './modelurl';
@@ -158,6 +158,7 @@ export function ModelPage() {
   const s = useStore(app);
   const r = useStore(route);
   const narrow = useNarrow();
+  const cards = useCards();
   const ready = s.phase === 'ready';
   const loading = s.phase === 'loading';
   const { bd, today } = boardView(s, 'watchlist');
@@ -217,7 +218,7 @@ export function ModelPage() {
         </div>
         <p class="tilenote">{moneyWords(m, view.label)}</p>
 
-        <TradeList run={run} legs={scoped.legs} sizes={scoped.sizes} view={view} narrow={narrow} onOpen={openRow} onSort={v => onView({ sort: v })} />
+        <TradeList run={run} legs={scoped.legs} sizes={scoped.sizes} view={view} narrow={cards} onOpen={openRow} onSort={v => onView({ sort: v })} />
 
         <div class="sechead"><h2>By type</h2><span class="secnote">the type the setup had at its first outcome; B4 is a negation</span></div>
         {types.length ? (

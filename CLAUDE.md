@@ -50,6 +50,8 @@ Every week (around Saturday) Joe drops `GLOBAL EQUITY MARKETS - <date> Part II.p
 
 ## Phases and models (switch manually: one session per phase)
 
+**All phases are done (Phase 9 on 4 Nov 2026).** The table stays as the record of what ran where; from here on, say what to change and `docs/PLAN.md`'s Progress is the history.
+
 Claude Code does not change models by itself. For each phase: set the model in the app's model picker, open a session in this folder, and say **"Do Phase N of docs/PLAN.md"**. Finish with the phase's acceptance checks and a short report, then stop for Joe's sign-off.
 
 | Phase | Work | Model |

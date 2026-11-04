@@ -63,3 +63,33 @@ describe('parseEvents', () => {
     expect(parseEvents({ symbols: [] })).toEqual({ symbols: {} });
   });
 });
+
+describe('bars.json as the page reads it', () => {
+  it('keeps every bar with prices in it, three or four values, and a null close', async () => {
+    const { parseBars } = await import('../../src/data/schema');
+    const r = parseBars({ generated_at: '2026-11-04T04:47:17Z', missing: ['HLX'], ccy: { AME: 'USD' }, bars: { AME: { '2026-11-02': [1, 2, 1.5], '2026-11-03': [1, 2, 1.5, 1.2], '2026-11-04': [1, 2, null, 1.1] } } });
+    expect(r.problems).toEqual([]);
+    expect(r.file).toEqual({ generated_at: '2026-11-04T04:47:17Z', missing: ['HLX'], ccy: { AME: 'USD' }, bars: { AME: { '2026-11-02': [1, 2, 1.5], '2026-11-03': [1, 2, 1.5, 1.2], '2026-11-04': [1, 2, null, 1.1] } } });
+  });
+
+  it('leaves out a bar with a zero or nothing in it, and says which, since a low of zero would touch every negation', async () => {
+    const { parseBars } = await import('../../src/data/schema');
+    const r = parseBars({ bars: { '^OMXC25': { '2026-10-30': [1968.58, 1981.61, 1974.38, 1976.04], '2026-11-03': [0, 0, 1990.4, 0] }, X: { '2026-11-03': [-1, 2, 1.5], '2026-11-04': 'nope', '2026-11-05': [1, 2] }, Y: 7 } });
+    expect(r.file!.bars).toEqual({ '^OMXC25': { '2026-10-30': [1968.58, 1981.61, 1974.38, 1976.04] } });
+    expect(r.problems).toEqual([
+      'bars.json ^OMXC25 2026-11-03: a bar with no price in it was left out',
+      'bars.json X 2026-11-03: a bar with no price in it was left out',
+      'bars.json X 2026-11-04: a bar with no price in it was left out',
+      'bars.json X 2026-11-05: a bar with no price in it was left out',
+      'bars.json Y: not a map of days; left out',
+    ]);
+    expect(r.file!.generated_at).toBe('');
+    expect(r.file!.missing).toEqual([]);
+  });
+
+  it('is no file at all when the shape is wrong', async () => {
+    const { parseBars } = await import('../../src/data/schema');
+    expect(parseBars(null)).toEqual({ file: null, problems: ['bars.json: not an object'] });
+    expect(parseBars({ ccy: {} })).toEqual({ file: null, problems: ['bars.json: no bars'] });
+  });
+});

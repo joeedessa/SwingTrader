@@ -100,6 +100,10 @@ def update_bars(syms, backfill=False):
             if d > today_local or (d == today_local and not settled_today):
                 forming += 1
                 continue
+            # Yahoo sends a zero where it has no price (^OMXC25 on 3 Nov 2026 came as low 0, high 0, open 0 with a
+            # close): a bar like that is no day, and a low of zero would read as a touch of every negation.
+            if min(o, h, l, c) <= 0:
+                continue
             newest_seen[d] += 0  # a key for the tally below
             if d in day:
                 # A day written before opens were kept gains its open; its low, high and close stay as they were.
