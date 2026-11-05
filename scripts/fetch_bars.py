@@ -42,6 +42,8 @@ import yahoo  # noqa: E402
 DATA = Path(__file__).resolve().parent.parent / "public" / "data"
 BARS = DATA / "bars.json"
 SERIES = DATA / "series.json"
+# How many of the newest days on file each run takes again from Yahoo (see update_bars).
+REVISE_DAYS = 5
 
 # Index used as the benchmark for each listing country (same map the old page used).
 INDEX_MAP = {
@@ -76,7 +78,7 @@ def update_bars(syms, backfill=False):
     first_run = not bars
     rng = "2y" if first_run or backfill else "1mo"
     failed = []
-    added_total = opened_total = 0
+    added_total = opened_total = revised_total = 0
     # What came back, against what is on file, so a run that adds nothing says why in the log.
     newest_seen, newest_kept, forming = Counter(), Counter(), 0
 
@@ -95,6 +97,10 @@ def update_bars(syms, backfill=False):
         # what lets the hourly job pick up a close within the hour it lands.
         settled_today = bool(got["session_end"]) and now >= got["session_end"]
         added = 0
+        # The newest few days on file are taken again: Yahoo widens a day's low and high to the closing auction
+        # some hours after the bar first appears (FLS.CO and SL.MI, 4 Nov), and a first capture kept forever would
+        # hold a close outside its own range and miss a touch. Older days are never rewritten.
+        recent = set(sorted(day)[-REVISE_DAYS:])
         for epoch, o, h, l, c in got["bars"]:
             d = yahoo.local_date(epoch, got["tz"])
             if d > today_local or (d == today_local and not settled_today):
@@ -105,6 +111,10 @@ def update_bars(syms, backfill=False):
             if min(o, h, l, c) <= 0:
                 continue
             newest_seen[d] += 0  # a key for the tally below
+            if d in recent and day[d][:3] != [l, h, c]:
+                day[d] = [l, h, c, o]
+                revised_total += 1
+                continue
             if d in day:
                 # A day written before opens were kept gains its open; its low, high and close stay as they were.
                 if len(day[d]) < 4:
@@ -124,7 +134,7 @@ def update_bars(syms, backfill=False):
 
     tally = lambda c: ", ".join(f"{d} x{k}" for d, k in sorted(c.items(), reverse=True)[:4] if k)
     print(f"  newest bar Yahoo sent (settled or not): {tally(newest_seen)}; newest on file after this run: {tally(newest_kept)}; "
-          f"{forming} bars skipped as still forming; {opened_total} opens added to days already on file")
+          f"{forming} bars skipped as still forming; {opened_total} opens added to days already on file; {revised_total} recent days revised")
 
     # Symbols with no bars on file at all are dropped from the map rather than
     # carried as empty objects, so the reader can tell "no history" from "no entry yet".
