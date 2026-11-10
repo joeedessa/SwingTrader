@@ -158,6 +158,8 @@ describe('the strategies on the frozen board', () => {
           const at = `${entry} ${id} ${l.key} #${l.n}`;
           expect(['open', 'close'], at).toContain(l.entry.basis);
           expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
+          // The default: the session after the close, at its open; the capture has no opens, so every fill here is the fallback.
+          if (entry === 'open' && l.entry.basis === 'close') expect((l.n === 1 && l.c.signalKind === 'report' ? d : l.c.days[l.entry.index + 1])?.o ?? null, at).toBeNull();
           // The close it came from: this day's under a fill at the close, the day before's under a fill at the open. An
           // imported setup's first leg comes from the report instead of from a close past the trigger.
           if (l.n === 1 && l.c.signalKind === 'report') continue;

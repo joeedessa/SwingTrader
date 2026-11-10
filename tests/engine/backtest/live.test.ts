@@ -54,6 +54,11 @@ describe('the model on the live files', () => {
           const at = `${entry} ${run.id} ${l.key} #${l.n}`;
           expect(['open', 'close'], at).toContain(l.entry.basis);
           expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
+          // The default: the session after the close, at its open. Only a session whose bar has no open on file falls back to a close.
+          if (entry === 'open' && l.entry.basis === 'close') {
+            const bar = l.n === 1 && l.c.signalKind === 'report' ? d : l.c.days[l.entry.index + 1];
+            expect(bar?.o ?? null, at).toBeNull();
+          }
           if (l.n === 1 && l.c.signalKind === 'report') continue;
           const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
           expect(past(l.dir === 'long', signal.c as number, l.c.trigger), at).toBe(true);
