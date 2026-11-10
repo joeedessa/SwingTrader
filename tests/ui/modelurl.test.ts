@@ -24,12 +24,15 @@ describe('the Model\'s address', () => {
     expect(parseModelQuery(q)).toEqual(v);
   });
 
-  it('round-trips every strategy, sizing and order, and the entry at the trigger', () => {
+  it('round-trips every strategy, sizing and order, and reads an entry it does not offer as the default', () => {
     for (const strategy of STRATEGY_IDS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, strategy })).strategy).toBe(strategy);
     expect(STRATEGY_IDS[0]).toBe('S0');
-    const trigger: ModelView = { ...DEFAULT_VIEW, settings: { ...DEFAULT_SETTINGS, entry: 'trigger' } };
-    expect(modelQuery(trigger)).toBe('entry=trigger');
-    expect(parseModelQuery('entry=trigger')).toEqual(trigger);
+    const close: ModelView = { ...DEFAULT_VIEW, settings: { ...DEFAULT_SETTINGS, entry: 'close' } };
+    expect(modelQuery(close)).toBe('entry=close');
+    expect(parseModelQuery('entry=close')).toEqual(close);
+    // The entry at the trigger was removed (revision 10): a link that carries it opens on the default.
+    expect(parseModelQuery('entry=trigger')).toEqual(DEFAULT_VIEW);
+    expect(modelQuery(parseModelQuery('entry=trigger&s=S0'))).toBe('s=S0');
     for (const sizing of SIZINGS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, sizing })).sizing).toBe(sizing);
     for (const sort of TRADE_SORTS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, sort })).sort).toBe(sort);
   });

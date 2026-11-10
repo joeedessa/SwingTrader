@@ -7,7 +7,7 @@ import type { MoneyStats } from './stats';
 
    Equal risk per setup. The median, over setups, of the risk a setup makes you take in total (the entry-to-stop
    distance of every leg it opens, added up) under S1, over the same under S0 or S2-k. This follows from the rules, not
-   from how the sample happened to go. A leg filled at its own stop (S0 at the trigger) has no distance to add.
+   from how the sample happened to go.
 
    Equal maximum drawdown. Scale the strategy's flat amount until its deepest drawdown equals S1's. Both are linear in
    the amount, so the ratio is S1's drawdown over the strategy's.

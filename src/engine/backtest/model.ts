@@ -6,7 +6,7 @@ import { ratiosOf } from './ratio';
 import type { Ratios } from './ratio';
 import { LIST_BEGAN, NEEDS_STOP, RATIO_IDS, SIZINGS, STRATEGIES, strategyId } from './settings';
 import type { ModelSettings, SizingId, Strategy, StrategyId } from './settings';
-import { isWaiting, simulate } from './simulate';
+import { simulate, WAITING } from './simulate';
 import type { Leg } from './simulate';
 import { sizesOf, sizingContext } from './sizing';
 import { moneyStatsOf, statsOf } from './stats';
@@ -115,7 +115,7 @@ function runStrategy(u: Universe, strategy: Strategy, settings: ModelSettings): 
     const sim = simulate(c, strategy, settings);
     legs.push(...sim.legs);
     if (!sim.legs.length) {
-      if (isWaiting(sim.note)) pending.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.note as string });
+      if (sim.note === WAITING) pending.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.note });
       else no(sim.note ?? 'no leg');
     }
     if (sim.waiting) waitingReentries.push({ key: c.key, sym: c.sym, dir: c.dir, reason: sim.waiting });

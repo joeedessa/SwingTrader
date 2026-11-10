@@ -73,13 +73,10 @@ export const PAYOFF_SCALE = { min: 0.5, max: 2 } as const;
 /** The ATR multiple of the S4 trail, and the ATR's period. */
 export const TRAIL = { atrs: 2, period: 14 } as const;
 
-export type EntryAt = 'open' | 'close' | 'trigger';
-
 export interface ModelSettings {
-  /** Q6: the fill is the next session's open where the bars have it, or the confirming close itself; or (revision 9) a
-      buy-stop at the trigger, filled at the trigger on the day that closes past it, or at the open where that day
-      opened past it. */
-  entry: EntryAt;
+  /** Q6: the fill is the next session's open where the bars have it, or the confirming close itself. Either way the entry
+      is a settled close strictly past the trigger: no intraday price chooses an entry (revision 10). */
+  entry: 'open' | 'close';
   /** Revision 8: a setup imported already confirmed enters from the report that listed it (its first session after the
       report's date), or at the confirming close the lookback found, which can fall days before the report. */
   importedEntry: 'report' | 'close';

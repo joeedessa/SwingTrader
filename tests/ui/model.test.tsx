@@ -11,7 +11,7 @@ import { moneyStatsOf } from '../../src/engine/backtest/stats';
 import { legsInScope, modelTiles, SCOPE_NOTE, STRATEGY_LABEL } from '../../src/ui/modelcells';
 import type { StrategyRun } from '../../src/engine/backtest/model';
 import type { SizingId } from '../../src/engine/backtest/settings';
-import { engineSettings, parseModelQuery } from '../../src/ui/modelurl';
+import { engineSettings, modelQuery, parseModelQuery } from '../../src/ui/modelurl';
 import { frozenInputs } from './frozen';
 
 /* The Model page, rendered to a string on the frozen board and read back against the engine's own result. The address
@@ -85,14 +85,20 @@ describe('the Model page', () => {
     expect(t).toContain(String(r.runs['S2-u'].legs.length));
   });
 
-  it('runs the engine on the trigger entry, and shows the dial pressed', () => {
-    const q = 'entry=trigger';
-    const r = resultFor(q);
-    expect(r.settings.entry).toBe('trigger');
-    const html = at(q);
-    expect(html).toContain('aria-pressed="true">At the trigger</button>');
-    expect(text(html)).toContain(String(r.runs['S2-u'].legs.length));
-    expect(at('')).toContain('aria-pressed="false">At the trigger</button>');
+  it('offers two entries, the next open and the confirming close, and an old link for another one opens on the default', () => {
+    const html = at('');
+    expect(html).toContain('aria-pressed="true">Next open</button>');
+    expect(html).toContain('aria-pressed="false">Confirming close</button>');
+    expect(text(html)).not.toContain('At the trigger');
+    expect(html).toContain('Intraday prices are read only for exits');   // the dial's hint
+    // The link of the entry that was removed: read as the default, and not written back.
+    const old = 'entry=trigger&s=S1';
+    expect(resultFor(old).settings.entry).toBe('open');
+    expect(modelQuery(parseModelQuery(old))).toBe('s=S1');
+    const oldHtml = at(old);
+    expect(oldHtml).toContain('aria-pressed="true">Next open</button>');
+    expect(text(oldHtml)).toContain(STRATEGY_LABEL.S1);
+    expect(at('entry=close')).toContain('aria-pressed="true">Confirming close</button>');
   });
 
   it('prints the same numbers for the same link, twice', () => {

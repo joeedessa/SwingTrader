@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runModel } from '../../../src/engine/backtest/model';
 import { DEFAULT_SETTINGS } from '../../../src/engine/backtest/settings';
+import { past } from '../../../src/engine/precision';
 import { brokeOut } from '../../../src/engine/backtest/universe';
 import { allHistories } from '../../../src/engine/bars';
 import type { BarsFile, LatestFile } from '../../../src/engine/bars';
@@ -41,6 +42,26 @@ describe('the model on the live files', () => {
         if (l.exit) expect(l.exit.when >= l.entry.when, `${run.id} ${l.key}`).toBe(true);
       }
     }
+  });
+
+  it('enters every leg at a settled close or at the next open: no intraday price chooses an entry', () => {
+    let legs = 0;
+    for (const entry of ['open', 'close'] as const) {
+      const r = entry === 'open' ? m : runModel({ rows: bd.rows, hist, bars: bars.bars }, { ...DEFAULT_SETTINGS, entry });
+      for (const run of Object.values(r.runs)) {
+        for (const l of run.legs) {
+          const d = l.c.days[l.entry.index];
+          const at = `${entry} ${run.id} ${l.key} #${l.n}`;
+          expect(['open', 'close'], at).toContain(l.entry.basis);
+          expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
+          if (l.n === 1 && l.c.signalKind === 'report') continue;
+          const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
+          expect(past(l.dir === 'long', signal.c as number, l.c.trigger), at).toBe(true);
+          legs++;
+        }
+      }
+    }
+    expect(legs).toBeGreaterThan(0);
   });
 
   it('keeps every price in its listing currency: a leg carries the currency of its bars', () => {

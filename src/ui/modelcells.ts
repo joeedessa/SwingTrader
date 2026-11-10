@@ -83,7 +83,7 @@ export function modelTiles(run: StrategyRun, sizing: SizingId, label: string, m:
       const x = st(scope), i = iv(scope);
       return { value: signedPct(x.expectancyPct), tone: tone(x.expectancyPct), sub: i ? `90% interval ${signedPct(i.low)} to ${signedPct(i.high)}` : 'too few for an interval' };
     }),
-    pair('In R', 'The mean net return in multiples of the risk taken: the distance from the entry to the stop in force (the negation where there was no tight stop). A leg filled at its own stop, S0 at the trigger, has none to measure.', scope => {
+    pair('In R', 'The mean net return in multiples of the risk taken: the distance from the entry to the stop in force (the negation where there was no tight stop).', scope => {
       const x = st(scope);
       return { value: signedR(x.expectancyR), tone: tone(x.expectancyR), sub: x.withR ? `over ${plural(x.withR, 'leg', 'legs')} with risk to measure` : 'no leg had risk to measure' };
     }),
@@ -134,7 +134,7 @@ export function tradeCells(l: Leg, size: number, label: string): TradeCells {
       ? { value: fmtD(l.exit.when), sub: `${fmt(l.exit.price)}${ccy} · ${REASON_WORDS[l.exit.reason]}${exitStop}, ${basisWords(l.exit.basis)}` }
       : { value: 'open', sub: `marked ${fmt(l.mark.price)}${ccy} on ${fmtD(l.mark.when)}`, tone: 'warn' },
     ret: { value: signedPct(l.netPct), tone: tone(l.netPct) as Cell['tone'], sub: `${signedPct(l.grossPct)} before costs` },
-    r: { value: signedR(l.r), sub: l.riskPct != null ? `risk ${l.riskPct.toFixed(1)}% to the ${l.stopKind === 'none' ? 'negation' : l.stopKind}` : l.stop != null || l.c.negation != null ? 'filled at the stop: no risk to measure' : 'no level on the losing side' },
+    r: { value: signedR(l.r), sub: l.riskPct != null ? `risk ${l.riskPct.toFixed(1)}% to the ${l.stopKind === 'none' ? 'negation' : l.stopKind}` : 'no level on the losing side' },
     days: { value: String(l.days), sub: l.days === 1 ? 'day' : 'days' },
     type: l.tag ? { value: l.tag, badge: { text: l.tag, cls: l.tag.toLowerCase() } } : { value: '–', sub: 'no type' },
     stop: stopCell(l, ccy),
@@ -263,7 +263,7 @@ export const fxWords = (label: string): string =>
 
 /** The one-line rule for each dial, for the Method page and the controls' help. */
 export const DIAL_WORDS = {
-  entry: 'The entry is the next session\'s open where the bars have it, the confirming close itself, or a buy-stop at the trigger: filled at the trigger on the day that closes past it, or at the open where that day opened past it (from a report, at the first open at or past the trigger, or at the trigger on the first session back at it).',
+  entry: 'A setup enters on a settled close strictly past its trigger, filled at the next session\'s open where the bars have it (the default) or at that close itself. Intraday prices are read only for exits: a touch of a stop, of the negation or, where chosen, of the target.',
   importedEntry: 'A setup imported already confirmed enters from the report that listed it (its first session after the report\'s date), or at the confirming close the lookback found.',
   targetOn: 'The target counts on a settled close at or past it, the board\'s rule, or on an intraday touch.',
   reentryStop: 'After a re-entry the stop is the original last full day, or a new one read from the re-entry run as the first was.',

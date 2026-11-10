@@ -83,7 +83,7 @@ function Controls({ view, onView, onSettings }: { view: ModelView; onView: (p: P
       <p class="dialwords">{strategyWords(view.strategy)}</p>
       <div class="dials">
         <Dial label="Entry" hint={DIAL_WORDS.entry} value={s.entry} onChange={v => onSettings({ entry: v })}
-          items={[{ id: 'open', label: 'Next open' }, { id: 'close', label: 'Confirming close' }, { id: 'trigger', label: 'At the trigger' }]} />
+          items={[{ id: 'open', label: 'Next open' }, { id: 'close', label: 'Confirming close' }]} />
         <Dial label="Imported" hint={DIAL_WORDS.importedEntry} value={s.importedEntry} onChange={v => onSettings({ importedEntry: v })}
           items={[{ id: 'report', label: 'From the report' }, { id: 'close', label: 'Confirming close' }]} />
         <Dial label="Target" hint={DIAL_WORDS.targetOn} value={s.targetOn} onChange={v => onSettings({ targetOn: v })}

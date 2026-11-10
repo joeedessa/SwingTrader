@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runModel } from '../../../src/engine/backtest/model';
 import type { ModelResult } from '../../../src/engine/backtest/model';
 import { DEFAULT_SETTINGS, RATIO_IDS, S2_IDS, SIZINGS, STRATEGY_IDS } from '../../../src/engine/backtest/settings';
-import { atOrPast } from '../../../src/engine/precision';
+import { atOrPast, past } from '../../../src/engine/precision';
 import { brokeOut, keyOf } from '../../../src/engine/backtest/universe';
 import { evaluate } from '../../../src/engine/row';
 import type { Row } from '../../../src/engine/row';
@@ -146,28 +146,31 @@ describe('the strategies on the frozen board', () => {
     expect(compared).toBeGreaterThan(0);
   });
 
-  it('under the trigger entry every first fill is at the trigger, or at the close of a day entirely past it (the capture has no opens), and never before the signal', () => {
+  it('every entry is at a settled close or at the next open, and no intraday price chose one: either entry setting, every strategy', () => {
     const { bars, hist } = frozenInputs();
-    const m = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry: 'trigger' });
-    const counts = { level: 0, close: 0, open: 0 };
-    for (const id of STRATEGY_IDS) {
-      for (const l of m.runs[id].legs) {
-        const long = l.dir === 'long';
-        const d = l.c.days[l.entry.index];
-        counts[l.entry.basis]++;
-        if (l.entry.basis === 'level') expect(l.entry.price, `${id} ${l.key}`).toBe(l.c.trigger);
-        else if (l.entry.basis === 'close') { expect(d.o, `${id} ${l.key}`).toBeNull(); expect(atOrPast(long, long ? d.lo : d.hi, l.c.trigger), `${id} ${l.key}`).toBe(true); }
-        else expect(atOrPast(long, d.o as number, l.c.trigger), `${id} ${l.key}`).toBe(true);
-        if (l.n === 1) expect(l.entry.index >= l.c.signal.index + (l.c.signalKind === 'report' ? 1 : 0), `${id} ${l.key}`).toBe(true);
-        // The fill day's range is not read for a stop after a fill at the trigger.
-        if (l.entry.basis === 'level' && l.exit && l.exit.reason === 'stop') expect(l.exit.when > l.entry.when, `${id} ${l.key}`).toBe(true);
+    let checked = 0, afterClose = 0;
+    for (const entry of ['open', 'close'] as const) {
+      const m = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry });
+      for (const id of STRATEGY_IDS) {
+        for (const l of m.runs[id].legs) {
+          const long = l.dir === 'long';
+          const d = l.c.days[l.entry.index];
+          const at = `${entry} ${id} ${l.key} #${l.n}`;
+          expect(['open', 'close'], at).toContain(l.entry.basis);
+          expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
+          // The close it came from: this day's under a fill at the close, the day before's under a fill at the open. An
+          // imported setup's first leg comes from the report instead of from a close past the trigger.
+          if (l.n === 1 && l.c.signalKind === 'report') continue;
+          const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
+          expect(past(long, signal.c as number, l.c.trigger), at).toBe(true);
+          if (l.entry.basis === 'close') afterClose++;
+          checked++;
+        }
       }
     }
-    expect(counts.level).toBeGreaterThan(0);
-    expect(counts.close).toBeGreaterThan(0);
-    // The 1 Nov capture was written before opens were kept: no fill can be at one.
-    expect(counts.open).toBe(0);
-    for (const id of STRATEGY_IDS) expect(m.runs[id].setups + m.runs[id].pending.length + m.runs[id].excluded.length, id).toBe(m.universe.candidates.length);
+    expect(checked).toBeGreaterThan(0);
+    // The 1 Nov capture was written before opens were kept: its fills are all at a close.
+    expect(afterClose).toBe(checked);
   });
 
   it('S0, S1, S3 and S4 take one leg a setup; S2 takes one plus its re-entries, no more than the depth allows', () => {
@@ -295,25 +298,18 @@ describe('one row through the whole model', () => {
   });
 
   it('a setup with no last full day in the report runs in every strategy, on the negation in the stop ones; with no negation either it is left out of them', () => {
-    const m = one({ ...LONG, lfd: 0 }, [...BREAK, ['2026-01-07', 99, 104, 103, 100]]);
+    const m = one({ ...LONG, lfd: 0 }, [...BREAK, ['2026-01-07', 99, 104, 103, 101]]);
     for (const id of STRATEGY_IDS) expect(m.runs[id].legs, id).toHaveLength(1);
     for (const id of ['S1', 'S2-u', 'S4'] as const) expect(m.runs[id].legs[0], id).toMatchObject({ stop: null, stopKind: 'negation', stopSource: 'none' });
     expect(m.runs.S0.legs[0]).toMatchObject({ stop: 100, stopKind: 'trigger' });
     expect(m.caveats).toMatchObject({ noTightStop: 1, onNegation: 1 });
-    const bare = one({ ...LONG, lfd: 0, negation: null }, [...BREAK, ['2026-01-07', 99, 104, 103, 100]]);
+    const bare = one({ ...LONG, lfd: 0, negation: null }, [...BREAK, ['2026-01-07', 99, 104, 103, 101]]);
     for (const id of ['S1', 'S2-u', 'S4'] as const) expect(bare.runs[id].excluded.map(e => e.reason), id).toEqual(['no tight stop: none in the report, and no negation on file']);
     expect(bare.runs.S3.excluded.map(e => e.reason)).toEqual(['no negation on file']);
     expect(bare.runs.S0.legs).toHaveLength(1);
     expect(bare.caveats).toMatchObject({ noTightStop: 1, onNegation: 0 });
   });
 
-  it('a buy-stop at the trigger still resting at the end of the record is a pending setup, not an excluded one', () => {
-    const { bars, hist } = series([...BREAK, ['2026-01-07', 100, 104, 103, 101], ['2026-01-08', 98.5, 99.5, 99, 99]]);
-    const p: Setup = { ...WITH_LFD, confirmed: '2026-01-07' };
-    const row = evaluate(p, hist, bars, null, '2026-02-01');
-    const m = runModel({ rows: [row], hist: { [p.sym]: hist }, bars: { [p.sym]: bars } }, { ...DEFAULT_SETTINGS, entry: 'trigger' });
-    expect(m.runs.S1).toMatchObject({ legs: [], pending: [{ key: 'X|long', reason: 'waiting for a session back at the trigger' }], excluded: [] });
-  });
 });
 
 describe('the result', () => {

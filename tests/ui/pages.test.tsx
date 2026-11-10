@@ -109,13 +109,17 @@ describe('the Method page', () => {
   it('explains the Model in the engine\'s own numbers: the strategies, the fills, the costs, the bootstrap, the day the list began', () => {
     const t = page();
     expect(t).toContain('The Model');
-    for (const s of ['The Model runs five strategies', 'S0 plays B1 only', 'S1 plays B1 and B2 only', 'S2 re-enters', 'S3 holds through breaches', 'S4 trails', 'Fills.', 'a buy-stop at the trigger', 'Nobody buys a breakout whose confirming close is already at the target', 'one with none in the report runs on the negation instead']) expect(t).toContain(s);
+    for (const s of ['The Model runs five strategies', 'S0 plays B1 only', 'S1 plays B1 and B2 only', 'S2 re-enters', 'S3 holds through breaches', 'S4 trails', 'Fills.', 'Every strategy enters on a settled close strictly past the trigger', 'Intraday prices are read only for exits', 'Nobody buys a breakout whose confirming close is already at the target', 'one with none in the report runs on the negation instead']) expect(t).toContain(s);
     expect(t).toContain(`${DEFAULT_SETTINGS.commissionPct}% commission and ${DEFAULT_SETTINGS.slippagePct}% slippage a side`);
     expect(t).toContain(`bootstrap of ${DEFAULT_SETTINGS.resamples.toLocaleString('en-US')} resamples`);
     expect(t).toContain(`${TRAIL.atrs} ATRs (Wilder's ${TRAIL.period}-day)`);
     expect(t).toContain(`between ${PAYOFF_SCALE.min}× and ${PAYOFF_SCALE.max}×`);
     expect(t).toContain(`The list began on ${fmtD(LIST_BEGAN)}`);
     expect(t).toContain('enters from the report that listed it');
+    expect(t).toContain('filled at the next session\'s open where the bars have it (the default) or at that close itself');
+    expect(t).toContain('a touch of a stop, of the negation or, where chosen, of the target');
+    expect(t).toContain('the board\'s own type (no touch of the trigger since the confirming close)');
+    for (const gone of ['buy-stop', 'At the trigger', 'trigger entry']) expect(t).not.toContain(gone);
   });
 
   it('has a freshness table counted from what is loaded, with the lists\' counts and when each file was written', () => {

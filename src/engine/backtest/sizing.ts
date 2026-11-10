@@ -9,7 +9,7 @@ import { payoffOf } from './universe';
    own answer, up to the same cap as the risk-based size: S0's stop, the trigger, is so near that its ratio can run to
    several times the flat amount. Payoff scales flat by the setup's payoff against the median payoff of the setups in
    the list, between half and double. Risk puts a fixed sum at risk between the entry and the stop (the negation with no
-   stop), up to the cap; a leg with no distance to its stop takes the flat amount. */
+   stop), up to the cap; a leg with no level on the losing side takes the flat amount. */
 
 export interface SizingContext {
   /** The strategy's scale under per-strategy sizing: 1 for S1, S3 and S4, the equal-risk ratio against S1 for S0 and S2. */

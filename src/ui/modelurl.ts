@@ -57,7 +57,7 @@ export function parseModelQuery(query: string | null | undefined): ModelView {
   const d = DEFAULT_SETTINGS;
   return {
     settings: {
-      entry: oneOf(q.get('entry'), ['open', 'close', 'trigger'], d.entry),
+      entry: oneOf(q.get('entry'), ['open', 'close'], d.entry),
       importedEntry: oneOf(q.get('imp'), ['report', 'close'], d.importedEntry),
       targetOn: oneOf(q.get('tgt'), ['close', 'touch'], d.targetOn),
       reentryStop: oneOf(q.get('re'), ['original', 'new'], d.reentryStop),
