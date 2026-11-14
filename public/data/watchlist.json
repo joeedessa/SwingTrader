@@ -124,7 +124,9 @@
   "pattern": "Ascending triangle",
   "duration_m": 6,
   "exchange": "NYSE/Nasdaq",
-  "country": "US"
+  "country": "US",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "FSS",
@@ -342,10 +344,10 @@
   "breakthrough": 426,
   "boundary": 414.0,
   "target": 507,
-  "negation": null,
+  "negation": 375.3,
+  "lfd": 404,
   "note": "Marks and Spencer Group Plc",
   "created": "2026-08-08",
-  "state": "watch",
   "pattern": "Rectangle",
   "duration_m": 14,
   "exchange": "LSE",
@@ -1433,20 +1435,18 @@
   "sym": "EMIRATESNBD.AE",
   "dir": "long",
   "alertOp": ">",
-  "alert": 33.0,
-  "breakthrough": 33.0,
-  "boundary": 32,
-  "target": 38.0,
+  "alert": 33.4,
+  "breakthrough": 33.4,
+  "boundary": 32.4,
+  "target": 35.9,
   "negation": null,
   "note": "Emirates NBD Bank PJSC",
-  "created": "2026-08-15",
+  "created": "2026-11-07",
   "state": "watch",
-  "pattern": "Rectangle (bottom reversal)",
-  "duration_m": 5,
+  "pattern": "Rectangle",
+  "duration_m": 4,
   "exchange": "DFM",
-  "country": "UAE",
-  "removed": "2026-10-10",
-  "removed_reason": "pattern morphing"
+  "country": "UAE"
  },
  {
   "sym": "NWH.AX",
@@ -1691,7 +1691,9 @@
   "pattern": "Rectangle",
   "duration_m": 4,
   "exchange": "NYSE/Nasdaq",
-  "country": "US"
+  "country": "US",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "CEU.TO",
@@ -2073,7 +2075,9 @@
   "pattern": "H&S continuation",
   "duration_m": 5,
   "exchange": "Oslo Bors",
-  "country": "Norway"
+  "country": "Norway",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "BANKINDIA.NS",
@@ -2108,7 +2112,9 @@
   "pattern": "Rectangle",
   "duration_m": 4,
   "exchange": "TSE",
-  "country": "Japan"
+  "country": "Japan",
+  "removed": "2026-11-07",
+  "removed_reason": "broke down instead \u2014 confirmed short below 3,285"
  },
  {
   "sym": "CHEF",
@@ -2172,9 +2178,9 @@
   "boundary": 17.45,
   "target": 19.5,
   "negation": null,
+  "lfd": 16.58,
   "note": "Reece Ltd.",
   "created": "2026-10-04",
-  "state": "watch",
   "pattern": "Rectangle",
   "duration_m": 3,
   "exchange": "ASX",
@@ -2282,7 +2288,9 @@
   "pattern": "Rectangle",
   "duration_m": 4,
   "exchange": "NYSE/Nasdaq",
-  "country": "US"
+  "country": "US",
+  "removed": "2026-11-07",
+  "removed_reason": "breakout candle reached the price objective"
  },
  {
   "sym": "ICLR",
@@ -2405,7 +2413,9 @@
   "pattern": "Rectangle",
   "duration_m": 4,
   "exchange": "NYSE/Nasdaq",
-  "country": "US"
+  "country": "US",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "FBIZ",
@@ -2415,10 +2425,11 @@
   "breakthrough": 75.7,
   "boundary": 73.5,
   "target": 79,
-  "negation": null,
+  "negation": 70,
+  "lfd": 71.9,
   "note": "First Business Financial Services Inc.",
   "created": "2026-10-24",
-  "state": "watch",
+  "reached": "2026-11-04",
   "pattern": "Rectangle",
   "duration_m": 3,
   "exchange": "NYSE/Nasdaq",
@@ -2439,7 +2450,9 @@
   "pattern": "Cup & Handle continuation",
   "duration_m": 6,
   "exchange": "TSX",
-  "country": "Canada"
+  "country": "Canada",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "DVN",
@@ -2456,7 +2469,9 @@
   "pattern": "H&S continuation",
   "duration_m": 7,
   "exchange": "NYSE/Nasdaq",
-  "country": "US"
+  "country": "US",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "DHL.DE",
@@ -2466,10 +2481,10 @@
   "breakthrough": 59.5,
   "boundary": 58.6,
   "target": 62.7,
-  "negation": null,
+  "negation": 56.58,
+  "lfd": 57.64,
   "note": "DHL AG",
   "created": "2026-10-24",
-  "state": "watch",
   "pattern": "Rectangle",
   "duration_m": 3,
   "exchange": "XETRA",
@@ -2541,7 +2556,9 @@
   "pattern": "Ascending triangle",
   "duration_m": 3,
   "exchange": "NYSE/Nasdaq",
-  "country": "US"
+  "country": "US",
+  "removed": "2026-11-07",
+  "removed_reason": "pattern morphing"
  },
  {
   "sym": "PNDORA.CO",
@@ -2551,10 +2568,10 @@
   "breakthrough": 891.6,
   "boundary": 865.6,
   "target": 961.2,
-  "negation": null,
+  "negation": 803.2,
+  "lfd": 823.2,
   "note": "Pandora A/S",
   "created": "2026-10-31",
-  "state": "watch",
   "pattern": "Rectangle",
   "duration_m": 3,
   "exchange": "Nasdaq Copenhagen",
@@ -2593,5 +2610,108 @@
   "duration_m": 7,
   "exchange": "SGX",
   "country": "Singapore"
+ },
+ {
+  "sym": "6971.T",
+  "dir": "short",
+  "alertOp": "<",
+  "alert": 3285,
+  "breakthrough": 3285,
+  "boundary": 3385,
+  "target": 2875,
+  "negation": 3664,
+  "lfd": 3518,
+  "note": "Kyocera Corp.",
+  "created": "2026-11-07",
+  "confirmed": "2026-11-06",
+  "pattern": "Rectangle",
+  "duration_m": 4,
+  "exchange": "TSE",
+  "country": "Japan"
+ },
+ {
+  "sym": "BF-A",
+  "dir": "long",
+  "alertOp": ">",
+  "alert": 32.45,
+  "breakthrough": 32.45,
+  "boundary": 31.5,
+  "target": 39.3,
+  "negation": null,
+  "note": "Brown-Forman Corp.",
+  "created": "2026-11-07",
+  "state": "watch",
+  "pattern": "H&S bottom",
+  "duration_m": 15,
+  "exchange": "NYSE/Nasdaq",
+  "country": "US"
+ },
+ {
+  "sym": "COIN",
+  "dir": "short",
+  "alertOp": "<",
+  "alert": 134,
+  "breakthrough": 134,
+  "boundary": 138.75,
+  "target": 89.75,
+  "negation": null,
+  "note": "Coinbase Global Inc.",
+  "created": "2026-11-07",
+  "state": "watch",
+  "pattern": "Rectangle",
+  "duration_m": 9,
+  "exchange": "NYSE/Nasdaq",
+  "country": "US"
+ },
+ {
+  "sym": "UI",
+  "dir": "short",
+  "alertOp": "<",
+  "alert": 491.3,
+  "breakthrough": 491.3,
+  "boundary": 506.5,
+  "target": 257.5,
+  "negation": null,
+  "note": "Ubiquiti Inc.",
+  "created": "2026-11-07",
+  "state": "watch",
+  "pattern": "H&S top reversal",
+  "duration_m": 13,
+  "exchange": "NYSE/Nasdaq",
+  "country": "US"
+ },
+ {
+  "sym": "SUPREMEIND.NS",
+  "dir": "short",
+  "alertOp": "<",
+  "alert": 3020,
+  "breakthrough": 3020,
+  "boundary": 3115,
+  "target": 2175,
+  "negation": null,
+  "note": "Supreme Industries Ltd.",
+  "created": "2026-11-07",
+  "state": "watch",
+  "pattern": "Descending triangle",
+  "duration_m": 18,
+  "exchange": "NSE",
+  "country": "India"
+ },
+ {
+  "sym": "MOTILALOFS.NS",
+  "dir": "long",
+  "alertOp": ">",
+  "alert": 1127,
+  "breakthrough": 1127,
+  "boundary": 1095,
+  "target": 1665,
+  "negation": null,
+  "note": "Motilal Oswal Financial Services Ltd.",
+  "created": "2026-11-07",
+  "state": "watch",
+  "pattern": "Ascending triangle",
+  "duration_m": 24,
+  "exchange": "NSE",
+  "country": "India"
  }
 ]
