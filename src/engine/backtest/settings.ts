@@ -49,11 +49,11 @@ export interface StrategyWords {
 }
 
 export const STRATEGY_WORDS: Record<StrategyCode, StrategyWords> = {
-  S0: { name: 'B1 only', entry: 'the confirming close', exit: 'the first touch of the trigger (filled at the trigger, or at the open where the day opened through it), a touch of the negation, or a close at the target', stop: 'the trigger' },
-  S1: { name: 'B1/B2 only', entry: 'the confirming close', exit: 'a touch of the last full day, a touch of the negation, or a close at the target', stop: 'the last full day (the negation where the report gives none)' },
-  S2: { name: 'with re-entries', entry: 'the confirming close, and again at a settled close back past the trigger after a stop-out', exit: 'a touch of the last full day, a touch of the negation, or a close at the target, with the chosen number of re-entries', stop: 'the original last full day (or a new one read from the re-entry run; the negation where the report gives none)' },
-  S3: { name: 'negation only', entry: 'the confirming close', exit: 'a touch of the negation, or a close at the target', stop: 'the negation' },
-  S4: { name: 'trailing', entry: 'the confirming close', exit: 'a touch of the higher of the last full day and a stop two ATRs under the highest close, a touch of the negation, or a close at the target', stop: 'the last full day (the negation where the report gives none), then the trail' },
+  S0: { name: 'B1 only', entry: 'the next open after the confirming close', exit: 'the first touch of the trigger (filled at the trigger, or at the open where the day opened through it), a touch of the negation, or a close at the target', stop: 'the trigger' },
+  S1: { name: 'B1/B2 only', entry: 'the next open after the confirming close', exit: 'a touch of the last full day, a touch of the negation, or a close at the target', stop: 'the last full day (the negation where the report gives none)' },
+  S2: { name: 'with re-entries', entry: 'the next open after the confirming close, and again at the next open after a settled close back past the trigger, following a stop-out', exit: 'a touch of the last full day, a touch of the negation, or a close at the target, with the chosen number of re-entries', stop: 'the original last full day (or a new one read from the re-entry run; the negation where the report gives none)' },
+  S3: { name: 'negation only', entry: 'the next open after the confirming close', exit: 'a touch of the negation, or a close at the target', stop: 'the negation' },
+  S4: { name: 'trailing', entry: 'the next open after the confirming close', exit: 'a touch of the higher of the last full day and a stop two ATRs under the highest close, a touch of the negation, or a close at the target', stop: 'the last full day (the negation where the report gives none), then the trail' },
 };
 
 export type SizingId = 'flat' | 'perStrategy' | 'payoff' | 'risk';
@@ -73,13 +73,11 @@ export const PAYOFF_SCALE = { min: 0.5, max: 2 } as const;
 /** The ATR multiple of the S4 trail, and the ATR's period. */
 export const TRAIL = { atrs: 2, period: 14 } as const;
 
+/* The fill is not a setting (revision 11). A setup enters at the next session's open after a settled close strictly past its
+   trigger (Q6), and one imported already confirmed at the first open after the report's date that listed it (revision 8).
+   The confirming-close fills, and the dials that chose them, are gone; so is any entry at an intraday price (revision 10). */
+
 export interface ModelSettings {
-  /** Q6: the fill is the next session's open where the bars have it, or the confirming close itself. Either way the entry
-      is a settled close strictly past the trigger: no intraday price chooses an entry (revision 10). */
-  entry: 'open' | 'close';
-  /** Revision 8: a setup imported already confirmed enters from the report that listed it (its first session after the
-      report's date), or at the confirming close the lookback found, which can fall days before the report. */
-  importedEntry: 'report' | 'close';
   /** Q2: the target counts on a settled close at or past it (the board's rule), or on an intraday touch. */
   targetOn: 'close' | 'touch';
   /** Q3: the stop after a re-entry is the original last full day, or a new one read from the re-entry run. */
@@ -105,8 +103,6 @@ export interface ModelSettings {
 }
 
 export const DEFAULT_SETTINGS: ModelSettings = {
-  entry: 'open',
-  importedEntry: 'report',
   targetOn: 'close',
   reentryStop: 'original',
   removed: 'include',

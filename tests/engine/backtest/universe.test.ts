@@ -92,15 +92,16 @@ describe('the universe', () => {
     expect(universeOf([looser.row], looser.hist, looser.bars, DEFAULT_SETTINGS).candidates[0]).toMatchObject({ stop: null, stopSource: 'looser' });
   });
 
-  it('an imported row, under the confirming-close entry, is signalled from the close the lookback found (the latest close at or past the trigger before the report\'s date)', () => {
-    const atClose = { ...DEFAULT_SETTINGS, importedEntry: 'close' as const };
+  it('an imported row keeps, as its confirming close, the latest close at or past the trigger before the report\'s date, though it does not enter there', () => {
     const { row, hist, bars } = rowOf({ ...LONG, confirmed: '2026-01-10', lfd: 94 });
-    const c = universeOf([row], hist, bars, atClose).candidates[0];
-    expect(c.signal).toEqual({ when: '2026-01-09', price: 102, index: 5 });
-    expect(c).toMatchObject({ imported: true, signalKind: 'close', confirming: { when: '2026-01-09', price: 102 } });
-    // With one cross only, it is that one.
+    const c = universeOf([row], hist, bars, DEFAULT_SETTINGS).candidates[0];
+    expect(c.confirming).toEqual({ when: '2026-01-09', price: 102 });
+    expect(c).toMatchObject({ imported: true, signalKind: 'report', signal: { when: '2026-01-09', price: 102, index: 5 } });
+    // With one cross only, it is that one; the setup is signalled from the report's last close, two sessions after it.
     const once = rowOf({ ...LONG, confirmed: '2026-01-10', lfd: 94 }, PATH.slice(0, 4));
-    expect(universeOf([once.row], once.hist, once.bars, atClose).candidates[0].signal).toEqual({ when: '2026-01-06', price: 101, index: 2 });
+    const o = universeOf([once.row], once.hist, once.bars, DEFAULT_SETTINGS).candidates[0];
+    expect(o.confirming).toEqual({ when: '2026-01-06', price: 101 });
+    expect(o.signal).toEqual({ when: '2026-01-07', price: 103, index: 3 });
   });
 
   it('an imported row, by default, is signalled from the last close on or before the report\'s date, and keeps the confirming close on record', () => {
@@ -157,10 +158,6 @@ describe('the universe', () => {
     expect(s2.note).toBe('stopped out before the report: in only on a close back past the trigger');
     expect(s2.legs.map(l => [l.n, l.entry.when, l.entry.price, l.entry.basis])).toEqual([[2, '2026-01-13', 101.5, 'open']]);
     expect(sim('S3').legs.map(l => [l.n, l.entry.when, l.entry.price])).toEqual([[1, '2026-01-12', 99.5]]);
-    // Under the confirming-close entry the same setup is a plain first leg, and the breach is the model's own exit.
-    const atClose = universeOf([row], hist, bars, { ...DEFAULT_SETTINGS, importedEntry: 'close' }).candidates[0];
-    expect(atClose.outAtSignal).toBe(false);
-    expect(simulate(atClose, STRATEGIES.find(s => strategyId(s) === 'S1')!, { ...DEFAULT_SETTINGS, importedEntry: 'close' }).legs[0].exit).toMatchObject({ when: '2026-01-08', reason: 'stop' });
   });
 
   it('a removed setup is typed as it stood on the removal date, not by the bars after it', () => {

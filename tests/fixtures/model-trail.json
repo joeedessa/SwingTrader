@@ -1,6 +1,6 @@
 {
 "name": "S4, the trail",
-"why": "Every bar spans exactly two points and holds the close before it, so the true range is 2 on every day and Wilder's 14-day ATR is exactly 2 throughout. Filled at the open after the 01-05 breakout, 101. The trail sits twice the ATR, 4 points, under the best close since the entry and only ever tightens: 98.5 after the 102.5 close, then 100, 101.5 and 103 after the 107 close of 01-09; the 105.5 and 104 closes that follow leave it there. The 01-14 low, 102.5, is the first under it, with the open (104) above: filled at the trail, 103. The risk was taken against the 94 last full day, so the 1.58% net is 0.228 R. S1 never sees its 94 stop touched and is still in, marked at the last close, 103, for the same 1.58%. Filled at the confirming close instead (101 on 01-05, a close, so the trail starts from it at once: 97 in force from 01-06), the leg runs the same way to the same 103.",
+"why": "Every bar spans exactly two points and holds the close before it, so the true range is 2 on every day and Wilder's 14-day ATR is exactly 2 throughout. Filled at the open after the 01-05 breakout, 101. The trail sits twice the ATR, 4 points, under the best close since the entry and only ever tightens: 98.5 after the 102.5 close, then 100, 101.5 and 103 after the 107 close of 01-09; the 105.5 and 104 closes that follow leave it there. The 01-14 low, 102.5, is the first under it, with the open (104) above: filled at the trail, 103. The risk was taken against the 94 last full day, so the 1.58% net is 0.228 R. S1 never sees its 94 stop touched and is still in, marked at the last close, 103, for the same 1.58%.",
 "setup": { "sym": "TRL", "dir": "long", "breakthrough": 100, "boundary": 97, "target": 130, "negation": 90, "lfd": 94, "created": "2025-12-01" },
 "bars": {
   "2025-12-08": [96, 98, 97, 97], "2025-12-09": [96, 98, 97, 97], "2025-12-10": [96, 98, 97, 97], "2025-12-11": [96, 98, 97, 97],
@@ -28,9 +28,6 @@
       "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 1.980198, "netPct": 1.580198, "riskPct": 6.930693, "r": 0.228001, "days": 8, "tag": "B1" } ] },
   { "settings": {}, "strategy": "S1", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "open" }, "exit": null, "mark": { "when": "2026-01-14", "price": 103 },
-      "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 1.980198, "netPct": 1.580198, "riskPct": 6.930693, "r": 0.228001, "days": 8, "tag": "B1" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S4", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-05", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-14", "price": 103, "basis": "level", "reason": "stop", "level": 103, "stopKind": "trailing stop" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 1.980198, "netPct": 1.580198, "riskPct": 6.930693, "r": 0.228001, "days": 9, "tag": "B1" } ] }
+      "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 1.980198, "netPct": 1.580198, "riskPct": 6.930693, "r": 0.228001, "days": 8, "tag": "B1" } ] }
 ]
 }

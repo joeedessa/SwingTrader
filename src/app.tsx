@@ -40,7 +40,7 @@ export function App() {
 
   useEffect(() => {
     void load();
-    // The Model from the console, until its page exists: window.__runModel({ entry: 'close' }).
+    // The Model from the console, until its page exists: window.__runModel({ targetOn: 'touch' }).
     installModel(overrides => {
       const s = app.get();
       return runModel({ rows: boardView(s, 'watchlist').bd.rows, hist: s.hist, bars: s.barsFile?.bars ?? {} }, { ...DEFAULT_SETTINGS, ...overrides });

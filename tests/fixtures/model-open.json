@@ -1,6 +1,6 @@
 {
 "name": "an open trade",
-"why": "Confirmed on the 01-06 close and filled at the next open, 100; nothing has ended it. That day's low, 99, is a touch of the trigger, so the setup is a B2. The newest session, 01-12, is settled by its close alone (110) and has no bar yet, so no touch is read from it, but the leg is marked at it: 10% before costs, 9.6% after, 1.6 R against the 94 last full day, five calendar days in. Every strategy is in the same position; S3 measures its risk to the 90 negation. Cut to the breakout day alone, the fill at the next open has not happened yet, and the setup is pending; at the confirming close it is a leg of nothing but costs.",
+"why": "Confirmed on the 01-06 close and filled at the next open, 100; nothing has ended it. That day's low, 99, is a touch of the trigger, so the setup is a B2. The newest session, 01-12, is settled by its close alone (110) and has no bar yet, so no touch is read from it, but the leg is marked at it: 10% before costs, 9.6% after, 1.6 R against the 94 last full day, five calendar days in. Every strategy is in the same position; S3 measures its risk to the 90 negation. Cut to the breakout day alone, the fill at the next open has not happened yet, and the setup is pending.",
 "setup": { "sym": "OPN", "dir": "long", "breakthrough": 100, "boundary": 97, "target": 120, "negation": 90, "lfd": 94, "created": "2026-01-01" },
 "bars": {
   "2026-01-05": [95, 99, 98, 96],
@@ -30,10 +30,7 @@
 "cut": {
   "upTo": "2026-01-06",
   "cases": [
-    { "settings": {}, "strategy": "S1", "note": "waiting for the next open", "legs": [] },
-    { "settings": { "entry": "close" }, "strategy": "S1", "note": null, "legs": [
-      { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": null, "mark": { "when": "2026-01-06", "price": 101 },
-        "stop": 94, "stopKind": "last full day", "open": true, "grossPct": 0, "netPct": -0.4, "riskPct": 6.930693, "r": -0.057714, "days": 0, "tag": "B1" } ] }
+    { "settings": {}, "strategy": "S1", "note": "waiting for the next open", "legs": [] }
   ]
 }
 }

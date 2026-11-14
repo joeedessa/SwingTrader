@@ -1,6 +1,6 @@
 {
 "name": "gap through the stop",
-"why": "A long confirmed on the 01-06 close (101 over the 100 trigger), filled at the next open, 100. On 01-09 the stock opens at 91, under the 94 last full day, and trades down to 88, under the 90 negation. The stop fills at the open, not at its level, and the same day's touch of the negation ends the setup: no strategy re-enters. S3 has no tight stop, so it fills at the negation itself (the open, 91, is above it). S4's trail had moved the stop up to 95.667 by then (the best close 104 less twice the ATR of 4.1667), and it fills at the same open. With the entry at the confirming close instead, the fill is 101.",
+"why": "A long confirmed on the 01-06 close (101 over the 100 trigger), filled at the next open, 100. On 01-09 the stock opens at 91, under the 94 last full day, and trades down to 88, under the 90 negation. The stop fills at the open, not at its level, and the same day's touch of the negation ends the setup: no strategy re-enters. S3 has no tight stop, so it fills at the negation itself (the open, 91, is above it). S4's trail had moved the stop up to 95.667 by then (the best close 104 less twice the ATR of 4.1667), and it fills at the same open.",
 "setup": { "sym": "GAP", "dir": "long", "breakthrough": 100, "boundary": 97, "target": 120, "negation": 90, "lfd": 94, "created": "2026-01-01" },
 "bars": {
   "2026-01-05": [95, 99, 98, 96],
@@ -24,9 +24,6 @@
       "stop": null, "stopKind": "negation", "open": false, "grossPct": -10, "netPct": -10.4, "riskPct": 10, "r": -1.04, "days": 2, "tag": "B4" } ] },
   { "settings": {}, "strategy": "S4", "note": null, "legs": [
     { "n": 1, "entry": { "when": "2026-01-07", "price": 100, "basis": "open" }, "exit": { "when": "2026-01-09", "price": 91, "basis": "open", "reason": "stop", "level": 95.666667, "stopKind": "trailing stop" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9, "netPct": -9.4, "riskPct": 6, "r": -1.566667, "days": 2, "tag": "B4" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S1", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-09", "price": 91, "basis": "open", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9.90099, "netPct": -10.30099, "riskPct": 6.930693, "r": -1.486286, "days": 3, "tag": "B4" } ] }
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -9, "netPct": -9.4, "riskPct": 6, "r": -1.566667, "days": 2, "tag": "B4" } ] }
 ]
 }

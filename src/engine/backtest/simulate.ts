@@ -12,11 +12,12 @@ import type { Candidate, Day, StopSource } from './universe';
    for S4, the trail is moved for the next day.
 
    Entries and exits. A setup enters on a settled close strictly past its trigger (the board's own breakout) and is filled
-   at the next session's open where the bars have it (the default), or at that close itself (Q6). There is no intraday
-   entry: intraday prices are read only for exits, a touch of a stop (S0's is the trigger), of the negation, and of the
-   target where that setting is on. A setup imported already confirmed enters from the report that listed it
-   (revision 8): the first session after the report's date, at its open, or at its close under the close entry; the
-   confirming close the lookback found is the other setting.
+   at the next session's open, the one fill there is (Q6, revision 11). There is no intraday entry: intraday prices are
+   read only for exits, a touch of a stop (S0's is the trigger), of the negation, and of the target where that setting is
+   on. A setup imported already confirmed enters from the report that listed it (revision 8): at the open of the first
+   session after the report's date; the confirming close the lookback found stays on record. A next bar with no open on
+   file, a day written before opens were kept, has none to fill at, and the close stands in: the confirming close itself,
+   or for a setup from the report the first close after it, never the close before the report.
 
    Fills. A stop or the negation fills at its level, or at the open where the day opened past it (a gap). A target on
    a close fills at that close; on a touch, at the target, or at the open where the day opened past it.
@@ -26,7 +27,8 @@ import type { Candidate, Day, StopSource } from './universe';
    for S0): no leg is opened. After a refused open the setup stands where the board puts it, out after a breach, so S2
    waits for the next close back past the trigger, and the others are done. S0 plays B1 only, as the board reads it (no
    touch of the trigger since the confirming close): a setup that touched it between the confirming close and the report
-   that listed it is not taken, nor, under the close entry, one whose first session after the report touched it.
+   that listed it is not taken, nor, where the close stands in for a missing open, one whose first session after the
+   report touched it.
 
    What ends a setup. A touch of the negation (failed is final: no re-entry after it), the target (on a close, or on
    a touch under that setting, even while out), the source's `reached` date, the removal date, and for S2 the stop-out
@@ -175,25 +177,17 @@ export function simulate(c: Candidate, strategy: Strategy, settings: ModelSettin
     const sc = days[signal].c as number;
     if (c.target != null && atOrPast(long, sc, c.target)) return { outcome: 'atTarget', index: signal };
     const next = signal + 1;
-    let fill: Fill;
-    if (settings.entry === 'open') {
-      if (next > end) return { outcome: next < days.length ? 'removed' : 'waiting', index: next };
-      const d = days[next];
-      if (d.closeOnly) return { outcome: 'waiting', index: next };
-      // A day written before opens were kept has none to fill at: the confirming close stands in.
-      fill = d.o != null ? { when: d.when, price: d.o, basis: 'open', index: next } : closeFill(signal);
-    } else if (n === 1 && c.signalKind === 'report') {
-      // Entered from the report, which came out after the last close before it: the first session after it, at its close.
-      if (next > end) return { outcome: next < days.length ? 'removed' : 'waiting', index: next };
-      if (days[next].c == null) return { outcome: 'waiting', index: next };
-      fill = closeFill(next);
-    } else fill = closeFill(signal);
-    // A report-day signal with no open on file to fill at fills at that first session's close, never at the close before the report.
+    if (next > end) return { outcome: next < days.length ? 'removed' : 'waiting', index: next };
+    const d = days[next];
+    if (d.closeOnly) return { outcome: 'waiting', index: next };
+    // The fill is the next session's open. A next bar with no open on file has none to fill at: the confirming close stands in.
+    let fill: Fill = d.o != null ? { when: d.when, price: d.o, basis: 'open', index: next } : closeFill(signal);
+    // Entered from the report, which came out after the last close before it, the stand-in is that first session's close, never the close before the report.
     if (n === 1 && c.signalKind === 'report' && fill.index === signal) {
-      if (days[next].c == null) return { outcome: 'waiting', index: next };
+      if (d.c == null) return { outcome: 'waiting', index: next };
       fill = closeFill(next);
     }
-    // B1 only, entered from the report at a close: a first session that touched the trigger was the pullback S0 does not play.
+    // B1 only, entered from the report at a close (the stand-in for a missing open): a first session that touched the trigger was the pullback S0 does not play.
     if (s0 && n === 1 && c.signalKind === 'report' && fill.basis === 'close' && atOrAgainst(long, ext(days[fill.index]), c.trigger)) return { outcome: 'pulledBack', index: fill.index };
     const level = stop ?? c.negation;
     if (c.negation != null && against(long, fill.price, c.negation)) return { outcome: 'beyondNegation', index: fill.index, basis: fill.basis };

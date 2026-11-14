@@ -30,30 +30,30 @@ const BREAK: Day[] = [
 
 describe('re-entries', () => {
   it('a close back past the trigger that is also at the target is not a re-entry: the setup is over', () => {
-    const sim = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 100, 122, 121, 101], ['2026-01-09', 118, 125, 124, 120]], 'S2-u', { entry: 'close' });
+    const sim = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 100, 122, 121, 101], ['2026-01-09', 118, 125, 124, 120]], 'S2-u');
     expect(sim.legs).toHaveLength(1);
     expect(sim.legs[0].exit).toMatchObject({ when: '2026-01-07', reason: 'stop' });
   });
 
   it('stops after the depth allowed: S2-1 takes one re-entry and ignores the next signal', () => {
     const path: Day[] = [...BREAK,
-      ['2026-01-07', 93, 99, 96, 97],      // exit 1
-      ['2026-01-08', 97, 103, 102, 98],    // re-entry 1
-      ['2026-01-09', 93, 99, 96, 97],      // exit 2
-      ['2026-01-12', 97, 103, 102, 98],    // a second re-entry signal
-      ['2026-01-13', 100, 105, 104, 101],
+      ['2026-01-07', 93, 99, 96, 97],      // the first fill, at the open; its low touches the stop: exit 1
+      ['2026-01-08', 97, 103, 102, 98],    // a re-entry close
+      ['2026-01-09', 93, 99, 96, 97],      // the re-entry fill, at the open; its low touches the stop: exit 2
+      ['2026-01-12', 97, 103, 102, 98],    // a second re-entry close
+      ['2026-01-13', 100, 105, 104, 101],  // its fill, at the open
     ];
-    expect(run(WITH_LFD, path, 'S2-1', { entry: 'close' }).legs.map(l => l.entry.when)).toEqual(['2026-01-06', '2026-01-08']);
-    expect(run(WITH_LFD, path, 'S2-2', { entry: 'close' }).legs.map(l => l.entry.when)).toEqual(['2026-01-06', '2026-01-08', '2026-01-12']);
-    expect(run(WITH_LFD, path, 'S1', { entry: 'close' }).legs.map(l => l.entry.when)).toEqual(['2026-01-06']);
+    expect(run(WITH_LFD, path, 'S2-1').legs.map(l => l.entry.when)).toEqual(['2026-01-07', '2026-01-09']);
+    expect(run(WITH_LFD, path, 'S2-2').legs.map(l => l.entry.when)).toEqual(['2026-01-07', '2026-01-09', '2026-01-13']);
+    expect(run(WITH_LFD, path, 'S1').legs.map(l => l.entry.when)).toEqual(['2026-01-07']);
   });
 
   it('a touch of the negation while out ends the setup: no re-entry on the close that follows', () => {
-    const sim = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 89, 103, 102, 95]], 'S2-u', { entry: 'close' });
+    const sim = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 89, 103, 102, 95]], 'S2-u');
     expect(sim.legs).toHaveLength(1);
   });
 
-  it('a re-entry fills at the next open under the default entry, and that day is read for exits', () => {
+  it('a re-entry fills at the next open, and that day is read for exits', () => {
     const sim = run(WITH_LFD, [...BREAK,
       ['2026-01-07', 99, 104, 103, 100],   // the first fill, at the open
       ['2026-01-08', 93, 99, 96, 97],      // exit 1 at 94
@@ -73,11 +73,11 @@ describe('re-entries', () => {
       ['2026-01-08', 97, 102, 101.5, 98],  // re-entry: the run reaches back to 01-06, so the new stop is the 01-05 low, 94.5, beyond the negation
       ['2026-01-09', 96, 104, 103, 100],
     ];
-    const sim = run(p, path, 'S2-u', { entry: 'close', reentryStop: 'new' });
+    const sim = run(p, path, 'S2-u', { reentryStop: 'new' });
     expect(sim.legs).toHaveLength(2);
-    expect(sim.legs[1]).toMatchObject({ stop: null, stopKind: 'none', open: true });
-    expect(sim.legs[1].riskPct).toBeCloseTo((101.5 - 95) / 101.5 * 100, 6);
-    expect(run(p, path, 'S2-u', { entry: 'close' }).legs[1]).toMatchObject({ stop: 96, stopKind: 'last full day' });
+    expect(sim.legs[1]).toMatchObject({ entry: { when: '2026-01-09', price: 100, basis: 'open' }, stop: null, stopKind: 'none', open: true });
+    expect(sim.legs[1].riskPct).toBeCloseTo((100 - 95) / 100 * 100, 6);
+    expect(run(p, path, 'S2-u').legs[1]).toMatchObject({ stop: 96, stopKind: 'last full day' });
   });
 });
 
@@ -166,9 +166,6 @@ describe('entries the rules would not take', () => {
     const s1 = run(WITH_LFD, path, 'S1');
     expect(s1.legs).toHaveLength(0);
     expect(s1.note).toBe('the next open was at or beyond the stop');
-    // The same with the fill at the confirming close names that close.
-    const p2: Setup = { ...WITH_LFD, lfd: 101.5 };
-    expect(run(p2, [...BREAK, ['2026-01-07', 102, 106, 105, 103]], 'S1', { entry: 'close' }).note).toBe('the confirming close was at or beyond the stop');
     const s2 = run(WITH_LFD, path, 'S2-u');
     expect(s2.note).toBe('the next open was at or beyond the stop');
     expect(s2.legs.map(l => [l.n, l.entry.when, l.entry.price])).toEqual([[2, '2026-01-09', 101]]);
@@ -189,12 +186,12 @@ describe('entries the rules would not take', () => {
       ['2026-01-12', 97, 103, 102, 98],    // the next re-entry close
       ['2026-01-13', 100, 105, 104, 101],  // filled
     ];
-    const s2 = run(WITH_LFD, path, 'S2-u', { entry: 'open' });
+    const s2 = run(WITH_LFD, path, 'S2-u');
     expect(s2.refused).toEqual(['2026-01-08']);
     expect(s2.legs.map(l => [l.n, l.entry.when, l.entry.price])).toEqual([[1, '2026-01-07', 97], [3, '2026-01-13', 101]]);
     expect(s2.legs[0].exit).toMatchObject({ when: '2026-01-07', price: 94 });
     // With one re-entry allowed, the refused one was it.
-    expect(run(WITH_LFD, path, 'S2-1', { entry: 'open' }).legs.map(l => l.n)).toEqual([1]);
+    expect(run(WITH_LFD, path, 'S2-1').legs.map(l => l.n)).toEqual([1]);
   });
 
   it('the risk is measured at 7 significant digits, like every comparison with a level', () => {
@@ -206,12 +203,12 @@ describe('entries the rules would not take', () => {
 
 describe('the setup is over', () => {
   it('no re-entry once the source has counted the target, once the target touched while out, or once the stop and the target came the same day', () => {
-    const reached = run({ ...WITH_LFD, reached: '2026-01-09' }, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 95, 99, 98, 97], ['2026-01-09', 97, 104, 99, 98], ['2026-01-12', 99, 106, 105, 100], ['2026-01-13', 104, 108, 107, 105]], 'S2-u', { entry: 'close' });
+    const reached = run({ ...WITH_LFD, reached: '2026-01-09' }, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 95, 99, 98, 97], ['2026-01-09', 97, 104, 99, 98], ['2026-01-12', 99, 106, 105, 100], ['2026-01-13', 104, 108, 107, 105]], 'S2-u');
     expect(reached.legs).toHaveLength(1);
-    const sameDay = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 121, 120, 100], ['2026-01-08', 110, 119, 115, 118]], 'S2-u', { entry: 'close' });
+    const sameDay = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 121, 120, 100], ['2026-01-08', 110, 119, 115, 118]], 'S2-u');
     expect(sameDay.legs).toHaveLength(1);
     expect(sameDay.legs[0].exit).toMatchObject({ when: '2026-01-07', reason: 'stop', price: 94 });
-    const touched = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 96, 121, 110, 97]], 'S2-u', { entry: 'close', targetOn: 'touch' });
+    const touched = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 96, 121, 110, 97]], 'S2-u', { targetOn: 'touch' });
     expect(touched.legs).toHaveLength(1);
   });
 
@@ -230,9 +227,9 @@ describe('the new stop with no boundary', () => {
       ['2026-01-08', 99, 104, 103, 100],   // re-entry: the bar before it is 01-07, low 93
       ['2026-01-09', 94, 105, 104, 100],   // under the 01-05 low (95) a run-based reading would give, not under 93
     ];
-    const sim = run(p, path, 'S2-u', { entry: 'close', reentryStop: 'new' });
+    const sim = run(p, path, 'S2-u', { reentryStop: 'new' });
     expect(sim.legs).toHaveLength(2);
-    expect(sim.legs[1]).toMatchObject({ stop: 93, stopKind: 'new last full day', open: true });
+    expect(sim.legs[1]).toMatchObject({ entry: { when: '2026-01-09', price: 100, basis: 'open' }, stop: 93, stopKind: 'new last full day', open: true });
   });
 });
 
@@ -264,9 +261,10 @@ describe('S4', () => {
     expect(sim.legs[0]).toMatchObject({ entry: { price: 110 }, open: true });
   });
 
-  it('a fill at the confirming close is a close, so the trail from it is in force from the next day', () => {
+  it('a fill at the confirming close (the stand-in for a next bar with no open) is a close, so the trail from it is in force from the next day', () => {
     const p: Setup = { ...LONG, negation: 85, lfd: 88 };
-    const sim = run(p, [...BREAK, ['2026-01-07', 92, 103, 102, 100]], 'S4', { entry: 'close' });
+    const sim = run(p, [...BREAK, ['2026-01-07', 92, 103, 102]], 'S4');
+    expect(sim.legs[0].entry).toMatchObject({ when: '2026-01-06', price: 101, basis: 'close' });
     // One true range so far, 4: the trail is 101 − 8 = 93, over the 88 last full day, and the 01-07 low of 92 is under it.
     expect(sim.legs[0].exit).toMatchObject({ when: '2026-01-07', price: 93, basis: 'level', reason: 'stop', stopKind: 'trailing stop' });
   });
@@ -309,10 +307,13 @@ describe('S0, B1 only', () => {
     const short = run(SHORT_LFD, [['2026-01-05', 99, 104, 101, 102], ['2026-01-06', 97, 101, 99, 100], ['2026-01-07', 99, 101.5, 98, 100]], 'S0');
     expect(short.legs).toHaveLength(0);
     expect(short.note).toBe('the next open was at or over the trigger, S0\'s stop');
-    // A confirming close exactly on the trigger (an imported setup's, found by the at-or-past lookback) is at the stop too.
-    const onTrigger = run({ ...WITH_LFD, confirmed: '2026-01-06' }, [['2026-01-05', 95, 99, 98, 96], ['2026-01-06', 98, 101, 100, 99], ['2026-01-07', 99, 104, 103, 101]], 'S0', { importedEntry: 'close', entry: 'close' });
-    expect(onTrigger.legs).toHaveLength(0);
-    expect(onTrigger.note).toBe('the confirming close was at or under the trigger, S0\'s stop');
+    // The same for a setup from the report, whose confirming close is often exactly the trigger: its first open after the report's date at the trigger is at the stop.
+    const fromReport = run({ ...WITH_LFD, confirmed: '2026-01-06' }, [['2026-01-05', 95, 99, 98, 96], ['2026-01-06', 98, 101, 100, 99], ['2026-01-07', 99, 104, 103, 100]], 'S0');
+    expect(fromReport.legs).toHaveLength(0);
+    expect(fromReport.note).toBe('the next open was at or under the trigger, S0\'s stop');
+    // One cent over it, the setup is in at that open.
+    const over = run({ ...WITH_LFD, confirmed: '2026-01-06' }, [['2026-01-05', 95, 99, 98, 96], ['2026-01-06', 98, 101, 100, 99], ['2026-01-07', 100.5, 104, 103, 100.01]], 'S0');
+    expect(over.legs[0].entry).toMatchObject({ when: '2026-01-07', price: 100.01, basis: 'open' });
   });
 
   it('fills at the open where the day opened through the trigger', () => {
@@ -338,15 +339,45 @@ describe('S0, B1 only', () => {
     expect(run(p, dip, 'S1').legs).toHaveLength(1);
   });
 
-  it('entered from a report at the close, a first session that touched the trigger is the pullback: no leg', () => {
+  it('entered from a report at the open, a first session that touches the trigger is read like any other: in at the open, out at the trigger', () => {
     const p: Setup = { ...WITH_LFD, confirmed: '2026-01-07' };
     const base: Day[] = [...BREAK, ['2026-01-07', 100.5, 104, 103, 101]];
-    const dipped = run(p, [...base, ['2026-01-08', 99.5, 105, 104, 102]], 'S0', { entry: 'close' });
+    const sim = run(p, [...base, ['2026-01-08', 99.5, 105, 104, 102]], 'S0');
+    expect(sim.legs[0].entry).toMatchObject({ when: '2026-01-08', price: 102, basis: 'open' });
+    expect(sim.legs[0].exit).toMatchObject({ when: '2026-01-08', price: 100, basis: 'level', reason: 'stop', stopKind: 'trigger' });
+  });
+
+  it('entered from a report with a close standing in for a missing open, a first session that touched the trigger is the pullback: no leg', () => {
+    const p: Setup = { ...WITH_LFD, confirmed: '2026-01-07' };
+    const base: Day[] = [...BREAK, ['2026-01-07', 100.5, 104, 103, 101]];
+    const dipped = run(p, [...base, ['2026-01-08', 99.5, 105, 104]], 'S0');
     expect(dipped.legs).toHaveLength(0);
     expect(dipped.note).toBe('pulled back to the trigger before the fill');
-    expect(run(p, [...base, ['2026-01-08', 100.5, 105, 104, 102]], 'S0', { entry: 'close' }).legs[0].entry).toMatchObject({ when: '2026-01-08', price: 104, basis: 'close' });
+    expect(run(p, [...base, ['2026-01-08', 100.5, 105, 104]], 'S0').legs[0].entry).toMatchObject({ when: '2026-01-08', price: 104, basis: 'close' });
     // S1 takes the close either way.
-    expect(run(p, [...base, ['2026-01-08', 99.5, 105, 104, 102]], 'S1', { entry: 'close' }).legs).toHaveLength(1);
+    expect(run(p, [...base, ['2026-01-08', 99.5, 105, 104]], 'S1').legs).toHaveLength(1);
+  });
+});
+
+describe('a next bar with no open on file', () => {
+  it('the confirming close stands in for the fill, and the exits are read from the day after it', () => {
+    const sim = run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96], ['2026-01-08', 99, 104, 103]], 'S1');
+    expect(sim.legs[0].entry).toMatchObject({ when: '2026-01-06', price: 101, basis: 'close' });
+    expect(sim.legs[0].exit).toMatchObject({ when: '2026-01-07', price: 94, basis: 'level', reason: 'stop' });
+    // With the open on file, the same bars fill at that open, 97, on the day itself.
+    expect(run(WITH_LFD, [...BREAK, ['2026-01-07', 93, 99, 96, 97], ['2026-01-08', 99, 104, 103, 100]], 'S1').legs[0].entry).toMatchObject({ when: '2026-01-07', price: 97, basis: 'open' });
+  });
+
+  it('a close at or beyond the stop is refused as the confirming close, not the next open', () => {
+    const p: Setup = { ...WITH_LFD, lfd: 101.5 };
+    const sim = run(p, [...BREAK, ['2026-01-07', 102, 106, 105]], 'S1');
+    expect(sim.legs).toHaveLength(0);
+    expect(sim.note).toBe('the confirming close was at or beyond the stop');
+  });
+
+  it('a re-entry stands in the same way: at the close that signalled it', () => {
+    const sim = run(WITH_LFD, [...BREAK, ['2026-01-07', 99, 104, 103, 100], ['2026-01-08', 93, 99, 96, 97], ['2026-01-09', 97, 103, 102], ['2026-01-12', 100, 105, 104]], 'S2-u');
+    expect(sim.legs.map(l => [l.n, l.entry.when, l.entry.price, l.entry.basis])).toEqual([[1, '2026-01-07', 100, 'open'], [2, '2026-01-09', 102, 'close']]);
   });
 });
 
@@ -369,12 +400,13 @@ describe('no last full day in the report', () => {
   it('S4 starts on the negation and trails from there: a trail beyond the negation is not taken, a tighter one is', () => {
     const sim = run(NO_LFD, [...BREAK, ['2026-01-07', 99, 104, 103, 100], ['2026-01-08', 101, 106, 105, 102]], 'S4');
     expect(sim.legs[0]).toMatchObject({ stop: null, stopKind: 'negation', open: true });
-    // Wide bars: the ATR is 30, so the trail from the 101 fill sits at 41, under the 90 negation, and the negation stays the stop.
-    const wide = run(NO_LFD, [['2026-01-05', 70, 100, 98, 80], ['2026-01-06', 75, 105, 101, 80], ['2026-01-07', 40, 103, 95, 100]], 'S4', { entry: 'close' });
-    expect(wide.legs[0].exit).toMatchObject({ when: '2026-01-07', price: 90, basis: 'level', reason: 'negation', level: 90 });
-    // Narrow bars: the trail is over the negation and takes over.
-    const tight = run(NO_LFD, [...BREAK, ['2026-01-07', 99, 104, 103, 100], ['2026-01-08', 93, 100, 98, 99]], 'S4', { entry: 'close' });
-    expect(tight.legs[0].exit).toMatchObject({ when: '2026-01-08', basis: 'level', reason: 'stop', stopKind: 'trailing stop' });
-    expect(tight.legs[0].exit!.level).toBeGreaterThan(90);
+    // Wide bars: the ATR is 21 once the fill day has closed (100), so the trail sits at 58, under the 90 negation, and the negation stays the stop.
+    const wide = run(NO_LFD, [['2026-01-05', 70, 100, 98, 80], ['2026-01-06', 75, 105, 101, 80], ['2026-01-07', 91, 103, 100, 100], ['2026-01-08', 40, 103, 95, 99]], 'S4');
+    expect(wide.legs[0].entry).toMatchObject({ when: '2026-01-07', price: 100, basis: 'open' });
+    expect(wide.legs[0].exit).toMatchObject({ when: '2026-01-08', price: 90, basis: 'level', reason: 'negation', level: 90 });
+    // Narrow bars: the ATR is 4.5 once the fill day has closed (103), so the trail sits at 94, over the negation, and takes over.
+    const tight = run(NO_LFD, [...BREAK, ['2026-01-07', 99, 104, 103, 100], ['2026-01-08', 93, 100, 98, 99]], 'S4');
+    expect(tight.legs[0].exit).toMatchObject({ when: '2026-01-08', price: 94, basis: 'level', reason: 'stop', stopKind: 'trailing stop' });
+    expect(tight.legs[0].exit!.level).toBeCloseTo(94, 6);
   });
 });

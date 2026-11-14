@@ -261,10 +261,15 @@ export function exclusionLines(result: ModelResult, run: StrategyRun): { heading
 export const fxWords = (label: string): string =>
   `Every price is in its own listing currency and nothing is converted. A sum of money is the position in ${label} times the leg's % return, with FX held constant over each trade; the % and R figures need no currency.`;
 
+/** How a setup gets in, in words, for the Method page and the Model page: one rule, not a dial (revision 11). */
+export const ENTRY_WORDS = {
+  entry: 'A setup enters at the next session\'s open after a settled close strictly past its trigger. Intraday prices are read only for exits: a touch of a stop, of the negation or, where chosen, of the target.',
+  imported: 'A setup imported already confirmed enters from the report that listed it, at the open of the first session after the report\'s date; the confirming close the lookback found, which can fall days before the report, stays on record.',
+  fallback: 'Where that bar has no open on file the close stands in: the confirming close itself, or for a setup from the report the first close after it.',
+} as const;
+
 /** The one-line rule for each dial, for the Method page and the controls' help. */
 export const DIAL_WORDS = {
-  entry: 'A setup enters on a settled close strictly past its trigger, filled at the next session\'s open where the bars have it (the default) or at that close itself. Intraday prices are read only for exits: a touch of a stop, of the negation or, where chosen, of the target.',
-  importedEntry: 'A setup imported already confirmed enters from the report that listed it (its first session after the report\'s date), or at the confirming close the lookback found.',
   targetOn: 'The target counts on a settled close at or past it, the board\'s rule, or on an intraday touch.',
   reentryStop: 'After a re-entry the stop is the original last full day, or a new one read from the re-entry run as the first was.',
   removed: 'A setup the source removed after it broke out is closed at the last close on or before the removal date, or left out.',

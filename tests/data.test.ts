@@ -62,9 +62,10 @@ describe('bars.json', () => {
 
   // Yahoo's own OHLC does not always hold close within low-high: the FX series
   // (JPY=X) takes its close from a different time of day than its high and low, and
-  // FSR.JO and ZN=F each have one day. The bars are kept as received; these are the
-  // known cases, listed here so any new one fails the test.
-  const KNOWN_OHLC_QUIRKS = new Set(['JPY=X', 'FSR.JO', 'ZN=F']);
+  // FSR.JO, ZN=F and SL.MI each have one day (SL.MI: 13 Nov 2026, a close of 38.44 under
+  // its low of 38.58). The bars are kept as received; these are the known cases, listed
+  // here so any new one fails the test.
+  const KNOWN_OHLC_QUIRKS = new Set(['JPY=X', 'FSR.JO', 'ZN=F', 'SL.MI']);
   const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
   it('writes every bar with a date key, and close within low-high except for the known feed quirks', () => {

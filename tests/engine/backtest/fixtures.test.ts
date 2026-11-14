@@ -143,7 +143,7 @@ for (const f of FIXTURES) {
     if (f.ratios) {
       it('the equal-risk ratio of each S2 depth against S1 is the total risk S1 takes over the total S2 takes', () => {
         const { row, hist, bars } = inputs(f);
-        const settings = settingsOf({ entry: 'close' });
+        const settings = settingsOf({});
         const c = universeOf([row], hist, bars, settings).candidates[0];
         const s1 = simulate(c, strategyOf('S1'), settings).legs;
         for (const [id, want] of Object.entries(f.ratios!)) {
@@ -156,7 +156,7 @@ for (const f of FIXTURES) {
 
       it('runModel carries the same legs and ratio through to the grid', () => {
         const { row, hist, bars } = inputs(f);
-        const res = runModel({ rows: [row], hist, bars }, settingsOf({ entry: 'close' }));
+        const res = runModel({ rows: [row], hist, bars }, settingsOf({}));
         expect(res.universe.breakouts).toBe(1);
         expect(res.runs['S2-2'].legs).toHaveLength(3);
         expect(res.runs['S2-2'].scale).toBeCloseTo(f.ratios!['S2-2'], 4);

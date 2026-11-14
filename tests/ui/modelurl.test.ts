@@ -16,23 +16,22 @@ describe('the Model\'s address', () => {
 
   it('writes every dial that moved, and reads each back', () => {
     const v: ModelView = {
-      settings: { ...DEFAULT_SETTINGS, entry: 'close', importedEntry: 'close', targetOn: 'touch', reentryStop: 'new', removed: 'exclude', from: 'list', commissionPct: 0.05, slippagePct: 0, size: 5000, riskUnits: 250, maxSize: 12000 },
+      settings: { ...DEFAULT_SETTINGS, targetOn: 'touch', reentryStop: 'new', removed: 'exclude', from: 'list', commissionPct: 0.05, slippagePct: 0, size: 5000, riskUnits: 250, maxSize: 12000 },
       strategy: 'S2-2', sizing: 'risk', scope: 'closed', label: 'USD', sort: 'best',
     };
     const q = modelQuery(v);
-    expect(q).toBe('s=S2-2&sz=risk&scope=closed&entry=close&imp=close&tgt=touch&re=new&rm=exclude&from=list&c=0.05&sl=0&n=5000&r=250&max=12000&cur=USD&sort=best');
+    expect(q).toBe('s=S2-2&sz=risk&scope=closed&tgt=touch&re=new&rm=exclude&from=list&c=0.05&sl=0&n=5000&r=250&max=12000&cur=USD&sort=best');
     expect(parseModelQuery(q)).toEqual(v);
   });
 
-  it('round-trips every strategy, sizing and order, and reads an entry it does not offer as the default', () => {
+  it('round-trips every strategy, sizing and order, and ignores a dial that no longer exists', () => {
     for (const strategy of STRATEGY_IDS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, strategy })).strategy).toBe(strategy);
     expect(STRATEGY_IDS[0]).toBe('S0');
-    const close: ModelView = { ...DEFAULT_VIEW, settings: { ...DEFAULT_SETTINGS, entry: 'close' } };
-    expect(modelQuery(close)).toBe('entry=close');
-    expect(parseModelQuery('entry=close')).toEqual(close);
-    // The entry at the trigger was removed (revision 10): a link that carries it opens on the default.
-    expect(parseModelQuery('entry=trigger')).toEqual(DEFAULT_VIEW);
-    expect(modelQuery(parseModelQuery('entry=trigger&s=S0'))).toBe('s=S0');
+    // The entry dials are gone (revisions 10 and 11): a link that carries them opens on the defaults, and does not write them back.
+    for (const old of ['entry=trigger', 'entry=close', 'imp=close', 'entry=close&imp=close']) {
+      expect(parseModelQuery(old), old).toEqual(DEFAULT_VIEW);
+      expect(modelQuery(parseModelQuery(old + '&s=S0')), old).toBe('s=S0');
+    }
     for (const sizing of SIZINGS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, sizing })).sizing).toBe(sizing);
     for (const sort of TRADE_SORTS) expect(parseModelQuery(modelQuery({ ...DEFAULT_VIEW, sort })).sort).toBe(sort);
   });
@@ -42,7 +41,6 @@ describe('the Model\'s address', () => {
     expect(v.strategy).toBe(DEFAULT_VIEW.strategy);
     expect(v.sizing).toBe(DEFAULT_VIEW.sizing);
     expect(v.scope).toBe(DEFAULT_VIEW.scope);
-    expect(v.settings.entry).toBe(DEFAULT_SETTINGS.entry);
     expect(v.settings.targetOn).toBe('touch');
     expect(v.settings.commissionPct).toBe(DEFAULT_SETTINGS.commissionPct);
     expect(v.settings.slippagePct).toBe(DEFAULT_SETTINGS.slippagePct);

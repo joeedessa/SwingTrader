@@ -1,6 +1,6 @@
 {
 "name": "two re-entries",
-"why": "Entered at the confirming close, 101 on 01-06. The 94 last full day is touched on 01-08 (low 93, the open 97 above it: filled at the level) and again on 01-14 (low 91.5), each time followed by a settled close back over the 100 trigger (102 on 01-12, 105 on 01-16; the 100 close on 01-15 is not past it). The third leg reaches the 120 target on the 01-20 close. S1 takes the first leg only; S2-1 two legs; S2-2 and deeper all three. Under the original stop every re-entry risks to 94; under a new one the second leg's stop is the 01-09 low, 92 (the run of closes over the 97 boundary begins with the re-entry close itself), and the third leg's is the 01-14 low, 91.5 (the run begins with the 100 close of 01-15). S3 holds through both breaches to the target. S4's trail never rises over the last full day before the first breach, so it leaves at 94 like S1. The setup is a B3 with two breaches and two re-entries, final at the target.",
+"why": "Confirmed on the 01-06 close (101) and filled at the next open, 101 on 01-07. The 94 last full day is touched on 01-08 (low 93, the open 97 above it: filled at the level) and again on 01-14 (low 91.5), each time followed by a settled close back over the 100 trigger (102 on 01-12, 105 on 01-16; the 100 close on 01-15 is not past it). Each re-entry fills at the open after its close: 103 on 01-13 and 106 on 01-19. The third leg reaches the 120 target on the 01-20 close. S1 takes the first leg only; S2-1 two legs; S2-2 and deeper all three. Under the original stop every re-entry risks to 94; under a new one the second leg's stop is the 01-09 low, 92 (the run of closes over the 97 boundary begins with the re-entry close itself), and the third leg's is the 01-14 low, 91.5 (the run begins with the 100 close of 01-15). S3 holds through both breaches to the target. S4's trail never rises over the last full day before the first breach, so it leaves at 94 like S1. The setup is a B3 with two breaches and two re-entries, final at the target.",
 "setup": { "sym": "REE", "dir": "long", "breakthrough": 100, "boundary": 97, "target": 120, "negation": 90, "lfd": 94, "created": "2026-01-01" },
 "bars": {
   "2026-01-05": [95, 99, 98, 96],
@@ -20,34 +20,34 @@
 "row": { "section": "target", "tag": "B3" },
 "universe": { "breakouts": 1, "candidates": 1, "excluded": [] },
 "cases": [
-  { "settings": { "entry": "close" }, "strategy": "S1", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 2, "tag": "B3" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S2-1", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 2, "tag": "B3" },
-    { "n": 2, "entry": { "when": "2026-01-12", "price": 102, "basis": "close" }, "exit": { "when": "2026-01-14", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -7.843137, "netPct": -8.243137, "riskPct": 7.843137, "r": -1.051, "days": 2, "tag": "B3" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S2-2", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 2, "tag": "B3" },
-    { "n": 2, "entry": { "when": "2026-01-12", "price": 102, "basis": "close" }, "exit": { "when": "2026-01-14", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -7.843137, "netPct": -8.243137, "riskPct": 7.843137, "r": -1.051, "days": 2, "tag": "B3" },
-    { "n": 3, "entry": { "when": "2026-01-16", "price": 105, "basis": "close" }, "exit": { "when": "2026-01-20", "price": 120, "basis": "close", "reason": "target", "level": 120 },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 14.285714, "netPct": 13.885714, "riskPct": 10.47619, "r": 1.325455, "days": 4, "tag": "B3" } ] },
-  { "settings": { "entry": "close", "reentryStop": "new" }, "strategy": "S2-u", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 2, "tag": "B3" },
-    { "n": 2, "entry": { "when": "2026-01-12", "price": 102, "basis": "close" }, "exit": { "when": "2026-01-14", "price": 92, "basis": "level", "reason": "stop", "level": 92, "stopKind": "new last full day" },
-      "stop": 92, "stopKind": "new last full day", "open": false, "grossPct": -9.803922, "netPct": -10.203922, "riskPct": 9.803922, "r": -1.0408, "days": 2, "tag": "B3" },
-    { "n": 3, "entry": { "when": "2026-01-16", "price": 105, "basis": "close" }, "exit": { "when": "2026-01-20", "price": 120, "basis": "close", "reason": "target", "level": 120 },
-      "stop": 91.5, "stopKind": "new last full day", "open": false, "grossPct": 14.285714, "netPct": 13.885714, "riskPct": 12.857143, "r": 1.08, "days": 4, "tag": "B3" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S3", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-20", "price": 120, "basis": "close", "reason": "target", "level": 120 },
-      "stop": null, "stopKind": "negation", "open": false, "grossPct": 18.811881, "netPct": 18.411881, "riskPct": 10.891089, "r": 1.690545, "days": 14, "tag": "B3" } ] },
-  { "settings": { "entry": "close" }, "strategy": "S4", "note": null, "legs": [
-    { "n": 1, "entry": { "when": "2026-01-06", "price": 101, "basis": "close" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
-      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 2, "tag": "B3" } ] }
+  { "settings": {}, "strategy": "S1", "note": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 101, "basis": "open" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 1, "tag": "B3" } ] },
+  { "settings": {}, "strategy": "S2-1", "note": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 101, "basis": "open" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 1, "tag": "B3" },
+    { "n": 2, "entry": { "when": "2026-01-13", "price": 103, "basis": "open" }, "exit": { "when": "2026-01-14", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -8.737864, "netPct": -9.137864, "riskPct": 8.737864, "r": -1.045778, "days": 1, "tag": "B3" } ] },
+  { "settings": {}, "strategy": "S2-2", "note": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 101, "basis": "open" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 1, "tag": "B3" },
+    { "n": 2, "entry": { "when": "2026-01-13", "price": 103, "basis": "open" }, "exit": { "when": "2026-01-14", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -8.737864, "netPct": -9.137864, "riskPct": 8.737864, "r": -1.045778, "days": 1, "tag": "B3" },
+    { "n": 3, "entry": { "when": "2026-01-19", "price": 106, "basis": "open" }, "exit": { "when": "2026-01-20", "price": 120, "basis": "close", "reason": "target", "level": 120 },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": 13.207547, "netPct": 12.807547, "riskPct": 11.320755, "r": 1.131333, "days": 1, "tag": "B3" } ] },
+  { "settings": { "reentryStop": "new" }, "strategy": "S2-u", "note": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 101, "basis": "open" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 1, "tag": "B3" },
+    { "n": 2, "entry": { "when": "2026-01-13", "price": 103, "basis": "open" }, "exit": { "when": "2026-01-14", "price": 92, "basis": "level", "reason": "stop", "level": 92, "stopKind": "new last full day" },
+      "stop": 92, "stopKind": "new last full day", "open": false, "grossPct": -10.679612, "netPct": -11.079612, "riskPct": 10.679612, "r": -1.037455, "days": 1, "tag": "B3" },
+    { "n": 3, "entry": { "when": "2026-01-19", "price": 106, "basis": "open" }, "exit": { "when": "2026-01-20", "price": 120, "basis": "close", "reason": "target", "level": 120 },
+      "stop": 91.5, "stopKind": "new last full day", "open": false, "grossPct": 13.207547, "netPct": 12.807547, "riskPct": 13.679245, "r": 0.936276, "days": 1, "tag": "B3" } ] },
+  { "settings": {}, "strategy": "S3", "note": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 101, "basis": "open" }, "exit": { "when": "2026-01-20", "price": 120, "basis": "close", "reason": "target", "level": 120 },
+      "stop": null, "stopKind": "negation", "open": false, "grossPct": 18.811881, "netPct": 18.411881, "riskPct": 10.891089, "r": 1.690545, "days": 13, "tag": "B3" } ] },
+  { "settings": {}, "strategy": "S4", "note": null, "legs": [
+    { "n": 1, "entry": { "when": "2026-01-07", "price": 101, "basis": "open" }, "exit": { "when": "2026-01-08", "price": 94, "basis": "level", "reason": "stop", "level": 94, "stopKind": "last full day" },
+      "stop": 94, "stopKind": "last full day", "open": false, "grossPct": -6.930693, "netPct": -7.330693, "riskPct": 6.930693, "r": -1.057714, "days": 1, "tag": "B3" } ] }
 ],
-"ratios": { "S2-1": 0.469122, "S2-2": 0.274483, "S2-u": 0.274483 }
+"ratios": { "S2-1": 0.442331, "S2-2": 0.256794, "S2-u": 0.256794 }
 }

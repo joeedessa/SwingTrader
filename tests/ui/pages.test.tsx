@@ -115,11 +115,18 @@ describe('the Method page', () => {
     expect(t).toContain(`${TRAIL.atrs} ATRs (Wilder's ${TRAIL.period}-day)`);
     expect(t).toContain(`between ${PAYOFF_SCALE.min}× and ${PAYOFF_SCALE.max}×`);
     expect(t).toContain(`The list began on ${fmtD(LIST_BEGAN)}`);
-    expect(t).toContain('enters from the report that listed it');
-    expect(t).toContain('filled at the next session\'s open where the bars have it (the default) or at that close itself');
+    // The fill: one rule, the next open after the settled close past the trigger, with the stand-in for a missing open said out loud.
+    expect(t).toContain('filled at the next open, and uses intraday prices only to exit');
+    expect(t).toContain('S0 plays B1 only: in at the next open after the confirming close');
+    expect(t).toContain('S1 plays B1 and B2 only: in at the next open after the confirming close');
+    expect(t).toContain('S2 re-enters at the next open after a settled close back past the trigger');
+    expect(t).toContain('A setup enters at the next session\'s open after a settled close strictly past its trigger.');
     expect(t).toContain('a touch of a stop, of the negation or, where chosen, of the target');
+    expect(t).toContain('enters from the report that listed it, at the open of the first session after the report\'s date');
+    expect(t).toContain('Where that bar has no open on file the close stands in: the confirming close itself, or for a setup from the report the first close after it.');
     expect(t).toContain('the board\'s own type (no touch of the trigger since the confirming close)');
-    for (const gone of ['buy-stop', 'At the trigger', 'trigger entry']) expect(t).not.toContain(gone);
+    expect(t).not.toMatch(/in at the confirming close/i);
+    for (const gone of ['buy-stop', 'At the trigger', 'trigger entry', 'at that close itself', 'or at the confirming close the lookback found']) expect(t).not.toContain(gone);
   });
 
   it('has a freshness table counted from what is loaded, with the lists\' counts and when each file was written', () => {

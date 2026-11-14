@@ -216,8 +216,10 @@ describe('the words', () => {
   it('say what each strategy does in one line', () => {
     expect(strategyWords('S0')).toContain('out on the first touch of the trigger');
     expect(strategyWords('S0')).toContain('the stop is the trigger');
-    expect(strategyWords('S1')).toContain('In at the confirming close');
-    expect(strategyWords('S2-3')).toContain('again at a settled close back past the trigger');
+    expect(strategyWords('S0')).toContain('In at the next open after the confirming close');
+    expect(strategyWords('S1')).toContain('In at the next open after the confirming close');
+    expect(strategyWords('S2-3')).toContain('and again at the next open after a settled close back past the trigger');
+    for (const id of STRATEGY_IDS) expect(strategyWords(id), id).not.toMatch(/(^|[ ;])(in|In) at the confirming close/);
     expect(strategyWords('S4')).toContain('ATRs');
   });
 });

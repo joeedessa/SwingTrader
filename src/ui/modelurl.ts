@@ -3,7 +3,8 @@ import type { ModelSettings, SizingId, StrategyId } from '../engine/backtest/set
 
 /* The Model's dials live in the address (plan B6: "settings are stored in the URL, so a scenario is a shareable link").
    Only what differs from the defaults is written, so #/model is the default scenario and a shared link stays short.
-   Anything unreadable falls back to its default rather than breaking the page. */
+   Anything unreadable falls back to its default rather than breaking the page, and a key that is no longer a dial (`entry` and
+   `imp`, which chose a fill other than the next open, gone in revision 11) is ignored: such a link opens on the defaults. */
 
 export type Scope = 'closed' | 'all';
 
@@ -57,8 +58,6 @@ export function parseModelQuery(query: string | null | undefined): ModelView {
   const d = DEFAULT_SETTINGS;
   return {
     settings: {
-      entry: oneOf(q.get('entry'), ['open', 'close'], d.entry),
-      importedEntry: oneOf(q.get('imp'), ['report', 'close'], d.importedEntry),
       targetOn: oneOf(q.get('tgt'), ['close', 'touch'], d.targetOn),
       reentryStop: oneOf(q.get('re'), ['original', 'new'], d.reentryStop),
       removed: oneOf(q.get('rm'), ['include', 'exclude'], d.removed),
@@ -89,8 +88,6 @@ export function modelQuery(v: ModelView): string {
   put('s', v.strategy, DEFAULT_VIEW.strategy);
   put('sz', v.sizing, DEFAULT_VIEW.sizing);
   put('scope', v.scope, DEFAULT_VIEW.scope);
-  put('entry', s.entry, d.entry);
-  put('imp', s.importedEntry, d.importedEntry);
   put('tgt', s.targetOn, d.targetOn);
   put('re', s.reentryStop, d.reentryStop);
   put('rm', s.removed, d.removed);

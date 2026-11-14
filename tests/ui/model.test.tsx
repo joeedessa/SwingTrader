@@ -75,30 +75,34 @@ describe('the Model page', () => {
     expect((at(q).match(/class="symbtn"/g) || []).length).toBe(closed.legs.length);
   });
 
-  it('runs the engine on the dials in the link: the entry, the imported entry, the target, the stop, the removal, the day the list began, the costs', () => {
-    const q = 'entry=close&imp=close&tgt=touch&re=new&rm=exclude&from=list&c=0&sl=0&n=5000&r=250&max=7000';
+  it('runs the engine on the dials in the link: the target, the stop, the removal, the day the list began, the costs', () => {
+    const q = 'tgt=touch&re=new&rm=exclude&from=list&c=0&sl=0&n=5000&r=250&max=7000';
     const r = resultFor(q);
-    expect(r.settings).toEqual({ ...DEFAULT_SETTINGS, entry: 'close', importedEntry: 'close', targetOn: 'touch', reentryStop: 'new', removed: 'exclude', from: LIST_BEGAN, commissionPct: 0, slippagePct: 0, size: 5000, riskUnits: 250, maxSize: 7000 });
+    expect(r.settings).toEqual({ ...DEFAULT_SETTINGS, targetOn: 'touch', reentryStop: 'new', removed: 'exclude', from: LIST_BEGAN, commissionPct: 0, slippagePct: 0, size: 5000, riskUnits: 250, maxSize: 7000 });
     const t = text(at(q));
     expect(t).toContain(`Only breakouts from ${LIST_BEGAN.slice(8, 10)}-${LIST_BEGAN.slice(5, 7)}-${LIST_BEGAN.slice(2, 4)} on`);
     expect(t).toContain('0.00% a round trip');
     expect(t).toContain(String(r.runs['S2-u'].legs.length));
   });
 
-  it('offers two entries, the next open and the confirming close, and an old link for another one opens on the default', () => {
+  it('has no entry dials: the fill is one rule, said in words, and an old link that carried an entry opens on the defaults', () => {
     const html = at('');
-    expect(html).toContain('aria-pressed="true">Next open</button>');
-    expect(html).toContain('aria-pressed="false">Confirming close</button>');
-    expect(text(html)).not.toContain('At the trigger');
-    expect(html).toContain('Intraday prices are read only for exits');   // the dial's hint
-    // The link of the entry that was removed: read as the default, and not written back.
-    const old = 'entry=trigger&s=S1';
-    expect(resultFor(old).settings.entry).toBe('open');
-    expect(modelQuery(parseModelQuery(old))).toBe('s=S1');
-    const oldHtml = at(old);
-    expect(oldHtml).toContain('aria-pressed="true">Next open</button>');
-    expect(text(oldHtml)).toContain(STRATEGY_LABEL.S1);
-    expect(at('entry=close')).toContain('aria-pressed="true">Confirming close</button>');
+    const t = text(html);
+    for (const gone of ['Confirming close', 'Next open', 'From the report', 'At the trigger']) expect(t, gone).not.toContain(gone);
+    expect(html).not.toContain('aria-label="Entry"');
+    expect(html).not.toContain('aria-label="Imported"');
+    // The words that stand where the dials were: the footer, and the caveats.
+    expect(t).toContain('A setup enters at the next session\'s open after a settled close strictly past its trigger.');
+    expect(t).toContain('Intraday prices are read only for exits');
+    expect(t).toContain('Where that bar has no open on file the close stands in');
+    expect(t).toContain('enters from the report that listed it, at the open of the first session after the report\'s date');
+    // The links of the entries that were removed: read as the defaults, and not written back.
+    for (const old of ['entry=trigger&s=S1', 'entry=close&imp=close&s=S1']) {
+      expect(modelQuery(parseModelQuery(old)), old).toBe('s=S1');
+      const oldHtml = at(old);
+      expect(text(oldHtml), old).toContain(STRATEGY_LABEL.S1);
+      expect(oldHtml, old).toBe(at('s=S1'));
+    }
   });
 
   it('prints the same numbers for the same link, twice', () => {

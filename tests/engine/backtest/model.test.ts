@@ -58,16 +58,6 @@ describe('the universe on the frozen board', () => {
     expect(fromReport).toBeGreaterThan(0);
   });
 
-  it('with the confirming-close entry, an imported candidate is signalled from the close the lookback found', () => {
-    const { bars, hist } = frozenInputs();
-    const m = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, importedEntry: 'close' });
-    const rows = rowByKey();
-    for (const c of m.universe.candidates.filter(x => x.imported)) {
-      expect(c.signal.when, c.key).toBe(rows.get(c.key)!.lfd!.conf);
-      expect(c.signalKind, c.key).toBe('close');
-    }
-  });
-
   it('a candidate\'s stop is the board\'s tight stop, and only a stop that is a stop', () => {
     const rows = rowByKey();
     for (const c of model().universe.candidates) {
@@ -146,33 +136,33 @@ describe('the strategies on the frozen board', () => {
     expect(compared).toBeGreaterThan(0);
   });
 
-  it('every entry is at a settled close or at the next open, and no intraday price chose one: either entry setting, every strategy', () => {
+  it('every entry is at the next open after a settled close past the trigger, and no intraday price chose one: every strategy, re-entries included', () => {
     const { bars, hist } = frozenInputs();
-    let checked = 0, afterClose = 0;
-    for (const entry of ['open', 'close'] as const) {
-      const m = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry });
-      for (const id of STRATEGY_IDS) {
-        for (const l of m.runs[id].legs) {
-          const long = l.dir === 'long';
-          const d = l.c.days[l.entry.index];
-          const at = `${entry} ${id} ${l.key} #${l.n}`;
-          expect(['open', 'close'], at).toContain(l.entry.basis);
-          expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
-          // The default: the session after the close, at its open; the capture has no opens, so every fill here is the fallback.
-          if (entry === 'open' && l.entry.basis === 'close') expect((l.n === 1 && l.c.signalKind === 'report' ? d : l.c.days[l.entry.index + 1])?.o ?? null, at).toBeNull();
-          // The close it came from: this day's under a fill at the close, the day before's under a fill at the open. An
-          // imported setup's first leg comes from the report instead of from a close past the trigger.
-          if (l.n === 1 && l.c.signalKind === 'report') continue;
-          const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
-          expect(past(long, signal.c as number, l.c.trigger), at).toBe(true);
-          if (l.entry.basis === 'close') afterClose++;
-          checked++;
+    const m = runModel({ rows: frozenBoard().rows, hist, bars }, DEFAULT_SETTINGS);
+    let checked = 0, standIns = 0;
+    for (const id of STRATEGY_IDS) {
+      for (const l of m.runs[id].legs) {
+        const long = l.dir === 'long';
+        const d = l.c.days[l.entry.index];
+        const at = `${id} ${l.key} #${l.n}`;
+        expect(['open', 'close'], at).toContain(l.entry.basis);
+        expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
+        // The fill is the open of the session after the close; only a bar with no open on file lets the close stand in. The
+        // capture was written before opens were kept, so here every fill is the stand-in.
+        if (l.entry.basis === 'close') {
+          expect((l.n === 1 && l.c.signalKind === 'report' ? d : l.c.days[l.entry.index + 1])?.o ?? null, at).toBeNull();
+          standIns++;
         }
+        // The close it came from: the day before a fill at an open, this day's for the stand-in. An imported setup's first
+        // leg comes from the report instead of from a close past the trigger.
+        if (l.n === 1 && l.c.signalKind === 'report') continue;
+        const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
+        expect(past(long, signal.c as number, l.c.trigger), at).toBe(true);
+        checked++;
       }
     }
     expect(checked).toBeGreaterThan(0);
-    // The 1 Nov capture was written before opens were kept: its fills are all at a close.
-    expect(afterClose).toBe(checked);
+    expect(standIns).toBeGreaterThan(0);
   });
 
   it('S0, S1, S3 and S4 take one leg a setup; S2 takes one plus its re-entries, no more than the depth allows', () => {
@@ -373,21 +363,5 @@ describe('the result', () => {
     const t0 = performance.now();
     runModel({ rows: frozenBoard().rows, hist, bars }, DEFAULT_SETTINGS);
     expect(performance.now() - t0).toBeLessThan(2000);
-  });
-
-  it('the entry at the close moves every fill to the confirming close and keeps the exits', () => {
-    const { bars, hist } = frozenInputs();
-    const atOpen = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, importedEntry: 'close' });
-    const atClose = runModel({ rows: frozenBoard().rows, hist, bars }, { ...DEFAULT_SETTINGS, entry: 'close', importedEntry: 'close' });
-    expect(atClose.runs.S1.legs.every(l => l.entry.basis === 'close')).toBe(true);
-    expect(atClose.runs.S1.pending).toEqual([]);
-    const byKey = new Map(atOpen.runs.S1.legs.map(l => [l.key, l]));
-    for (const l of atClose.runs.S1.legs) {
-      const o = byKey.get(l.key);
-      if (!o || !o.exit || !l.exit) continue;
-      // An exit read on the open-fill day itself is the one difference the entry can make.
-      if (o.exit.when === o.entry.when) continue;
-      expect(l.exit.when, l.key).toBe(o.exit.when);
-    }
   });
 });

@@ -21,7 +21,7 @@ import type { DCol } from './datatable';
 import { DrawerHost } from './drawerhost';
 import { Hero } from './hero';
 import { useCards, useNarrow } from './hooks';
-import { caveatText, DIAL_WORDS, exclusionLines, fxWords, gridRows, legsInScope, modelTiles, moneyWords, ratioRows, reasonLine, SCOPE_NOTE, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
+import { caveatText, DIAL_WORDS, ENTRY_WORDS, exclusionLines, fxWords, gridRows, legsInScope, modelTiles, moneyWords, ratioRows, reasonLine, SCOPE_NOTE, SIZING_LABEL, SORT_LABEL, sortTrades, STRATEGY_LABEL, STRATEGY_SHORT, strategyWords, tradeCells, typeRows } from './modelcells';
 import { cleanLabel, DEFAULT_VIEW, engineSettings, modelQuery, parseModelQuery, PCT_MAX, readNumber, TRADE_SORTS, UNITS_MAX } from './modelurl';
 import type { ModelView, Scope, TradeSort } from './modelurl';
 import { say } from './notice';
@@ -82,10 +82,6 @@ function Controls({ view, onView, onSettings }: { view: ModelView; onView: (p: P
       </div>
       <p class="dialwords">{strategyWords(view.strategy)}</p>
       <div class="dials">
-        <Dial label="Entry" hint={DIAL_WORDS.entry} value={s.entry} onChange={v => onSettings({ entry: v })}
-          items={[{ id: 'open', label: 'Next open' }, { id: 'close', label: 'Confirming close' }]} />
-        <Dial label="Imported" hint={DIAL_WORDS.importedEntry} value={s.importedEntry} onChange={v => onSettings({ importedEntry: v })}
-          items={[{ id: 'report', label: 'From the report' }, { id: 'close', label: 'Confirming close' }]} />
         <Dial label="Target" hint={DIAL_WORDS.targetOn} value={s.targetOn} onChange={v => onSettings({ targetOn: v })}
           items={[{ id: 'close', label: 'On a close' }, { id: 'touch', label: 'On a touch' }]} />
         <Dial label="Re-entry stop" hint={DIAL_WORDS.reentryStop} value={s.reentryStop} onChange={v => onSettings({ reentryStop: v })}
@@ -263,7 +259,7 @@ export function ModelPage() {
           <h2 id="m-caveats">Caveats</h2>
           <p>{caveatText(result.caveats, result.universe, !!settings.from)}</p>
           <p>{fxWords(view.label)}</p>
-          <p>No hindsight: every strategy is a rule you could have followed on the day, and the final type only breaks the results down. {DIAL_WORDS.importedEntry}</p>
+          <p>No hindsight: every strategy is a rule you could have followed on the day, and the final type only breaks the results down. {ENTRY_WORDS.imported}</p>
           {left.length ? (
             <details class="ruledetails" open={narrow ? undefined : true}>
               <summary>Left out, and why</summary>
@@ -297,7 +293,7 @@ export function ModelPage() {
         <div class="panel" role="region" aria-label="Results">{body}</div>
 
         <footer class="foot">
-          <p>Settled bars only; each day's low or high is read before its close, as the board does. {DIAL_WORDS.costs} {DIAL_WORDS.trail} A record of rules applied to published levels, not investment advice.</p>
+          <p>Settled bars only; each day's low or high is read before its close, as the board does. {ENTRY_WORDS.entry} {ENTRY_WORDS.fallback} {DIAL_WORDS.costs} {DIAL_WORDS.trail} A record of rules applied to published levels, not investment advice.</p>
         </footer>
       </main>
       <DrawerHost set="watchlist" bd={bd} today={today} loading={loading} />

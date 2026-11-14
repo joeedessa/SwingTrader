@@ -44,26 +44,20 @@ describe('the model on the live files', () => {
     }
   });
 
-  it('enters every leg at a settled close or at the next open: no intraday price chooses an entry', () => {
+  it('enters every leg at the next open after a settled close past the trigger: no intraday price chooses an entry', () => {
     let legs = 0;
-    for (const entry of ['open', 'close'] as const) {
-      const r = entry === 'open' ? m : runModel({ rows: bd.rows, hist, bars: bars.bars }, { ...DEFAULT_SETTINGS, entry });
-      for (const run of Object.values(r.runs)) {
-        for (const l of run.legs) {
-          const d = l.c.days[l.entry.index];
-          const at = `${entry} ${run.id} ${l.key} #${l.n}`;
-          expect(['open', 'close'], at).toContain(l.entry.basis);
-          expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
-          // The default: the session after the close, at its open. Only a session whose bar has no open on file falls back to a close.
-          if (entry === 'open' && l.entry.basis === 'close') {
-            const bar = l.n === 1 && l.c.signalKind === 'report' ? d : l.c.days[l.entry.index + 1];
-            expect(bar?.o ?? null, at).toBeNull();
-          }
-          if (l.n === 1 && l.c.signalKind === 'report') continue;
-          const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
-          expect(past(l.dir === 'long', signal.c as number, l.c.trigger), at).toBe(true);
-          legs++;
-        }
+    for (const run of Object.values(m.runs)) {
+      for (const l of run.legs) {
+        const d = l.c.days[l.entry.index];
+        const at = `${run.id} ${l.key} #${l.n}`;
+        expect(['open', 'close'], at).toContain(l.entry.basis);
+        expect(l.entry.price, at).toBe(l.entry.basis === 'open' ? d.o : d.c);
+        // The fill is the open of the session after the close. Only a bar with no open on file lets the close stand in.
+        if (l.entry.basis === 'close') expect((l.n === 1 && l.c.signalKind === 'report' ? d : l.c.days[l.entry.index + 1])?.o ?? null, at).toBeNull();
+        if (l.n === 1 && l.c.signalKind === 'report') continue;
+        const signal = l.c.days[l.entry.basis === 'open' ? l.entry.index - 1 : l.entry.index];
+        expect(past(l.dir === 'long', signal.c as number, l.c.trigger), at).toBe(true);
+        legs++;
       }
     }
     expect(legs).toBeGreaterThan(0);
