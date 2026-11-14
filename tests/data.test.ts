@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import watchlist from '../public/data/watchlist.json';
 import benchmarks from '../public/data/benchmarks.json';
 import bars from '../public/data/bars.json';
 import frozen from './parity/watchlist-2026-11-01.json';
 import { parseSetups } from '../src/data/schema';
+import { closesOutsideRange, reviseDaysOf } from './data/ohlc';
 
 // negation and lfd are null on some rows, and the engine has to handle that, so they are not required here.
 type Row = { sym: string; dir: string; breakthrough: number; negation: number | null; target: number; removed?: string };
@@ -60,27 +62,32 @@ describe('bars.json', () => {
     expect(uncovered).toEqual([]);
   });
 
-  // Yahoo's own OHLC does not always hold close within low-high: the FX series
-  // (JPY=X) takes its close from a different time of day than its high and low, and
-  // FSR.JO, ZN=F and SL.MI each have one day (SL.MI: 13 Nov 2026, a close of 38.44 under
-  // its low of 38.58). The bars are kept as received; these are the known cases, listed
-  // here so any new one fails the test.
-  const KNOWN_OHLC_QUIRKS = new Set(['JPY=X', 'FSR.JO', 'ZN=F', 'SL.MI']);
+  // Yahoo's own OHLC does not always hold close within low-high, in two ways.
+  //  - A feed that never will: the FX series (JPY=X) takes its close from a different time of day than its high and
+  //    low, and FSR.JO and ZN=F each have one old day outside. They are listed here, in full; the bars stay as received.
+  //  - A day that is not final yet: Yahoo widens a day's low and high to the closing auction some hours after the bar
+  //    first appears (SL.MI, 13 Nov 2026: a close of 38.44 under a low of 38.58; 6473.T, SOF.BR and WAWI.OL on 10-11
+  //    Nov), and Yahoo had corrected each by the next day. The data job takes the newest REVISE_DAYS days on file again on every run
+  //    (scripts/fetch_bars.py), so on a symbol's newest REVISE_DAYS bars a close outside its range passes, and on any
+  //    older bar it fails: no run will touch that day again, so a person has to look. Failing on a fresh bar only
+  //    stopped the site from deploying until the next run corrected it (it did, on 11-12 Nov and on 13-14 Nov).
+  // The rule is tests/data/ohlc.ts, with its own tests; this applies it to the live file.
+  const KNOWN_OHLC_QUIRKS = new Set(['JPY=X', 'FSR.JO', 'ZN=F']);
   const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-  it('writes every bar with a date key, and close within low-high except for the known feed quirks', () => {
+  it('writes every bar with a date key, and close within low-high except for the known feed quirks and the days a data run can still correct', () => {
+    const revise = reviseDaysOf(readFileSync(new URL('../scripts/fetch_bars.py', import.meta.url), 'utf8'));
     // Plain comparisons collected into lists, with one assertion each at the end: an expect() per
     // bar is ~90,000 matcher objects and took 1s alone, over the 5s default under CPU load.
     const badDates: string[] = [];
-    const outside = new Set<string>();
+    const outside: string[] = [];
     for (const [sym, days] of Object.entries(data.bars)) {
-      for (const [date, [low, high, close]] of Object.entries(days)) {
-        if (!DATE.test(date)) badDates.push(`${sym} ${date}`);
-        if (!(low <= close && close <= high)) outside.add(sym);
-      }
+      for (const date of Object.keys(days)) if (!DATE.test(date)) badDates.push(`${sym} ${date}`);
+      if (KNOWN_OHLC_QUIRKS.has(sym)) continue;
+      for (const date of closesOutsideRange(days, revise)) outside.push(`${sym} ${date}`);
     }
     expect(badDates).toEqual([]);
-    expect([...outside].filter((s) => !KNOWN_OHLC_QUIRKS.has(s))).toEqual([]);
+    expect(outside).toEqual([]);
   });
 
   // The open (a fourth value, kept from November 2026 for the Model page's fills) is a price where it is there. It is

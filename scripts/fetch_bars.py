@@ -12,8 +12,10 @@ Writes two files under public/data/:
                The open (index 3) was added in November 2026 for the Model page,
                which fills at it; a day written before then has three values
                until a run with --backfill (two years of bars) adds its open. A
-               day's low, high and close are never removed or rewritten, so a
-               later correction on Yahoo's side is not picked up.
+               day's low, high and close are never removed, and only the newest
+               REVISE_DAYS days on file are rewritten, from Yahoo, on every run
+               (see update_bars): an older day is not, so a later correction on
+               Yahoo's side is not picked up.
                The first run pulls two years; later runs pull a month and add
                only the days not yet on file.
 
@@ -42,7 +44,8 @@ import yahoo  # noqa: E402
 DATA = Path(__file__).resolve().parent.parent / "public" / "data"
 BARS = DATA / "bars.json"
 SERIES = DATA / "series.json"
-# How many of the newest days on file each run takes again from Yahoo (see update_bars).
+# How many of the newest days on file each run takes again from Yahoo (see update_bars). tests/data.test.ts reads this
+# line to decide which days may still hold a close outside their low-high, so it stays one `REVISE_DAYS = <whole number>`.
 REVISE_DAYS = 5
 
 # Index used as the benchmark for each listing country (same map the old page used).
